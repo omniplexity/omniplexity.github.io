@@ -1,8 +1,105 @@
-body { margin:0; font-family:sans-serif; background:#f2f2f2; }
-#messages { padding:15px; height:85vh; overflow-y:auto; }
-.msg { padding:10px; margin-bottom:10px; border-radius:8px; max-width:70%; }
-.user { background:#d8e6ff; margin-left:auto; }
-.ai { background:white; margin-right:auto; }
-#inputbar { display:flex; padding:10px; background:white; }
-#prompt { flex:1; resize:none; padding:10px; }
-#send { margin-left:10px; padding:10px 20px; }
+/* ---- GLOBAL THEME VARIABLES ---- */
+:root {
+  --bg: #f2f2f2;
+  --text: #000;
+  --bubble-user: #d8e6ff;
+  --bubble-ai: #ffffff;
+  --topbar: #ffffff;
+  --inputbar: #ffffff;
+}
+
+.dark {
+  --bg: #121212;
+  --text: #eaeaea;
+  --bubble-user: #2b4c8c;
+  --bubble-ai: #1e1e1e;
+  --topbar: #1e1e1e;
+  --inputbar: #1e1e1e;
+}
+
+/* ---- GLOBAL ---- */
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.hidden { display: none; }
+
+/* ---- LOGIN ---- */
+#login-screen {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#network-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#login-box {
+  position: relative;
+  background: rgba(0,0,0,0.5);
+  padding: 30px;
+  border-radius: 10px;
+  width: 280px;
+  z-index: 10;
+}
+
+/* ---- CHAT UI ---- */
+#topbar {
+  background: var(--topbar);
+  padding: 10px 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #4443;
+}
+
+#messages {
+  padding: 20px;
+  height: calc(100vh - 150px);
+  overflow-y: auto;
+}
+
+.msg {
+  padding: 12px 15px;
+  margin-bottom: 10px;
+  max-width: 70%;
+  border-radius: 12px;
+  line-height: 1.4;
+}
+
+.user {
+  background: var(--bubble-user);
+  margin-left: auto;
+}
+
+.ai {
+  background: var(--bubble-ai);
+  margin-right: auto;
+}
+
+#inputbar {
+  display: flex;
+  padding: 10px;
+  background: var(--inputbar);
+}
+
+#prompt {
+  flex: 1;
+  resize: none;
+  padding: 10px;
+}
+
+#send {
+  margin-left: 10px;
+  padding: 10px 20px;
+}

@@ -7,11 +7,34 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="messages"></div>
 
-  <div id="inputbar">
-    <textarea id="prompt" placeholder="Message..."></textarea>
-    <button id="send">Send</button>
+  <!-- LOGIN SCREEN -->
+  <div id="login-screen">
+    <canvas id="network-canvas"></canvas>
+
+    <div id="login-box">
+      <h2>Login</h2>
+      <input id="login-username" type="text" placeholder="Username">
+      <input id="login-password" type="password" placeholder="Password">
+      <button id="login-btn">Enter</button>
+    </div>
+  </div>
+
+  <!-- CHAT SCREEN -->
+  <div id="chat-screen" class="hidden">
+
+    <header id="topbar">
+      <div class="title">Local AI</div>
+      <button id="theme-toggle">Light / Dark</button>
+    </header>
+
+    <div id="messages"></div>
+
+    <div id="inputbar">
+      <textarea id="prompt" placeholder="Message..."></textarea>
+      <button id="send">Send</button>
+    </div>
+
   </div>
 
   <script src="script.js"></script>
