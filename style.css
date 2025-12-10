@@ -1,0 +1,8 @@
+body { margin:0; font-family:sans-serif; background:#f2f2f2; }
+#messages { padding:15px; height:85vh; overflow-y:auto; }
+.msg { padding:10px; margin-bottom:10px; border-radius:8px; max-width:70%; }
+.user { background:#d8e6ff; margin-left:auto; }
+.ai { background:white; margin-right:auto; }
+#inputbar { display:flex; padding:10px; background:white; }
+#prompt { flex:1; resize:none; padding:10px; }
+#send { margin-left:10px; padding:10px 20px; }
