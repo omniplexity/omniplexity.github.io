@@ -1,6 +1,6 @@
 import requests
 
-LM_STUDIO_URL = "http://localhost:1234/v1/chat/completions"  # Modify if needed
+LM_STUDIO_URL = "http://10.0.0.198:11434/v1/chat/completions"  # Modify if needed
 
 def query_lm_studio(prompt: str, image_bytes: bytes = None):
     headers = {"Content-Type": "application/json"}
