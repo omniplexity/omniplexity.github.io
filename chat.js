@@ -5,29 +5,10 @@ const backendURL = "https://rossie-chargeful-plentifully.ngrok-free.dev";
 document.getElementById("sendBtn").addEventListener("click", async () => {
     const prompt = document.getElementById("prompt").value;
 
-    const formData = new FormData();
-    formData.append("prompt", prompt);
-
-    const response = await fetch(`${backendURL}/api/ai/chat`, {
+    const response = await fetch(`${backendURL}/api/chat`, {
         method: "POST",
-        body: formData
-    });
-
-    const data = await response.json();
-    document.getElementById("responseArea").innerText = data.response;
-});
-
-document.getElementById("visionBtn").addEventListener("click", async () => {
-    const prompt = document.getElementById("prompt").value;
-    const imageFile = document.getElementById("imageUpload").files[0];
-
-    const formData = new FormData();
-    formData.append("prompt", prompt);
-    formData.append("image", imageFile);
-
-    const response = await fetch(`${backendURL}/api/ai/vision`, {
-        method: "POST",
-        body: formData
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: prompt })
     });
 
     const data = await response.json();
