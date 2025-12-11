@@ -3,27 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Web UI</title>
+    <title>AI WebUI</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div id="app">
-        <h1>AI Web UI</h1>
+<div class="container">
+    <h1>AI WebUI</h1>
 
-        <div class="chat-container">
-            <textarea id="prompt" placeholder="Type your message..."></textarea>
-            <button id="sendBtn">Send</button>
-        </div>
+    <textarea id="prompt" placeholder="Type your message..."></textarea>
 
-        <div id="responseArea"></div>
+    <button id="sendBtn">Send</button>
 
-        <div class="vision-container">
-            <input type="file" id="imageUpload" accept="image/*">
-            <button id="visionBtn">Send With Image</button>
-        </div>
-    </div>
+    <h2>Response:</h2>
+    <div id="responseArea"></div>
+</div>
 
-    <script src="chat.js"></script>
+<script src="chat.js"></script>
 </body>
 </html>
