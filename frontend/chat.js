@@ -1,4 +1,4 @@
-const backendURL = "http://10.0.0.198:11434"; 
+const backendURL = "https://rossie-chargeful-plentifully.ngrok-free.dev"; 
 // Example: "https://abcd1234.ngrok.io"
 // You can switch this to "http://localhost:8000" for local testing.
 
