@@ -1,5 +1,5 @@
 // Your backend root URL (change this when ngrok updates)
-const backendURL = "https://rossie-chargeful-plentifully.ngrok-free.dev";
+const backendURL = "https://omniplexity.github.io";
 
 document.getElementById("sendBtn").addEventListener("click", async () => {
     const input = document.getElementById("prompt").value;
