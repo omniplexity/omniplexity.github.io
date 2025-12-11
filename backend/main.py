@@ -51,7 +51,7 @@ async def chat(request: ChatRequest):
     lm_studio_url = "http://10.0.0.198:11434/api/generate"
 
     payload = {
-        "model": "your-model-name-here",  # Replace if needed
+        "model": "qwen3-vl-4b-thinking-1m",  # Replace if needed
         "prompt": user_message,
         "stream": False
     }
