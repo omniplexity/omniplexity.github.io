@@ -17,6 +17,7 @@ const backendInput = document.getElementById("backendUrlInput");
 const saveBackendBtn = document.getElementById("saveBackendBtn");
 const statusBadge = document.getElementById("statusBadge");
 const statusText = document.getElementById("statusText");
+const themeToggle = document.getElementById("themeToggle");
 
 const escapeHTML = (text) =>
     text
@@ -123,6 +124,7 @@ const loadBackendUrl = () => {
 };
 
 let backendURL = loadBackendUrl();
+let theme = localStorage.getItem("theme") || "light";
 
 const getHealthUrl = () => {
     try {
@@ -242,3 +244,22 @@ composerEl.addEventListener("submit", async (event) => {
 });
 
 checkBackend();
+
+// THEME TOGGLE
+const applyTheme = (value) => {
+    const mode = value === "dark" ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", mode);
+    localStorage.setItem("theme", mode);
+    if (themeToggle) {
+        themeToggle.textContent = mode === "dark" ? "Light" : "Dark";
+    }
+};
+
+applyTheme(theme);
+
+if (themeToggle) {
+    themeToggle.addEventListener("click", () => {
+        theme = theme === "dark" ? "light" : "dark";
+        applyTheme(theme);
+    });
+}
