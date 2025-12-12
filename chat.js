@@ -6,13 +6,57 @@ const composerEl = document.getElementById("composer");
 const promptEl = document.getElementById("prompt");
 const sendBtn = document.getElementById("sendBtn");
 
+const escapeHTML = (text) =>
+    text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+const formatInline = (text) => {
+    const escaped = escapeHTML(text);
+    const withCode = escaped.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+    const withBold = withCode.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    const withItalics = withBold.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+    return withItalics.replace(/\n/g, "<br>");
+};
+
+const renderContent = (text) => {
+    if (!text) return "<p></p>";
+
+    const blockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+    let html = "";
+    let cursor = 0;
+    let match;
+
+    while ((match = blockRegex.exec(text)) !== null) {
+        const [full, lang, code] = match;
+        const before = text.slice(cursor, match.index);
+        if (before.trim() !== "") {
+            html += `<p>${formatInline(before)}</p>`;
+        }
+
+        const languageClass = lang ? ` class="language-${lang}"` : "";
+        html += `<pre class="code-block"><code${languageClass}>${escapeHTML(
+            code.trimEnd()
+        )}</code></pre>`;
+        cursor = match.index + full.length;
+    }
+
+    const after = text.slice(cursor);
+    if (after.trim() !== "" || html === "") {
+        html += `<p>${formatInline(after)}</p>`;
+    }
+
+    return html;
+};
+
 const appendMessage = (role, text, pending = false) => {
     const message = document.createElement("div");
     message.className = `message ${role}${pending ? " pending" : ""}`;
 
     const bubble = document.createElement("div");
     bubble.className = "bubble";
-    bubble.textContent = text;
+    bubble.innerHTML = renderContent(text);
 
     message.appendChild(bubble);
     messagesEl.appendChild(message);
@@ -22,7 +66,7 @@ const appendMessage = (role, text, pending = false) => {
 };
 
 const setAssistantReply = (bubbleRef, text, isError = false) => {
-    bubbleRef.bubble.textContent = text;
+    bubbleRef.bubble.innerHTML = renderContent(text);
     bubbleRef.message.classList.remove("pending");
     if (isError) {
         bubbleRef.message.classList.add("error");
