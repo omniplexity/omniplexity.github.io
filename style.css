@@ -15,7 +15,10 @@
     --code-fg: #eaf2ff;
 }
 
-:root[data-theme="dark"] {
+:root[data-theme="dark"],
+body[data-theme="dark"],
+:root.theme-dark,
+body.theme-dark {
     --bg: radial-gradient(140% 120% at 10% 20%, rgba(11, 132, 255, 0.08), transparent),
            radial-gradient(90% 80% at 80% 0%, rgba(9, 109, 217, 0.06), transparent),
            #0c111b;

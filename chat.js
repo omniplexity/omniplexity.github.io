@@ -251,6 +251,8 @@ const applyTheme = (value) => {
     // Set on both html and body to ensure CSS selector matches
     document.documentElement.setAttribute("data-theme", mode);
     document.body.setAttribute("data-theme", mode);
+    document.documentElement.classList.toggle("theme-dark", mode === "dark");
+    document.body.classList.toggle("theme-dark", mode === "dark");
     localStorage.setItem("theme", mode);
     if (themeToggle) {
         themeToggle.textContent = mode === "dark" ? "Light" : "Dark";
