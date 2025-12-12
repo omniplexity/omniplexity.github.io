@@ -1,10 +1,15 @@
 // Your backend root URL (change this when ngrok updates)
-const backendURL = "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
+const defaultBackendURL = "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
+let backendURL = localStorage.getItem("backendURL") || defaultBackendURL;
 
 const messagesEl = document.getElementById("messages");
 const composerEl = document.getElementById("composer");
 const promptEl = document.getElementById("prompt");
 const sendBtn = document.getElementById("sendBtn");
+const backendInput = document.getElementById("backendUrlInput");
+const saveBackendBtn = document.getElementById("saveBackendBtn");
+const statusBadge = document.getElementById("statusBadge");
+const statusText = document.getElementById("statusText");
 
 const escapeHTML = (text) =>
     text
@@ -76,6 +81,57 @@ const setAssistantReply = (bubbleRef, text, isError = false) => {
     messagesEl.scrollTop = messagesEl.scrollHeight;
 };
 
+const setStatus = (state, text) => {
+    statusBadge.classList.remove("error", "connecting");
+    if (state === "error") statusBadge.classList.add("error");
+    if (state === "connecting") statusBadge.classList.add("connecting");
+    statusText.textContent = text;
+};
+
+const getHealthUrl = () => {
+    try {
+        const url = new URL(backendURL);
+        url.pathname = "/";
+        url.search = "";
+        return url.toString();
+    } catch {
+        return null;
+    }
+};
+
+const checkBackend = async () => {
+    const healthUrl = getHealthUrl();
+    if (!healthUrl) {
+        setStatus("error", "Invalid backend URL");
+        return;
+    }
+    setStatus("connecting", "Checking backend...");
+    try {
+        const res = await fetch(healthUrl, { method: "GET" });
+        if (res.ok) {
+            setStatus("ok", "Connected to backend");
+        } else {
+            setStatus("error", `Backend ${res.status}`);
+        }
+    } catch (err) {
+        setStatus("error", "Backend unreachable");
+    }
+};
+
+if (backendInput) {
+    backendInput.value = backendURL;
+}
+
+if (saveBackendBtn) {
+    saveBackendBtn.addEventListener("click", () => {
+        const candidate = backendInput.value.trim();
+        if (!candidate) return;
+        backendURL = candidate;
+        localStorage.setItem("backendURL", backendURL);
+        checkBackend();
+    });
+}
+
 composerEl.addEventListener("submit", async (event) => {
     event.preventDefault();
 
@@ -89,6 +145,7 @@ composerEl.addEventListener("submit", async (event) => {
     sendBtn.disabled = true;
 
     try {
+        setStatus("connecting", "Sending...");
         const response = await fetch(backendURL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -102,14 +159,18 @@ composerEl.addEventListener("submit", async (event) => {
         const data = await response.json();
         const reply = data.response || "I couldn't find a reply.";
         setAssistantReply(assistantBubble, reply);
+        setStatus("ok", "Connected to backend");
     } catch (error) {
         setAssistantReply(
             assistantBubble,
             `Error: ${error.message}`,
             true
         );
+        setStatus("error", "Request failed");
     } finally {
         sendBtn.disabled = false;
         promptEl.focus();
     }
 });
+
+checkBackend();

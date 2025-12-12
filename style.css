@@ -44,6 +44,7 @@ body {
     border-radius: 16px;
     box-shadow: var(--shadow);
     gap: 14px;
+    flex-wrap: wrap;
 }
 
 .brand {
@@ -79,6 +80,14 @@ body {
     font-weight: 600;
 }
 
+.masthead-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
 .status {
     display: inline-flex;
     align-items: center;
@@ -97,6 +106,64 @@ body {
     border-radius: 50%;
     background: #0ed26a;
     box-shadow: 0 0 0 6px rgba(14, 210, 106, 0.2);
+}
+
+.status.error {
+    background: rgba(255, 107, 107, 0.1);
+    color: #a83a3a;
+    border: 1px solid rgba(255, 107, 107, 0.25);
+}
+
+.status.error .dot {
+    background: #ff6b6b;
+    box-shadow: 0 0 0 6px rgba(255, 107, 107, 0.2);
+}
+
+.status.connecting {
+    background: rgba(81, 96, 118, 0.12);
+    color: #3a4656;
+    border: 1px solid rgba(81, 96, 118, 0.2);
+}
+
+.status.connecting .dot {
+    background: #f0a202;
+    box-shadow: 0 0 0 6px rgba(240, 162, 2, 0.18);
+}
+
+.endpoint {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 260px;
+}
+
+.endpoint label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+}
+
+.endpoint__controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.endpoint input {
+    flex: 1;
+    min-width: 200px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #f6f8fc;
+    font: inherit;
+}
+
+.endpoint input:focus {
+    outline: none;
+    border-color: rgba(11, 132, 255, 0.5);
+    box-shadow: 0 8px 24px rgba(11, 132, 255, 0.12);
 }
 
 .chat-panel {
@@ -286,5 +353,14 @@ button:disabled {
 
     .bubble {
         max-width: 100%;
+    }
+
+    .endpoint {
+        width: 100%;
+    }
+
+    .endpoint__controls {
+        flex-direction: column;
+        align-items: stretch;
     }
 }

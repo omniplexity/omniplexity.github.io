@@ -17,9 +17,23 @@
                 <h1>GPT 5.1 style chat</h1>
             </div>
         </div>
-        <div class="status">
-            <span class="dot"></span>
-            <span>Connected to backend</span>
+        <div class="masthead-right">
+            <div class="status" id="statusBadge">
+                <span class="dot"></span>
+                <span id="statusText">Checking backend...</span>
+            </div>
+            <div class="endpoint">
+                <label for="backendUrlInput">Endpoint</label>
+                <div class="endpoint__controls">
+                    <input
+                        id="backendUrlInput"
+                        type="url"
+                        placeholder="https://your-ngrok-domain.ngrok-free.dev/api/chat"
+                        spellcheck="false"
+                    />
+                    <button type="button" id="saveBackendBtn">Set</button>
+                </div>
+            </div>
         </div>
     </header>
 
