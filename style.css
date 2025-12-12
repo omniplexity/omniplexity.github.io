@@ -2,6 +2,7 @@
 
 :root {
     --bg: #f5f7fb;
+    --bg-dynamic: var(--bg);
     --panel: #ffffff;
     --border: #e1e6ef;
     --text: #0c1626;
@@ -41,7 +42,7 @@ body.theme-dark {
 
 body {
     font-family: 'Space Grotesk', 'Manrope', 'Segoe UI', sans-serif;
-    background: var(--bg);
+    background: var(--bg-dynamic);
     color: var(--text);
     margin: 0;
     padding: 48px 20px 32px;
@@ -110,6 +111,17 @@ body {
     justify-content: flex-end;
 }
 
+.icon-btn {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+}
+
 .status {
     display: inline-flex;
     align-items: center;
@@ -166,6 +178,98 @@ body {
 
 .theme-toggle:hover {
     transform: translateY(-1px);
+}
+
+.control-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.control-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 180px;
+    flex: 1;
+}
+
+.control-group textarea {
+    min-height: 64px;
+}
+
+.control-group select,
+.control-group input[type="number"],
+.control-group input[type="text"],
+.control-group textarea {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font: inherit;
+}
+
+.sliders {
+    align-items: flex-end;
+}
+
+.slider-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 160px;
+    flex: 1;
+}
+
+.slider-group input[type="range"] {
+    width: 100%;
+}
+
+.slider-group.checkbox-group {
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.color-pair {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.color-pair input[type="color"] {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel);
+}
+
+.apply-group {
+    justify-content: flex-end;
+}
+
+.theme-apply {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: linear-gradient(140deg, #0b84ff, #0c9eff);
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: var(--shadow);
 }
 
 .chat-panel {
@@ -378,7 +482,11 @@ button:disabled {
         max-width: 100%;
     }
 
-    .theme-toggle {
+    .theme-toggle, .icon-btn {
         width: 100%;
+    }
+
+    .control-row {
+        flex-direction: column;
     }
 }

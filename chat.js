@@ -16,6 +16,23 @@ const sendBtn = document.getElementById("sendBtn");
 const statusBadge = document.getElementById("statusBadge");
 const statusText = document.getElementById("statusText");
 const themeToggle = document.getElementById("themeToggle");
+const settingsToggle = document.getElementById("settingsToggle");
+const controlPanel = document.getElementById("controlPanel");
+const modelSelect = document.getElementById("modelSelect");
+const systemPromptEl = document.getElementById("systemPrompt");
+const tempSlider = document.getElementById("tempSlider");
+const tempValue = document.getElementById("tempValue");
+const topPSlider = document.getElementById("topPSlider");
+const topPValue = document.getElementById("topPValue");
+const maxTokensInput = document.getElementById("maxTokensInput");
+const useSearchToggle = document.getElementById("useSearchToggle");
+const gradStartPicker = document.getElementById("gradStartPicker");
+const gradEndPicker = document.getElementById("gradEndPicker");
+const gradStartHex = document.getElementById("gradStartHex");
+const gradEndHex = document.getElementById("gradEndHex");
+const gradAngle = document.getElementById("gradAngle");
+const gradAngleValue = document.getElementById("gradAngleValue");
+const applyThemeBtn = document.getElementById("applyThemeBtn");
 
 const escapeHTML = (text) =>
     text
@@ -114,6 +131,17 @@ try {
     backendURL = "";
 }
 let theme = localStorage.getItem("theme") || "light";
+const settings = {
+    model: localStorage.getItem("model") || "",
+    systemPrompt: localStorage.getItem("systemPrompt") || "",
+    temperature: parseFloat(localStorage.getItem("temperature") || "0.7"),
+    topP: parseFloat(localStorage.getItem("topP") || "1.0"),
+    maxTokens: parseInt(localStorage.getItem("maxTokens") || "512", 10),
+    useSearch: localStorage.getItem("useSearch") === "true",
+    gradientStart: localStorage.getItem("gradientStart") || "#0b84ff",
+    gradientEnd: localStorage.getItem("gradientEnd") || "#0c9eff",
+    gradientAngle: parseInt(localStorage.getItem("gradientAngle") || "140", 10),
+};
 
 const getHealthUrl = () => {
     try {
@@ -161,6 +189,52 @@ const ensureBackendConfigured = () => {
     return true;
 };
 
+const persistSettings = () => {
+    localStorage.setItem("model", settings.model);
+    localStorage.setItem("systemPrompt", settings.systemPrompt);
+    localStorage.setItem("temperature", settings.temperature);
+    localStorage.setItem("topP", settings.topP);
+    localStorage.setItem("maxTokens", settings.maxTokens);
+    localStorage.setItem("useSearch", settings.useSearch);
+    localStorage.setItem("gradientStart", settings.gradientStart);
+    localStorage.setItem("gradientEnd", settings.gradientEnd);
+    localStorage.setItem("gradientAngle", settings.gradientAngle);
+};
+
+const applyGradient = () => {
+    const angle = settings.gradientAngle;
+    const start = settings.gradientStart;
+    const end = settings.gradientEnd;
+    const gradient = `linear-gradient(${angle}deg, ${start}, ${end})`;
+    document.documentElement.style.setProperty("--bg-dynamic", gradient);
+};
+
+const syncSettingsUI = () => {
+    if (modelSelect) modelSelect.value = settings.model;
+    if (systemPromptEl) systemPromptEl.value = settings.systemPrompt;
+    if (tempSlider && tempValue) {
+        tempSlider.value = settings.temperature;
+        tempValue.textContent = settings.temperature.toFixed(1);
+    }
+    if (topPSlider && topPValue) {
+        topPSlider.value = settings.topP;
+        topPValue.textContent = settings.topP.toFixed(2);
+    }
+    if (maxTokensInput) maxTokensInput.value = settings.maxTokens;
+    if (useSearchToggle) useSearchToggle.checked = settings.useSearch;
+    if (gradStartPicker) gradStartPicker.value = settings.gradientStart;
+    if (gradEndPicker) gradEndPicker.value = settings.gradientEnd;
+    if (gradStartHex) gradStartHex.value = settings.gradientStart;
+    if (gradEndHex) gradEndHex.value = settings.gradientEnd;
+    if (gradAngle && gradAngleValue) {
+        gradAngle.value = settings.gradientAngle;
+        gradAngleValue.textContent = `${settings.gradientAngle}°`;
+    }
+};
+
+syncSettingsUI();
+applyGradient();
+
 composerEl.addEventListener("submit", async (event) => {
     event.preventDefault();
 
@@ -182,7 +256,15 @@ composerEl.addEventListener("submit", async (event) => {
         const response = await fetch(backendURL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: input })
+            body: JSON.stringify({
+                message: input,
+                model: settings.model || null,
+                system_prompt: settings.systemPrompt || null,
+                temperature: settings.temperature,
+                top_p: settings.topP,
+                max_tokens: settings.maxTokens,
+                use_search: settings.useSearch,
+            })
         });
 
         let data;
@@ -238,5 +320,110 @@ if (themeToggle) {
     themeToggle.addEventListener("click", () => {
         theme = theme === "dark" ? "light" : "dark";
         applyTheme(theme);
+    });
+}
+
+// SETTINGS PANEL
+if (settingsToggle && controlPanel) {
+    settingsToggle.addEventListener("click", () => {
+        const isHidden = controlPanel.hasAttribute("hidden");
+        if (isHidden) {
+            controlPanel.removeAttribute("hidden");
+        } else {
+            controlPanel.setAttribute("hidden", "");
+        }
+    });
+}
+
+const updateColorFromHex = (hexInput, colorPicker, key) => {
+    const val = hexInput.value.trim();
+    const valid = /^#([0-9A-Fa-f]{6})$/.test(val);
+    if (valid) {
+        settings[key] = val;
+        colorPicker.value = val;
+    }
+};
+
+if (modelSelect) {
+    modelSelect.addEventListener("change", () => {
+        settings.model = modelSelect.value;
+        persistSettings();
+    });
+}
+
+if (systemPromptEl) {
+    systemPromptEl.addEventListener("input", () => {
+        settings.systemPrompt = systemPromptEl.value;
+        persistSettings();
+    });
+}
+
+if (tempSlider && tempValue) {
+    tempSlider.addEventListener("input", () => {
+        settings.temperature = parseFloat(tempSlider.value);
+        tempValue.textContent = settings.temperature.toFixed(1);
+        persistSettings();
+    });
+}
+
+if (topPSlider && topPValue) {
+    topPSlider.addEventListener("input", () => {
+        settings.topP = parseFloat(topPSlider.value);
+        topPValue.textContent = settings.topP.toFixed(2);
+        persistSettings();
+    });
+}
+
+if (maxTokensInput) {
+    maxTokensInput.addEventListener("input", () => {
+        const val = parseInt(maxTokensInput.value || "0", 10);
+        settings.maxTokens = Number.isNaN(val) ? 0 : val;
+        persistSettings();
+    });
+}
+
+if (useSearchToggle) {
+    useSearchToggle.addEventListener("change", () => {
+        settings.useSearch = useSearchToggle.checked;
+        persistSettings();
+    });
+}
+
+if (gradStartPicker && gradStartHex) {
+    gradStartPicker.addEventListener("input", () => {
+        settings.gradientStart = gradStartPicker.value;
+        gradStartHex.value = settings.gradientStart;
+        persistSettings();
+    });
+    gradStartHex.addEventListener("input", () => {
+        updateColorFromHex(gradStartHex, gradStartPicker, "gradientStart");
+        persistSettings();
+    });
+}
+
+if (gradEndPicker && gradEndHex) {
+    gradEndPicker.addEventListener("input", () => {
+        settings.gradientEnd = gradEndPicker.value;
+        gradEndHex.value = settings.gradientEnd;
+        persistSettings();
+    });
+    gradEndHex.addEventListener("input", () => {
+        updateColorFromHex(gradEndHex, gradEndPicker, "gradientEnd");
+        persistSettings();
+    });
+}
+
+if (gradAngle && gradAngleValue) {
+    gradAngle.addEventListener("input", () => {
+        settings.gradientAngle = parseInt(gradAngle.value || "0", 10);
+        gradAngleValue.textContent = `${settings.gradientAngle}°`;
+        persistSettings();
+    });
+}
+
+if (applyThemeBtn) {
+    applyThemeBtn.addEventListener("click", () => {
+        applyGradient();
+        persistSettings();
     });
 }
