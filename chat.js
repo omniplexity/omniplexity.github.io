@@ -1,7 +1,13 @@
 // Your backend root URL (change this when ngrok updates)
 // Leave blank to force setting via the UI input.
 const defaultBackendURL = "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
-let backendURL = localStorage.getItem("backendURL") || defaultBackendURL;
+
+const ensureChatPath = (urlObj) => {
+    if (!/\/api\/chat\/?$/.test(urlObj.pathname)) {
+        urlObj.pathname = "/api/chat";
+    }
+    return urlObj;
+};
 
 const messagesEl = document.getElementById("messages");
 const composerEl = document.getElementById("composer");
@@ -89,14 +95,6 @@ const setStatus = (state, text) => {
     statusText.textContent = text;
 };
 
-const ensureChatPath = (urlObj) => {
-    // If path already contains /api/chat (with or without trailing slash), keep it.
-    if (!/\/api\/chat\/?$/.test(urlObj.pathname)) {
-        urlObj.pathname = "/api/chat";
-    }
-    return urlObj;
-};
-
 const normalizeBackendUrl = (candidate) => {
     if (!candidate) throw new Error("Backend URL is empty");
 
@@ -109,6 +107,22 @@ const normalizeBackendUrl = (candidate) => {
     ensureChatPath(url);
     return url.toString();
 };
+
+const loadBackendUrl = () => {
+    const stored = localStorage.getItem("backendURL");
+    try {
+        if (stored) return normalizeBackendUrl(stored);
+    } catch {
+        // fall through to default
+    }
+    try {
+        return normalizeBackendUrl(defaultBackendURL);
+    } catch {
+        return "";
+    }
+};
+
+let backendURL = loadBackendUrl();
 
 const getHealthUrl = () => {
     try {
@@ -169,6 +183,14 @@ if (saveBackendBtn) {
 const ensureBackendConfigured = () => {
     if (!backendURL) {
         setStatus("error", "Set backend URL");
+        return false;
+    }
+    try {
+        backendURL = normalizeBackendUrl(backendURL);
+        localStorage.setItem("backendURL", backendURL);
+        if (backendInput) backendInput.value = backendURL;
+    } catch {
+        setStatus("error", "Invalid backend URL");
         return false;
     }
     return true;
