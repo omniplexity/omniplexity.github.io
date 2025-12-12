@@ -17,6 +17,7 @@ const statusBadge = document.getElementById("statusBadge");
 const statusText = document.getElementById("statusText");
 const themeToggle = document.getElementById("themeToggle");
 const settingsToggle = document.getElementById("settingsToggle");
+const hubWrapper = document.getElementById("hubWrapper");
 const controlPanel = document.getElementById("controlPanel");
 const modelSelect = document.getElementById("modelSelect");
 const systemPromptEl = document.getElementById("systemPrompt");
@@ -324,10 +325,18 @@ if (themeToggle) {
 }
 
 // SETTINGS PANEL
-if (settingsToggle && controlPanel) {
+if (settingsToggle && controlPanel && hubWrapper) {
     settingsToggle.addEventListener("click", () => {
         const isOpen = controlPanel.classList.toggle("open");
         controlPanel.setAttribute("aria-hidden", isOpen ? "false" : "true");
+    });
+    hubWrapper.addEventListener("mouseenter", () => {
+        controlPanel.classList.add("open");
+        controlPanel.setAttribute("aria-hidden", "false");
+    });
+    hubWrapper.addEventListener("mouseleave", () => {
+        controlPanel.classList.remove("open");
+        controlPanel.setAttribute("aria-hidden", "true");
     });
 }
 

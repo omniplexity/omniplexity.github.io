@@ -111,6 +111,11 @@ body {
     justify-content: flex-end;
 }
 
+.hub {
+    position: relative;
+    display: inline-block;
+}
+
 .icon-btn {
     padding: 10px 12px;
     border-radius: 10px;
@@ -189,9 +194,18 @@ body {
     display: none;
     flex-direction: column;
     gap: 12px;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 10px);
+    width: min(880px, 90vw);
+    z-index: 10;
 }
 
 .control-panel.open {
+    display: flex;
+}
+
+.hub:hover .control-panel {
     display: flex;
 }
 
