@@ -1,5 +1,6 @@
 // Your backend root URL (change this when ngrok updates)
-const defaultBackendURL = "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
+// Leave blank to force setting via the UI input.
+const defaultBackendURL = "";
 let backendURL = localStorage.getItem("backendURL") || defaultBackendURL;
 
 const messagesEl = document.getElementById("messages");
@@ -100,6 +101,10 @@ const getHealthUrl = () => {
 };
 
 const checkBackend = async () => {
+    if (!backendURL) {
+        setStatus("error", "Set backend URL");
+        return;
+    }
     const healthUrl = getHealthUrl();
     if (!healthUrl) {
         setStatus("error", "Invalid backend URL");
@@ -132,11 +137,23 @@ if (saveBackendBtn) {
     });
 }
 
+const ensureBackendConfigured = () => {
+    if (!backendURL) {
+        setStatus("error", "Set backend URL");
+        return false;
+    }
+    return true;
+};
+
 composerEl.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const input = promptEl.value.trim();
     if (!input) return;
+    if (!ensureBackendConfigured()) {
+        appendMessage("assistant", "Please set the backend URL first.", false);
+        return;
+    }
 
     appendMessage("user", input);
     promptEl.value = "";
