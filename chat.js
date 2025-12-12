@@ -222,11 +222,21 @@ composerEl.addEventListener("submit", async (event) => {
             body: JSON.stringify({ message: input })
         });
 
+        let data;
+
         if (!response.ok) {
-            throw new Error(`Request failed: ${response.status}`);
+            // Try to surface backend error details
+            try {
+                data = await response.json();
+            } catch {
+                const text = await response.text();
+                throw new Error(`Request failed: ${response.status}${text ? ` - ${text}` : ""}`);
+            }
+            const detail = data?.detail ? ` - ${data.detail}` : "";
+            throw new Error(`Request failed: ${response.status}${detail}`);
         }
 
-        const data = await response.json();
+        data = data || await response.json();
         const reply = data.response || "I couldn't find a reply.";
         setAssistantReply(assistantBubble, reply);
         setStatus("ok", "Connected to backend");
