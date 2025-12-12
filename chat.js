@@ -326,12 +326,8 @@ if (themeToggle) {
 // SETTINGS PANEL
 if (settingsToggle && controlPanel) {
     settingsToggle.addEventListener("click", () => {
-        const isHidden = controlPanel.hasAttribute("hidden");
-        if (isHidden) {
-            controlPanel.removeAttribute("hidden");
-        } else {
-            controlPanel.setAttribute("hidden", "");
-        }
+        const isOpen = controlPanel.classList.toggle("open");
+        controlPanel.setAttribute("aria-hidden", isOpen ? "false" : "true");
     });
 }
 

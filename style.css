@@ -186,9 +186,13 @@ body {
     border-radius: 16px;
     box-shadow: var(--shadow);
     padding: 16px;
-    display: flex;
+    display: none;
     flex-direction: column;
     gap: 12px;
+}
+
+.control-panel.open {
+    display: flex;
 }
 
 .control-row {
