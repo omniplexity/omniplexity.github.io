@@ -207,10 +207,6 @@ body {
     display: flex;
 }
 
-.hub:hover .control-panel {
-    display: flex;
-}
-
 .control-row {
     display: flex;
     flex-wrap: wrap;

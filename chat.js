@@ -343,13 +343,6 @@ if (settingsToggle && controlPanel && hubWrapper) {
         hubPinned ? openPanel() : closePanel();
     });
 
-    hubWrapper.addEventListener("mouseenter", () => {
-        if (!hubPinned) openPanel();
-    });
-    hubWrapper.addEventListener("mouseleave", () => {
-        if (!hubPinned) closePanel();
-    });
-
     document.addEventListener("click", (e) => {
         if (!hubPinned) return;
         if (hubWrapper && !hubWrapper.contains(e.target)) {
