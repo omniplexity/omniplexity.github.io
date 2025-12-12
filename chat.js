@@ -19,7 +19,7 @@ const themeToggle = document.getElementById("themeToggle");
 const settingsToggle = document.getElementById("settingsToggle");
 const hubWrapper = document.getElementById("hubWrapper");
 const controlPanel = document.getElementById("controlPanel");
-const modelSelect = document.getElementById("modelSelect");
+const modelInput = document.getElementById("modelInput");
 const systemPromptEl = document.getElementById("systemPrompt");
 const tempSlider = document.getElementById("tempSlider");
 const tempValue = document.getElementById("tempValue");
@@ -211,7 +211,7 @@ const applyGradient = () => {
 };
 
 const syncSettingsUI = () => {
-    if (modelSelect) modelSelect.value = settings.model;
+    if (modelInput) modelInput.value = settings.model;
     if (systemPromptEl) systemPromptEl.value = settings.systemPrompt;
     if (tempSlider && tempValue) {
         tempSlider.value = settings.temperature;
@@ -361,9 +361,9 @@ const updateColorFromHex = (hexInput, colorPicker, key) => {
     }
 };
 
-if (modelSelect) {
-    modelSelect.addEventListener("change", () => {
-        settings.model = modelSelect.value;
+if (modelInput) {
+    modelInput.addEventListener("input", () => {
+        settings.model = modelInput.value.trim();
         persistSettings();
     });
 }

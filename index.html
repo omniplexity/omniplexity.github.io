@@ -27,13 +27,13 @@
                 <section class="control-panel" id="controlPanel" aria-hidden="true">
                     <div class="control-row">
                         <div class="control-group">
-                            <label for="modelSelect">Model</label>
-                            <select id="modelSelect">
-                                <option value="">Default (env)</option>
-                                <option value="qwen3-vl-4b-thinking-1m">qwen3-vl-4b-thinking-1m</option>
-                                <option value="gpt-4o-mini">gpt-4o-mini</option>
-                                <option value="llama-3-8b">llama-3-8b</option>
-                            </select>
+                            <label for="modelInput">Model</label>
+                            <input list="modelSuggestions" id="modelInput" placeholder="Default (env)">
+                            <datalist id="modelSuggestions">
+                                <option value="qwen3-vl-4b-thinking-1m"></option>
+                                <option value="llama-3-8b"></option>
+                                <option value="gpt-4o-mini"></option>
+                            </datalist>
                         </div>
                         <div class="control-group">
                             <label for="systemPrompt">System prompt</label>
