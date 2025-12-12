@@ -333,6 +333,23 @@ textarea::placeholder {
     color: var(--muted);
 }
 
+/* Ensure strong contrast for the composer input in dark mode */
+:root[data-theme="dark"] textarea,
+body[data-theme="dark"] textarea,
+:root.theme-dark textarea,
+body.theme-dark textarea {
+    background: #101725;
+    color: #eaf2ff;
+    border-color: #1e2a3c;
+}
+
+:root[data-theme="dark"] textarea::placeholder,
+body[data-theme="dark"] textarea::placeholder,
+:root.theme-dark textarea::placeholder,
+body.theme-dark textarea::placeholder {
+    color: #93a6c5;
+}
+
 .composer__actions {
     display: flex;
     align-items: center;
