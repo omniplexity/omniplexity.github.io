@@ -312,7 +312,7 @@ body {
 textarea {
     width: 100%;
     padding: 14px 16px;
-    background: #f6f8fc;
+    background: var(--panel);
     color: var(--text);
     border: 1px solid var(--border);
     border-radius: 14px;
@@ -327,6 +327,10 @@ textarea:focus {
     outline: none;
     border-color: rgba(11, 132, 255, 0.5);
     box-shadow: 0 10px 30px rgba(11, 132, 255, 0.15);
+}
+
+textarea::placeholder {
+    color: var(--muted);
 }
 
 .composer__actions {
