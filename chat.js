@@ -89,6 +89,14 @@ const setStatus = (state, text) => {
     statusText.textContent = text;
 };
 
+const ensureChatPath = (urlObj) => {
+    // If path already contains /api/chat (with or without trailing slash), keep it.
+    if (!/\/api\/chat\/?$/.test(urlObj.pathname)) {
+        urlObj.pathname = "/api/chat";
+    }
+    return urlObj;
+};
+
 const normalizeBackendUrl = (candidate) => {
     if (!candidate) throw new Error("Backend URL is empty");
 
@@ -98,9 +106,7 @@ const normalizeBackendUrl = (candidate) => {
     }
 
     const url = new URL(normalized);
-    if (url.pathname === "/") {
-        url.pathname = "/api/chat";
-    }
+    ensureChatPath(url);
     return url.toString();
 };
 
