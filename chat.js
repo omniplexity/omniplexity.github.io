@@ -326,17 +326,36 @@ if (themeToggle) {
 
 // SETTINGS PANEL
 if (settingsToggle && controlPanel && hubWrapper) {
-    settingsToggle.addEventListener("click", () => {
-        const isOpen = controlPanel.classList.toggle("open");
-        controlPanel.setAttribute("aria-hidden", isOpen ? "false" : "true");
-    });
-    hubWrapper.addEventListener("mouseenter", () => {
+    let hubPinned = false;
+
+    const openPanel = () => {
         controlPanel.classList.add("open");
         controlPanel.setAttribute("aria-hidden", "false");
-    });
-    hubWrapper.addEventListener("mouseleave", () => {
+    };
+    const closePanel = () => {
         controlPanel.classList.remove("open");
         controlPanel.setAttribute("aria-hidden", "true");
+    };
+
+    settingsToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        hubPinned = !hubPinned;
+        hubPinned ? openPanel() : closePanel();
+    });
+
+    hubWrapper.addEventListener("mouseenter", () => {
+        if (!hubPinned) openPanel();
+    });
+    hubWrapper.addEventListener("mouseleave", () => {
+        if (!hubPinned) closePanel();
+    });
+
+    document.addEventListener("click", (e) => {
+        if (!hubPinned) return;
+        if (hubWrapper && !hubWrapper.contains(e.target)) {
+            hubPinned = false;
+            closePanel();
+        }
     });
 }
 
