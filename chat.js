@@ -89,6 +89,21 @@ const setStatus = (state, text) => {
     statusText.textContent = text;
 };
 
+const normalizeBackendUrl = (candidate) => {
+    if (!candidate) throw new Error("Backend URL is empty");
+
+    let normalized = candidate.trim();
+    if (!/^https?:\/\//i.test(normalized)) {
+        normalized = `https://${normalized}`;
+    }
+
+    const url = new URL(normalized);
+    if (url.pathname === "/") {
+        url.pathname = "/api/chat";
+    }
+    return url.toString();
+};
+
 const getHealthUrl = () => {
     try {
         const url = new URL(backendURL);
@@ -130,10 +145,18 @@ if (backendInput) {
 if (saveBackendBtn) {
     saveBackendBtn.addEventListener("click", () => {
         const candidate = backendInput.value.trim();
-        if (!candidate) return;
-        backendURL = candidate;
-        localStorage.setItem("backendURL", backendURL);
-        checkBackend();
+        if (!candidate) {
+            setStatus("error", "Set backend URL");
+            return;
+        }
+        try {
+            backendURL = normalizeBackendUrl(candidate);
+            backendInput.value = backendURL;
+            localStorage.setItem("backendURL", backendURL);
+            checkBackend();
+        } catch (err) {
+            setStatus("error", err.message || "Invalid URL");
+        }
     });
 }
 
