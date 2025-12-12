@@ -1,10 +1,10 @@
 // Your backend root URL (change this when ngrok updates)
-const backendURL = "https://omniplexity.github.io";
+const backendURL = "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
 
 document.getElementById("sendBtn").addEventListener("click", async () => {
     const input = document.getElementById("prompt").value;
 
-    const response = await fetch(`${backendURL}/api/chat`, {
+    const response = await fetch(`${backendURL}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: input })
