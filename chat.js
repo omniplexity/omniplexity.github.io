@@ -1,6 +1,6 @@
 // Your backend root URL (change this when ngrok updates)
 // Leave blank to force setting via the UI input.
-const defaultBackendURL = "";
+const defaultBackendURL = "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
 let backendURL = localStorage.getItem("backendURL") || defaultBackendURL;
 
 const messagesEl = document.getElementById("messages");
