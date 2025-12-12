@@ -13,8 +13,6 @@ const messagesEl = document.getElementById("messages");
 const composerEl = document.getElementById("composer");
 const promptEl = document.getElementById("prompt");
 const sendBtn = document.getElementById("sendBtn");
-const backendInput = document.getElementById("backendUrlInput");
-const saveBackendBtn = document.getElementById("saveBackendBtn");
 const statusBadge = document.getElementById("statusBadge");
 const statusText = document.getElementById("statusText");
 const themeToggle = document.getElementById("themeToggle");
@@ -109,28 +107,13 @@ const normalizeBackendUrl = (candidate) => {
     return url.toString();
 };
 
-const loadBackendUrl = () => {
-    const stored = localStorage.getItem("backendURL");
-    try {
-        if (stored) return normalizeBackendUrl(stored);
-    } catch {
-        // fall through to default
-    }
-    try {
-        return normalizeBackendUrl(defaultBackendURL);
-    } catch {
-        return "";
-    }
-};
-
-let backendURL = loadBackendUrl();
+let backendURL = "";
+try {
+    backendURL = normalizeBackendUrl(defaultBackendURL);
+} catch {
+    backendURL = "";
+}
 let theme = localStorage.getItem("theme") || "light";
-
-const applyBackendUrl = (candidate) => {
-    backendURL = normalizeBackendUrl(candidate);
-    localStorage.setItem("backendURL", backendURL);
-    if (backendInput) backendInput.value = backendURL;
-};
 
 const getHealthUrl = () => {
     try {
@@ -163,33 +146,14 @@ const checkBackend = async () => {
     }
 };
 
-if (backendInput) {
-    backendInput.value = backendURL;
-}
-
-if (saveBackendBtn) {
-    saveBackendBtn.addEventListener("click", () => {
-        const candidate = backendInput.value.trim();
-        if (!candidate) {
-            setStatus("error", "Set backend URL");
-            return;
-        }
-        try {
-            applyBackendUrl(candidate);
-            checkBackend();
-        } catch (err) {
-            setStatus("error", err.message || "Invalid URL");
-        }
-    });
-}
-
 const ensureBackendConfigured = () => {
     if (!backendURL) {
         setStatus("error", "Set backend URL");
         return false;
     }
     try {
-        applyBackendUrl(backendURL);
+        backendURL = normalizeBackendUrl(backendURL || defaultBackendURL);
+        localStorage.setItem("backendURL", backendURL);
     } catch {
         setStatus("error", "Invalid backend URL");
         return false;
@@ -252,12 +216,6 @@ composerEl.addEventListener("submit", async (event) => {
     }
 });
 
-// Auto-apply default URL on load (normalized) and then check
-try {
-    applyBackendUrl(backendURL || defaultBackendURL);
-} catch {
-    // ignore, user will set manually
-}
 checkBackend();
 
 // THEME TOGGLE

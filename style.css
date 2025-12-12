@@ -152,26 +152,6 @@ body {
     box-shadow: 0 0 0 6px rgba(240, 162, 2, 0.18);
 }
 
-.endpoint {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 260px;
-}
-
-.endpoint label {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-}
-
-.endpoint__controls {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-}
-
 .theme-toggle {
     padding: 10px 14px;
     border-radius: 10px;
@@ -186,22 +166,6 @@ body {
 
 .theme-toggle:hover {
     transform: translateY(-1px);
-}
-
-.endpoint input {
-    flex: 1;
-    min-width: 200px;
-    padding: 10px 12px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: #f6f8fc;
-    font: inherit;
-}
-
-.endpoint input:focus {
-    outline: none;
-    border-color: rgba(11, 132, 255, 0.5);
-    box-shadow: 0 8px 24px rgba(11, 132, 255, 0.12);
 }
 
 .chat-panel {
@@ -412,15 +376,6 @@ button:disabled {
 
     .bubble {
         max-width: 100%;
-    }
-
-    .endpoint {
-        width: 100%;
-    }
-
-    .endpoint__controls {
-        flex-direction: column;
-        align-items: stretch;
     }
 
     .theme-toggle {
