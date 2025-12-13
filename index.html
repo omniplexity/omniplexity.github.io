@@ -23,17 +23,13 @@
                 <span id="statusText">Checking backend...</span>
             </div>
             <div class="hub" id="hubWrapper">
-                <button type="button" id="settingsToggle" class="icon-btn" aria-label="Open hub">🧭 Hub</button>
+                <button type="button" id="settingsToggle" class="icon-btn" aria-label="Open hub">Hub</button>
                 <section class="control-panel" id="controlPanel" aria-hidden="true">
                     <div class="control-row">
                         <div class="control-group">
                             <label for="modelInput">Model</label>
                             <input list="modelSuggestions" id="modelInput" placeholder="Default (env)">
-                            <datalist id="modelSuggestions">
-                                <option value="qwen3-vl-4b-thinking-1m"></option>
-                                <option value="llama-3-8b"></option>
-                                <option value="gpt-4o-mini"></option>
-                            </datalist>
+                            <datalist id="modelSuggestions"></datalist>
                         </div>
                         <div class="control-group">
                             <label for="systemPrompt">System prompt</label>
@@ -73,11 +69,23 @@
                             </div>
                         </div>
                         <div class="slider-group">
-                            <label for="gradAngle">Gradient angle <span id="gradAngleValue">140°</span></label>
+                            <label for="gradAngle">Gradient angle <span id="gradAngleValue">140 deg</span></label>
                             <input type="range" id="gradAngle" min="0" max="360" step="5" value="140">
                         </div>
                         <div class="control-group apply-group">
                             <button type="button" id="applyThemeBtn" class="theme-apply">Apply theme</button>
+                        </div>
+                    </div>
+                    <div class="control-row theme-custom">
+                        <div class="control-group">
+                            <label for="themePreset">Theme preset</label>
+                            <select id="themePreset">
+                                <option value="">Pick a preset</option>
+                                <option value="aurora">Aurora</option>
+                                <option value="sunrise">Sunrise</option>
+                                <option value="midnight">Midnight</option>
+                                <option value="forest">Forest</option>
+                            </select>
                         </div>
                     </div>
                 </section>

@@ -34,6 +34,7 @@ const gradEndHex = document.getElementById("gradEndHex");
 const gradAngle = document.getElementById("gradAngle");
 const gradAngleValue = document.getElementById("gradAngleValue");
 const applyThemeBtn = document.getElementById("applyThemeBtn");
+const themePreset = document.getElementById("themePreset");
 
 const escapeHTML = (text) =>
     text
@@ -112,6 +113,17 @@ const setStatus = (state, text) => {
     statusText.textContent = text;
 };
 
+const buildApiUrl = (path) => {
+    try {
+        const u = new URL(backendURL);
+        u.pathname = path;
+        u.search = "";
+        return u.toString();
+    } catch {
+        return null;
+    }
+};
+
 const normalizeBackendUrl = (candidate) => {
     if (!candidate) throw new Error("Backend URL is empty");
 
@@ -142,6 +154,13 @@ const settings = {
     gradientStart: localStorage.getItem("gradientStart") || "#0b84ff",
     gradientEnd: localStorage.getItem("gradientEnd") || "#0c9eff",
     gradientAngle: parseInt(localStorage.getItem("gradientAngle") || "140", 10),
+};
+
+const themePresets = {
+    aurora: { start: "#0b84ff", end: "#7c3aed", angle: 135, mode: "dark" },
+    sunrise: { start: "#ff7e5f", end: "#feb47b", angle: 120, mode: "light" },
+    midnight: { start: "#0f172a", end: "#1e293b", angle: 180, mode: "dark" },
+    forest: { start: "#0b8a6f", end: "#1fc59b", angle: 145, mode: "light" },
 };
 
 const getHealthUrl = () => {
@@ -229,7 +248,7 @@ const syncSettingsUI = () => {
     if (gradEndHex) gradEndHex.value = settings.gradientEnd;
     if (gradAngle && gradAngleValue) {
         gradAngle.value = settings.gradientAngle;
-        gradAngleValue.textContent = `${settings.gradientAngle}°`;
+        gradAngleValue.textContent = `${settings.gradientAngle} deg`;
     }
 };
 
@@ -444,3 +463,47 @@ if (applyThemeBtn) {
         persistSettings();
     });
 }
+
+if (themePreset) {
+    themePreset.addEventListener("change", () => {
+        const preset = themePresets[themePreset.value];
+        if (!preset) return;
+        settings.gradientStart = preset.start;
+        settings.gradientEnd = preset.end;
+        settings.gradientAngle = preset.angle;
+        if (preset.mode) {
+            theme = preset.mode;
+            applyTheme(theme);
+        }
+        syncSettingsUI();
+        applyGradient();
+        persistSettings();
+    });
+}
+
+// Fetch model list from backend and populate datalist
+const fetchModels = async () => {
+    const url = buildApiUrl("/api/models");
+    if (!url) return;
+    try {
+        const res = await fetch(url, { method: "GET" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = data.models || [];
+        if (list.length && modelInput) {
+            const dl = document.getElementById("modelSuggestions");
+            if (dl) {
+                dl.innerHTML = "";
+                list.forEach((id) => {
+                    const opt = document.createElement("option");
+                    opt.value = id;
+                    dl.appendChild(opt);
+                });
+            }
+        }
+    } catch (err) {
+        console.warn("Model fetch failed", err);
+    }
+};
+
+fetchModels();
