@@ -31,13 +31,14 @@
                             <h3>Session settings</h3>
                             <p class="muted small">Adjust model, guidance, search, and theme.</p>
                         </div>
-                        <div class="badges">
-                            <span class="pill">Model</span>
-                            <span class="pill">Generation</span>
-                            <span class="pill">Theme</span>
-                        </div>
+                        <button type="button" id="closeHubBtn" class="icon-btn small" aria-label="Close hub">✕</button>
                     </div>
-                    <div class="control-row">
+                    <div class="tab-bar">
+                        <button type="button" class="tab-btn active" data-tab="model">Models</button>
+                        <button type="button" class="tab-btn" data-tab="gen">Generation</button>
+                        <button type="button" class="tab-btn" data-tab="theme">Theme</button>
+                    </div>
+                    <div class="control-row tab-panel" data-tab-panel="model">
                         <div class="control-group">
                             <label for="modelInput">Model</label>
                             <input list="modelSuggestions" id="modelInput" placeholder="Default (env)">
@@ -51,8 +52,11 @@
                             <label for="activeStatus">Current settings</label>
                             <div id="activeStatus" class="pill wide">Default model • temp 0.7 • top_p 1.0 • max 512</div>
                         </div>
+                        <div class="control-group">
+                            <button type="button" id="reloadModelsBtn" class="theme-apply ghost">Reload models</button>
+                        </div>
                     </div>
-                    <div class="control-row sliders">
+                    <div class="control-row sliders tab-panel" data-tab-panel="gen" hidden>
                         <div class="slider-group">
                             <label for="tempSlider">Temperature <span id="tempValue">0.7</span></label>
                             <input type="range" id="tempSlider" min="0" max="2" step="0.1" value="0.7">
@@ -69,12 +73,7 @@
                             <label><input type="checkbox" id="useSearchToggle"> Use web search</label>
                         </div>
                     </div>
-                    <div class="control-row">
-                        <div class="control-group">
-                            <button type="button" id="reloadModelsBtn" class="theme-apply">Reload models</button>
-                        </div>
-                    </div>
-                    <div class="control-row theme-custom">
+                    <div class="control-row theme-custom tab-panel" data-tab-panel="theme" hidden>
                         <div class="control-group">
                             <label>Gradient start</label>
                             <div class="color-pair">
@@ -95,6 +94,7 @@
                         </div>
                         <div class="control-group apply-group">
                             <button type="button" id="applyThemeBtn" class="theme-apply">Apply theme</button>
+                            <button type="button" id="resetThemeBtn" class="theme-apply ghost">Reset default</button>
                         </div>
                     </div>
                     <div class="control-row theme-custom">
@@ -106,6 +106,8 @@
                                 <option value="sunrise">Sunrise</option>
                                 <option value="midnight">Midnight</option>
                                 <option value="forest">Forest</option>
+                                <option value="ocean">Ocean</option>
+                                <option value="citrus">Citrus</option>
                             </select>
                         </div>
                     </div>
@@ -114,6 +116,8 @@
             <button type="button" id="themeToggle" class="theme-toggle" aria-label="Toggle dark mode">Dark</button>
         </div>
     </header>
+
+    <div class="session-status" id="sessionStatus">Default model • temp 0.7 • top_p 1.0 • max 512</div>
 
     <main class="chat-panel">
         <section id="messages" class="messages" aria-live="polite"></section>
@@ -129,6 +133,7 @@
             ></textarea>
             <div class="composer__actions">
                 <span class="hint">Shift + Enter for newline</span>
+                <button type="button" id="clearChatBtn" class="ghost">Clear</button>
                 <button id="sendBtn" type="submit">Send</button>
             </div>
         </form>

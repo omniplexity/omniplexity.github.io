@@ -228,6 +228,44 @@ body {
     font-weight: 700;
 }
 
+.panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.icon-btn.small {
+    padding: 6px 10px;
+    font-size: 14px;
+}
+
+.tab-bar {
+    display: flex;
+    gap: 8px;
+    margin: 10px 0;
+}
+
+.tab-btn {
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.tab-btn.active {
+    background: linear-gradient(140deg, #0b84ff, #0c9eff);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: var(--shadow);
+}
+
+.tab-panel[hidden] {
+    display: none !important;
+}
+
 .muted {
     color: var(--muted);
 }
@@ -257,6 +295,19 @@ body {
     display: inline-block;
     width: 100%;
     text-align: left;
+}
+
+.session-status {
+    margin: 0;
+    padding: 10px 0;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.ghost {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
 }
 
 .control-group {

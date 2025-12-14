@@ -37,6 +37,12 @@ const applyThemeBtn = document.getElementById("applyThemeBtn");
 const themePreset = document.getElementById("themePreset");
 const reloadModelsBtn = document.getElementById("reloadModelsBtn");
 const activeStatusEl = document.getElementById("activeStatus");
+const sessionStatusEl = document.getElementById("sessionStatus");
+const closeHubBtn = document.getElementById("closeHubBtn");
+const tabButtons = Array.from(document.querySelectorAll(".tab-btn"));
+const tabPanels = Array.from(document.querySelectorAll(".tab-panel"));
+const clearChatBtn = document.getElementById("clearChatBtn");
+const resetThemeBtn = document.getElementById("resetThemeBtn");
 const fallbackModels = [
     "qwen3-vl-4b-thinking-1m",
     "llama-3-8b",
@@ -169,6 +175,8 @@ const themePresets = {
     sunrise: { start: "#ff7e5f", end: "#feb47b", angle: 120, mode: "light" },
     midnight: { start: "#0f172a", end: "#1e293b", angle: 180, mode: "dark" },
     forest: { start: "#0b8a6f", end: "#1fc59b", angle: 145, mode: "light" },
+    ocean: { start: "#0066ff", end: "#00c6ff", angle: 150, mode: "light" },
+    citrus: { start: "#f9d423", end: "#ff4e50", angle: 110, mode: "light" },
 };
 
 const getHealthUrl = () => {
@@ -238,14 +246,16 @@ const applyGradient = () => {
 };
 
 const updateActiveStatus = () => {
-    if (!activeStatusEl) return;
+    if (!activeStatusEl && !sessionStatusEl) return;
     const parts = [];
     parts.push(settings.model ? settings.model : "default model");
     parts.push(`temp ${settings.temperature.toFixed(1)}`);
     parts.push(`top_p ${settings.topP.toFixed(2)}`);
     parts.push(`max ${settings.maxTokens}`);
     if (settings.useSearch) parts.push("search on");
-    activeStatusEl.textContent = parts.join(" • ");
+    const text = parts.join(" • ");
+    if (activeStatusEl) activeStatusEl.textContent = text;
+    if (sessionStatusEl) sessionStatusEl.textContent = text;
 };
 
 const syncSettingsUI = () => {
@@ -274,6 +284,7 @@ const syncSettingsUI = () => {
 
 syncSettingsUI();
 applyGradient();
+updateActiveStatus();
 
 composerEl.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -389,6 +400,37 @@ if (settingsToggle && controlPanel && hubWrapper) {
             closePanel();
         }
     });
+
+    if (closeHubBtn) {
+        closeHubBtn.addEventListener("click", () => {
+            hubPinned = false;
+            closePanel();
+        });
+    }
+}
+
+const activateTab = (name) => {
+    tabButtons.forEach((btn) => {
+        const active = btn.getAttribute("data-tab") === name;
+        btn.classList.toggle("active", active);
+    });
+    tabPanels.forEach((panel) => {
+        const match = panel.getAttribute("data-tab-panel") === name;
+        if (match) {
+            panel.removeAttribute("hidden");
+        } else {
+            panel.setAttribute("hidden", "");
+        }
+    });
+};
+
+if (tabButtons.length) {
+    tabButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+            activateTab(btn.getAttribute("data-tab"));
+        });
+    });
+    activateTab("model");
 }
 
 const updateColorFromHex = (hexInput, colorPicker, key) => {
@@ -491,6 +533,19 @@ if (applyThemeBtn) {
     });
 }
 
+if (resetThemeBtn) {
+    resetThemeBtn.addEventListener("click", () => {
+        settings.gradientStart = "#0b84ff";
+        settings.gradientEnd = "#0c9eff";
+        settings.gradientAngle = 140;
+        themePreset.value = "";
+        syncSettingsUI();
+        applyGradient();
+        persistSettings();
+        updateActiveStatus();
+    });
+}
+
 if (themePreset) {
     themePreset.addEventListener("change", () => {
         const preset = themePresets[themePreset.value];
@@ -549,6 +604,21 @@ const fetchModels = async () => {
 if (reloadModelsBtn) {
     reloadModelsBtn.addEventListener("click", () => {
         fetchModels();
+    });
+}
+
+if (clearChatBtn && messagesEl) {
+    clearChatBtn.addEventListener("click", () => {
+        messagesEl.innerHTML = "";
+    });
+}
+
+if (promptEl && composerEl) {
+    promptEl.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+            e.preventDefault();
+            composerEl.dispatchEvent(new Event("submit"));
+        }
     });
 }
 
