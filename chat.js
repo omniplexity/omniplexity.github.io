@@ -37,6 +37,12 @@ const applyThemeBtn = document.getElementById("applyThemeBtn");
 const themePreset = document.getElementById("themePreset");
 const reloadModelsBtn = document.getElementById("reloadModelsBtn");
 const activeStatusEl = document.getElementById("activeStatus");
+const fallbackModels = [
+    "qwen3-vl-4b-thinking-1m",
+    "llama-3-8b",
+    "gpt-4o-mini",
+    "qwen2.5-7b-instruct"
+];
 
 const escapeHTML = (text) =>
     text
@@ -503,28 +509,40 @@ if (themePreset) {
     });
 }
 
+const populateModelList = (list) => {
+    const dl = document.getElementById("modelSuggestions");
+    if (!dl) return;
+    dl.innerHTML = "";
+    list.forEach((id) => {
+        const opt = document.createElement("option");
+        opt.value = id;
+        dl.appendChild(opt);
+    });
+};
+
 // Fetch model list from backend and populate datalist
 const fetchModels = async () => {
     const url = buildApiUrl("/api/models");
-    if (!url) return;
+    if (!url) {
+        populateModelList(fallbackModels);
+        return;
+    }
     try {
         const res = await fetch(url, { method: "GET" });
-        if (!res.ok) return;
+        if (!res.ok) {
+            populateModelList(fallbackModels);
+            return;
+        }
         const data = await res.json();
-        const list = data.models || [];
-        if (list.length && modelInput) {
-            const dl = document.getElementById("modelSuggestions");
-            if (dl) {
-                dl.innerHTML = "";
-                list.forEach((id) => {
-                    const opt = document.createElement("option");
-                    opt.value = id;
-                    dl.appendChild(opt);
-                });
-            }
+        const list = (data.models || []).filter(Boolean);
+        if (list.length) {
+            populateModelList(list);
+        } else {
+            populateModelList(fallbackModels);
         }
     } catch (err) {
         console.warn("Model fetch failed", err);
+        populateModelList(fallbackModels);
     }
 };
 
