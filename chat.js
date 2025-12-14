@@ -580,24 +580,54 @@ const fetchModels = async () => {
     const url = buildApiUrl("/api/models");
     if (!url) {
         populateModelList(fallbackModels);
+        if (!settings.model && fallbackModels.length) {
+            settings.model = fallbackModels[0];
+            syncSettingsUI();
+            persistSettings();
+            updateActiveStatus();
+        }
         return;
     }
     try {
         const res = await fetch(url, { method: "GET" });
         if (!res.ok) {
             populateModelList(fallbackModels);
+            if (!settings.model && fallbackModels.length) {
+                settings.model = fallbackModels[0];
+                syncSettingsUI();
+                persistSettings();
+                updateActiveStatus();
+            }
             return;
         }
         const data = await res.json();
         const list = (data.models || []).filter(Boolean);
         if (list.length) {
             populateModelList(list);
+            if (!settings.model) {
+                settings.model = list[0];
+                syncSettingsUI();
+                persistSettings();
+                updateActiveStatus();
+            }
         } else {
             populateModelList(fallbackModels);
+            if (!settings.model && fallbackModels.length) {
+                settings.model = fallbackModels[0];
+                syncSettingsUI();
+                persistSettings();
+                updateActiveStatus();
+            }
         }
     } catch (err) {
         console.warn("Model fetch failed", err);
         populateModelList(fallbackModels);
+        if (!settings.model && fallbackModels.length) {
+            settings.model = fallbackModels[0];
+            syncSettingsUI();
+            persistSettings();
+            updateActiveStatus();
+        }
     }
 };
 
