@@ -601,6 +601,9 @@ const fetchModels = async () => {
     }
 };
 
+// seed initial suggestions so the dropdown is never empty
+populateModelList(fallbackModels);
+
 if (reloadModelsBtn) {
     reloadModelsBtn.addEventListener("click", () => {
         fetchModels();
