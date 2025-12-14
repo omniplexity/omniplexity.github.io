@@ -19,7 +19,7 @@ const themeToggle = document.getElementById("themeToggle");
 const settingsToggle = document.getElementById("settingsToggle");
 const hubWrapper = document.getElementById("hubWrapper");
 const controlPanel = document.getElementById("controlPanel");
-const modelInput = document.getElementById("modelInput");
+const modelSelect = document.getElementById("modelSelect");
 const systemPromptEl = document.getElementById("systemPrompt");
 const tempSlider = document.getElementById("tempSlider");
 const tempValue = document.getElementById("tempValue");
@@ -284,7 +284,7 @@ const updateActiveStatus = () => {
 };
 
 const syncSettingsUI = () => {
-    if (modelInput) modelInput.value = settings.model;
+    if (modelSelect) modelSelect.value = settings.model;
     if (systemPromptEl) systemPromptEl.value = settings.systemPrompt;
     if (tempSlider && tempValue) {
         tempSlider.value = settings.temperature;
@@ -476,9 +476,9 @@ const updateColorFromHex = (hexInput, colorPicker, key) => {
     }
 };
 
-if (modelInput) {
-    modelInput.addEventListener("input", () => {
-        settings.model = modelInput.value.trim();
+if (modelSelect) {
+    modelSelect.addEventListener("change", () => {
+        settings.model = modelSelect.value.trim();
         persistSettings();
         updateActiveStatus();
     });
@@ -599,14 +599,24 @@ if (themePreset) {
 }
 
 const populateModelList = (list) => {
-    const dl = document.getElementById("modelSuggestions");
-    if (!dl) return;
-    dl.innerHTML = "";
+    if (!modelSelect) return;
+    modelSelect.innerHTML = "";
+    const defaultOpt = document.createElement("option");
+    defaultOpt.value = "";
+    defaultOpt.textContent = "Default (env)";
+    modelSelect.appendChild(defaultOpt);
     list.forEach((id) => {
         const opt = document.createElement("option");
         opt.value = id;
-        dl.appendChild(opt);
+        opt.textContent = id;
+        modelSelect.appendChild(opt);
     });
+    if (settings.model && !list.includes(settings.model)) {
+        const opt = document.createElement("option");
+        opt.value = settings.model;
+        opt.textContent = settings.model;
+        modelSelect.appendChild(opt);
+    }
 };
 
 // Fetch model list from backend and populate datalist
