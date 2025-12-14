@@ -32,7 +32,7 @@
                             <p class="muted small">Adjust model, guidance, search, and theme.</p>
                         </div>
                         <div class="panel-actions">
-                            <button type="button" id="closeHubBtn" class="icon-btn small" aria-label="Close hub">✕</button>
+                            <button type="button" id="closeHubBtn" class="icon-btn small" aria-label="Close hub">X</button>
                         </div>
                     </div>
                     <div class="tab-bar">
@@ -52,7 +52,7 @@
                         </div>
                         <div class="control-group">
                             <label for="activeStatus">Current settings</label>
-                            <div id="activeStatus" class="pill wide">Default model • temp 0.7 • top_p 1.0 • max 512</div>
+                            <div id="activeStatus" class="pill wide">Default model - temp 0.7 - top_p 1.0 - max 512</div>
                         </div>
                         <div class="control-group">
                             <button type="button" id="reloadModelsBtn" class="theme-apply ghost">Reload models</button>
@@ -121,7 +121,7 @@
 
     <div id="toast" class="toast" aria-live="polite" aria-atomic="true"></div>
 
-    <div class="session-status" id="sessionStatus">Default model • temp 0.7 • top_p 1.0 • max 512</div>
+    <div class="session-status" id="sessionStatus">Default model - temp 0.7 - top_p 1.0 - max 512</div>
 
     <main class="chat-panel">
         <section id="messages" class="messages" aria-live="polite"></section>
@@ -136,7 +136,7 @@
                 autocomplete="off"
             ></textarea>
             <div class="composer__actions">
-                <span class="hint">Shift + Enter for newline · Ctrl/Cmd + Enter to send</span>
+                <span class="hint">Shift + Enter for newline | Ctrl/Cmd + Enter to send</span>
                 <button type="button" id="clearChatBtn" class="ghost">Clear</button>
                 <button id="sendBtn" type="submit">Send</button>
             </div>
