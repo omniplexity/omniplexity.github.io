@@ -52,6 +52,7 @@ const fallbackModels = [
 const toastEl = document.getElementById("toast");
 let toastTimer = null;
 let sendBtnDefaultText = sendBtn ? sendBtn.textContent : "Send";
+const messageLog = [];
 
 const escapeHTML = (text) =>
     text
@@ -105,7 +106,14 @@ const appendMessage = (role, text, pending = false) => {
     bubble.className = "bubble";
     bubble.innerHTML = renderContent(text);
 
+    const meta = document.createElement("div");
+    meta.className = "bubble-meta";
+    const now = new Date();
+    const timeLabel = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    meta.textContent = `${role === "user" ? "You" : "Model"} · ${timeLabel}`;
+
     message.appendChild(bubble);
+    message.appendChild(meta);
     messagesEl.appendChild(message);
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
@@ -318,6 +326,7 @@ composerEl.addEventListener("submit", async (event) => {
 
     appendMessage("user", input);
     promptEl.value = "";
+    messageLog.push({ role: "user", content: input, ts: Date.now() });
 
     const assistantBubble = appendMessage("assistant", "Thinking...", true);
     sendBtn.disabled = true;
@@ -356,6 +365,7 @@ composerEl.addEventListener("submit", async (event) => {
         data = data || await response.json();
         const reply = data.response || "I couldn't find a reply.";
         setAssistantReply(assistantBubble, reply);
+        messageLog.push({ role: "assistant", content: reply, ts: Date.now() });
         setStatus("ok", "Connected to backend");
         showToast("Reply received", "success");
     } catch (error) {
