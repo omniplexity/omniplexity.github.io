@@ -49,6 +49,9 @@ const fallbackModels = [
     "gpt-4o-mini",
     "qwen2.5-7b-instruct"
 ];
+const toastEl = document.getElementById("toast");
+let toastTimer = null;
+let sendBtnDefaultText = sendBtn ? sendBtn.textContent : "Send";
 
 const escapeHTML = (text) =>
     text
@@ -138,6 +141,17 @@ const buildApiUrl = (path) => {
     }
 };
 
+const showToast = (message, type = "info") => {
+    if (!toastEl) return;
+    toastEl.textContent = message;
+    toastEl.className = `toast ${type}`;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+        toastEl.classList.remove("show");
+    }, 4000);
+};
+
 const normalizeBackendUrl = (candidate) => {
     if (!candidate) throw new Error("Backend URL is empty");
 
@@ -195,6 +209,7 @@ const checkBackend = async () => {
     const healthUrl = getHealthUrl();
     if (!healthUrl) {
         setStatus("error", "Invalid backend URL");
+        showToast("Invalid backend URL", "error");
         return;
     }
     setStatus("connecting", "Checking backend...");
@@ -204,9 +219,11 @@ const checkBackend = async () => {
             setStatus("ok", "Connected to backend");
         } else {
             setStatus("error", `Backend ${res.status}`);
+            showToast(`Backend error ${res.status}`, "error");
         }
     } catch (err) {
         setStatus("error", "Backend unreachable");
+        showToast("Backend unreachable", "error");
     }
 };
 
@@ -285,6 +302,9 @@ const syncSettingsUI = () => {
 syncSettingsUI();
 applyGradient();
 updateActiveStatus();
+if (promptEl) {
+    promptEl.focus();
+}
 
 composerEl.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -301,6 +321,7 @@ composerEl.addEventListener("submit", async (event) => {
 
     const assistantBubble = appendMessage("assistant", "Thinking...", true);
     sendBtn.disabled = true;
+    if (sendBtn) sendBtn.textContent = "Sending...";
 
     try {
         setStatus("connecting", "Sending...");
@@ -336,6 +357,7 @@ composerEl.addEventListener("submit", async (event) => {
         const reply = data.response || "I couldn't find a reply.";
         setAssistantReply(assistantBubble, reply);
         setStatus("ok", "Connected to backend");
+        showToast("Reply received", "success");
     } catch (error) {
         setAssistantReply(
             assistantBubble,
@@ -343,8 +365,10 @@ composerEl.addEventListener("submit", async (event) => {
             true
         );
         setStatus("error", "Request failed");
+        showToast(error.message, "error");
     } finally {
         sendBtn.disabled = false;
+        if (sendBtn) sendBtn.textContent = sendBtnDefaultText;
         promptEl.focus();
     }
 });

@@ -310,6 +310,37 @@ body {
     border: 1px solid var(--border);
 }
 
+.toast {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    min-width: 220px;
+    max-width: 360px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    box-shadow: var(--shadow);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    transform: translateY(-8px);
+    z-index: 1000;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.toast.error {
+    background: #b71c1c;
+}
+
+.toast.success {
+    background: #0d8a3f;
+}
+
 .control-group {
     display: flex;
     flex-direction: column;

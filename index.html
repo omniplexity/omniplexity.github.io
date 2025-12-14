@@ -117,6 +117,8 @@
         </div>
     </header>
 
+    <div id="toast" class="toast" aria-live="polite" aria-atomic="true"></div>
+
     <div class="session-status" id="sessionStatus">Default model • temp 0.7 • top_p 1.0 • max 512</div>
 
     <main class="chat-panel">
@@ -132,7 +134,7 @@
                 autocomplete="off"
             ></textarea>
             <div class="composer__actions">
-                <span class="hint">Shift + Enter for newline</span>
+                <span class="hint">Shift + Enter for newline · Ctrl/Cmd + Enter to send</span>
                 <button type="button" id="clearChatBtn" class="ghost">Clear</button>
                 <button id="sendBtn" type="submit">Send</button>
             </div>
