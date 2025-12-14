@@ -253,6 +253,12 @@ body {
     font-size: 12px;
 }
 
+.pill.wide {
+    display: inline-block;
+    width: 100%;
+    text-align: left;
+}
+
 .control-group {
     display: flex;
     flex-direction: column;
