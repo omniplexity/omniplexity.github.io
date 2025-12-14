@@ -45,9 +45,9 @@ const clearChatBtn = document.getElementById("clearChatBtn");
 const resetThemeBtn = document.getElementById("resetThemeBtn");
 const fallbackModels = [
     "qwen3-vl-4b-thinking-1m",
-    "llama-3-8b",
-    "gpt-4o-mini",
-    "qwen2.5-7b-instruct"
+    "qwen2.5-coder-7b-instruct-128k",
+    "qwen2.5-coder-0.5b-instruct@Q8_0",
+    "qwen2.5-coder-0.5b-instruct@F16"
 ];
 const toastEl = document.getElementById("toast");
 let toastTimer = null;
@@ -646,22 +646,14 @@ const fetchModels = async () => {
         }
         const data = await res.json();
         const list = (data.models || []).filter(Boolean);
-        if (list.length) {
-            populateModelList(list);
-            if (!settings.model) {
-                settings.model = list[0];
-                syncSettingsUI();
-                persistSettings();
-                updateActiveStatus();
-            }
-        } else {
-            populateModelList(fallbackModels);
-            if (!settings.model && fallbackModels.length) {
-                settings.model = fallbackModels[0];
-                syncSettingsUI();
-                persistSettings();
-                updateActiveStatus();
-            }
+        const defaultFromApi = data.default_model || "";
+        const finalList = list.length ? list : fallbackModels;
+        populateModelList(finalList);
+        if (!settings.model) {
+            settings.model = defaultFromApi || (finalList.length ? finalList[0] : "");
+            syncSettingsUI();
+            persistSettings();
+            updateActiveStatus();
         }
     } catch (err) {
         console.warn("Model fetch failed", err);
@@ -672,6 +664,7 @@ const fetchModels = async () => {
             persistSettings();
             updateActiveStatus();
         }
+        showToast("Model list unavailable; using fallback", "error");
     }
 };
 
