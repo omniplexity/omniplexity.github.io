@@ -43,12 +43,7 @@ const tabButtons = Array.from(document.querySelectorAll(".tab-btn"));
 const tabPanels = Array.from(document.querySelectorAll(".tab-panel"));
 const clearChatBtn = document.getElementById("clearChatBtn");
 const resetThemeBtn = document.getElementById("resetThemeBtn");
-const fallbackModels = [
-    "qwen3-vl-4b-thinking-1m",
-    "qwen2.5-coder-7b-instruct-128k",
-    "qwen2.5-coder-0.5b-instruct@Q8_0",
-    "qwen2.5-coder-0.5b-instruct@F16"
-];
+const fallbackModels = [];
 const toastEl = document.getElementById("toast");
 let toastTimer = null;
 let sendBtnDefaultText = sendBtn ? sendBtn.textContent : "Send";
@@ -623,48 +618,48 @@ const populateModelList = (list) => {
 const fetchModels = async () => {
     const url = buildApiUrl("/api/models");
     if (!url) {
-        populateModelList(fallbackModels);
-        if (!settings.model && fallbackModels.length) {
-            settings.model = fallbackModels[0];
-            syncSettingsUI();
-            persistSettings();
-            updateActiveStatus();
-        }
+        populateModelList([]);
+        settings.model = "";
+        syncSettingsUI();
+        persistSettings();
+        updateActiveStatus();
+        showToast("Model list unavailable; using default", "error");
         return;
     }
     try {
         const res = await fetch(url, { method: "GET" });
         if (!res.ok) {
-            populateModelList(fallbackModels);
-            if (!settings.model && fallbackModels.length) {
-                settings.model = fallbackModels[0];
-                syncSettingsUI();
-                persistSettings();
-                updateActiveStatus();
-            }
+            populateModelList([]);
+            settings.model = "";
+            syncSettingsUI();
+            persistSettings();
+            updateActiveStatus();
+            showToast("Model list unavailable; using default", "error");
             return;
         }
         const data = await res.json();
         const list = (data.models || []).filter(Boolean);
         const defaultFromApi = data.default_model || "";
-        const finalList = list.length ? list : fallbackModels;
+        const finalList = list.length ? list : [];
         populateModelList(finalList);
         if (!settings.model) {
             settings.model = defaultFromApi || (finalList.length ? finalList[0] : "");
-            syncSettingsUI();
-            persistSettings();
-            updateActiveStatus();
+        } else if (finalList.length && !finalList.includes(settings.model)) {
+            settings.model = defaultFromApi && finalList.includes(defaultFromApi)
+                ? defaultFromApi
+                : finalList[0];
         }
+        syncSettingsUI();
+        persistSettings();
+        updateActiveStatus();
     } catch (err) {
         console.warn("Model fetch failed", err);
-        populateModelList(fallbackModels);
-        if (!settings.model && fallbackModels.length) {
-            settings.model = fallbackModels[0];
-            syncSettingsUI();
-            persistSettings();
-            updateActiveStatus();
-        }
-        showToast("Model list unavailable; using fallback", "error");
+        populateModelList([]);
+        settings.model = "";
+        syncSettingsUI();
+        persistSettings();
+        updateActiveStatus();
+        showToast("Model list unavailable; using default", "error");
     }
 };
 
