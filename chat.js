@@ -35,6 +35,8 @@ const gradAngle = document.getElementById("gradAngle");
 const gradAngleValue = document.getElementById("gradAngleValue");
 const applyThemeBtn = document.getElementById("applyThemeBtn");
 const themePreset = document.getElementById("themePreset");
+const reloadModelsBtn = document.getElementById("reloadModelsBtn");
+const activeStatusEl = document.getElementById("activeStatus");
 
 const escapeHTML = (text) =>
     text
@@ -229,6 +231,17 @@ const applyGradient = () => {
     document.documentElement.style.setProperty("--bg-dynamic", gradient);
 };
 
+const updateActiveStatus = () => {
+    if (!activeStatusEl) return;
+    const parts = [];
+    parts.push(settings.model ? settings.model : "default model");
+    parts.push(`temp ${settings.temperature.toFixed(1)}`);
+    parts.push(`top_p ${settings.topP.toFixed(2)}`);
+    parts.push(`max ${settings.maxTokens}`);
+    if (settings.useSearch) parts.push("search on");
+    activeStatusEl.textContent = parts.join(" • ");
+};
+
 const syncSettingsUI = () => {
     if (modelInput) modelInput.value = settings.model;
     if (systemPromptEl) systemPromptEl.value = settings.systemPrompt;
@@ -250,6 +263,7 @@ const syncSettingsUI = () => {
         gradAngle.value = settings.gradientAngle;
         gradAngleValue.textContent = `${settings.gradientAngle} deg`;
     }
+    updateActiveStatus();
 };
 
 syncSettingsUI();
@@ -384,6 +398,7 @@ if (modelInput) {
     modelInput.addEventListener("input", () => {
         settings.model = modelInput.value.trim();
         persistSettings();
+        updateActiveStatus();
     });
 }
 
@@ -391,6 +406,7 @@ if (systemPromptEl) {
     systemPromptEl.addEventListener("input", () => {
         settings.systemPrompt = systemPromptEl.value;
         persistSettings();
+        updateActiveStatus();
     });
 }
 
@@ -399,6 +415,7 @@ if (tempSlider && tempValue) {
         settings.temperature = parseFloat(tempSlider.value);
         tempValue.textContent = settings.temperature.toFixed(1);
         persistSettings();
+        updateActiveStatus();
     });
 }
 
@@ -407,6 +424,7 @@ if (topPSlider && topPValue) {
         settings.topP = parseFloat(topPSlider.value);
         topPValue.textContent = settings.topP.toFixed(2);
         persistSettings();
+        updateActiveStatus();
     });
 }
 
@@ -415,6 +433,7 @@ if (maxTokensInput) {
         const val = parseInt(maxTokensInput.value || "0", 10);
         settings.maxTokens = Number.isNaN(val) ? 0 : val;
         persistSettings();
+        updateActiveStatus();
     });
 }
 
@@ -422,6 +441,7 @@ if (useSearchToggle) {
     useSearchToggle.addEventListener("change", () => {
         settings.useSearch = useSearchToggle.checked;
         persistSettings();
+        updateActiveStatus();
     });
 }
 
@@ -461,6 +481,7 @@ if (applyThemeBtn) {
     applyThemeBtn.addEventListener("click", () => {
         applyGradient();
         persistSettings();
+        updateActiveStatus();
     });
 }
 
@@ -478,6 +499,7 @@ if (themePreset) {
         syncSettingsUI();
         applyGradient();
         persistSettings();
+        updateActiveStatus();
     });
 }
 
@@ -505,5 +527,11 @@ const fetchModels = async () => {
         console.warn("Model fetch failed", err);
     }
 };
+
+if (reloadModelsBtn) {
+    reloadModelsBtn.addEventListener("click", () => {
+        fetchModels();
+    });
+}
 
 fetchModels();
