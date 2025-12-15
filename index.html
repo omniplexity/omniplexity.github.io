@@ -26,6 +26,7 @@
                 <button type="button" id="settingsToggle" class="icon-btn" aria-label="Open hub">Hub</button>
             </div>
             <button type="button" id="themeToggle" class="theme-toggle" aria-label="Toggle dark mode">Dark</button>
+            <button type="button" id="logoutBtn" class="theme-toggle ghost" aria-label="Log out">Log out</button>
         </div>
     </header>
 
@@ -44,6 +45,7 @@
             <button type="button" class="tab-btn active" data-tab="model">Models</button>
             <button type="button" class="tab-btn" data-tab="gen">Generation</button>
             <button type="button" class="tab-btn" data-tab="theme">Theme</button>
+            <button type="button" class="tab-btn admin-tab" data-tab="admin" hidden>Admin</button>
         </div>
         <div class="control-row tab-panel" data-tab-panel="model">
             <div class="control-group">
@@ -117,6 +119,26 @@
                     <option value="ocean">Ocean</option>
                     <option value="citrus">Citrus</option>
                 </select>
+            </div>
+        </div>
+        <div class="control-row admin-panel tab-panel" data-tab-panel="admin" hidden>
+            <div class="control-group">
+                <label>Users</label>
+                <div id="usersList" class="pill wide muted">Loading...</div>
+            </div>
+            <div class="control-group">
+                <label for="newUserEmail">Add user (admin only)</label>
+                <input type="email" id="newUserEmail" placeholder="email@example.com">
+            </div>
+            <div class="control-group">
+                <label for="newUserPassword">Temp password</label>
+                <input type="password" id="newUserPassword" placeholder="Temp password">
+            </div>
+            <div class="control-group checkbox-group">
+                <label><input type="checkbox" id="newUserIsAdmin"> Make admin</label>
+            </div>
+            <div class="control-group apply-group">
+                <button type="button" id="createUserBtn" class="theme-apply">Create user</button>
             </div>
         </div>
     </section>

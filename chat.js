@@ -34,6 +34,8 @@ const statusText = document.getElementById("statusText");
 
 const themeToggle = document.getElementById("themeToggle");
 
+const logoutBtn = document.getElementById("logoutBtn");
+
 const settingsToggle = document.getElementById("settingsToggle");
 
 const hubWrapper = document.getElementById("hubWrapper");
@@ -90,6 +92,12 @@ const clearChatBtn = document.getElementById("clearChatBtn");
 
 const resetThemeBtn = document.getElementById("resetThemeBtn");
 
+const createUserBtn = document.getElementById("createUserBtn");
+
+const usersListEl = document.getElementById("usersList");
+
+const adminTabs = Array.from(document.querySelectorAll(".admin-tab"));
+
 const fallbackModels = [];
 
 const toastEl = document.getElementById("toast");
@@ -101,6 +109,7 @@ let sendBtnDefaultText = sendBtn ? sendBtn.textContent : "Send";
 const messageLog = [];
 
 const storedBackend = localStorage.getItem("backendURL");
+let currentUser = null;
 
 
 
@@ -440,7 +449,7 @@ const checkBackend = async () => {
 
     try {
 
-        const res = await fetch(healthUrl, { method: "GET" });
+        const res = await fetch(healthUrl, { method: "GET", credentials: "include" });
 
         if (res.ok) {
 
@@ -761,8 +770,6 @@ composerEl.addEventListener("submit", async (event) => {
 });
 
 
-
-checkBackend();
 
 
 
@@ -1276,7 +1283,7 @@ const fetchModels = async () => {
 
     try {
 
-        const res = await fetch(url, { method: "GET" });
+        const res = await fetch(url, { method: "GET", credentials: "include" });
 
         if (!res.ok) {
 
@@ -1397,3 +1404,96 @@ if (promptEl && composerEl) {
 
 
 fetchModels();
+
+// AUTH HELPERS
+const ensureAuth = async () => {
+    if (!backendURL) return false;
+    try {
+        const res = await fetch(buildApiUrl('/api/auth/me'), { method: 'GET', credentials: 'include' });
+        if (res.ok) {
+            const data = await res.json();
+            currentUser = data;
+            adminTabs.forEach(tab => { if (data.is_admin) { tab.removeAttribute('hidden'); } else { tab.setAttribute('hidden', ''); } });
+            return true;
+        }
+        if (res.status === 401) {
+            window.location.href = './login.html';
+        }
+    } catch (err) {
+        console.warn('auth check failed', err);
+    }
+    return false;
+};
+
+const logout = async () => {
+    try {
+        await fetch(buildApiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' });
+    } catch (err) {
+        console.warn('logout failed', err);
+    }
+    window.location.href = './login.html';
+};
+
+const refreshUsers = async () => {
+    if (!usersListEl) return;
+    usersListEl.textContent = 'Loading...';
+    try {
+        const res = await fetch(buildApiUrl('/api/users'), { method: 'GET', credentials: 'include' });
+        if (!res.ok) throw new Error('Failed to load users');
+        const data = await res.json();
+        if (!data.length) {
+            usersListEl.textContent = 'No users yet';
+            return;
+        }
+        usersListEl.textContent = data.map(u => `${u.email}${u.is_admin ? ' (admin)' : ''}`).join(', ');
+    } catch (err) {
+        usersListEl.textContent = 'Error loading users';
+    }
+};
+
+const createUser = async () => {
+    if (!createUserBtn) return;
+    const email = document.getElementById('newUserEmail')?.value.trim();
+    const password = document.getElementById('newUserPassword')?.value;
+    const isAdmin = document.getElementById('newUserIsAdmin')?.checked;
+    if (!email || !password) {
+        showToast('Email and password required', 'error');
+        return;
+    }
+    createUserBtn.disabled = true;
+    try {
+        const res = await fetch(buildApiUrl('/api/users'), {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, is_admin: !!isAdmin })
+        });
+        if (!res.ok) throw new Error('Failed to create user');
+        showToast('User created', 'success');
+        refreshUsers();
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        createUserBtn.disabled = false;
+    }
+};
+
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', logout);
+}
+
+if (createUserBtn) {
+    createUserBtn.addEventListener('click', createUser);
+}
+
+(async () => {
+    await ensureAuth();
+    checkBackend();
+    syncSettingsUI();
+    applyGradient();
+    updateActiveStatus();
+    fetchModels();
+    if (currentUser && currentUser.is_admin) {
+        refreshUsers();
+    }
+})();
