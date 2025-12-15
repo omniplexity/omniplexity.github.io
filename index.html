@@ -24,101 +24,104 @@
             </div>
             <div class="hub" id="hubWrapper">
                 <button type="button" id="settingsToggle" class="icon-btn" aria-label="Open hub">Hub</button>
-                <section class="control-panel" id="controlPanel" aria-hidden="true">
-                    <div class="panel-header">
-                        <div>
-                            <p class="eyebrow">Control hub</p>
-                            <h3>Session settings</h3>
-                            <p class="muted small">Adjust model, guidance, search, and theme.</p>
-                        </div>
-                        <div class="panel-actions">
-                            <button type="button" id="closeHubBtn" class="icon-btn small" aria-label="Close hub">X</button>
-                        </div>
-                    </div>
-                    <div class="tab-bar">
-                        <button type="button" class="tab-btn active" data-tab="model">Models</button>
-                        <button type="button" class="tab-btn" data-tab="gen">Generation</button>
-                        <button type="button" class="tab-btn" data-tab="theme">Theme</button>
-                    </div>
-                    <div class="control-row tab-panel" data-tab-panel="model">
-                        <div class="control-group">
-                            <label for="modelSelect">Model</label>
-                            <select id="modelSelect">
-                                <option value="">Default (env)</option>
-                            </select>
-                        </div>
-                        <div class="control-group">
-                            <label for="systemPrompt">System prompt</label>
-                            <textarea id="systemPrompt" rows="2" placeholder="You are a helpful assistant..."></textarea>
-                        </div>
-                        <div class="control-group">
-                            <label for="activeStatus">Current settings</label>
-                            <div id="activeStatus" class="pill wide">Default model - temp 0.7 - top_p 1.0 - max 512</div>
-                        </div>
-                        <div class="control-group">
-                            <button type="button" id="reloadModelsBtn" class="theme-apply ghost">Reload models</button>
-                        </div>
-                    </div>
-                    <div class="control-row sliders tab-panel" data-tab-panel="gen" hidden>
-                        <div class="slider-group">
-                            <label for="tempSlider">Temperature <span id="tempValue">0.7</span></label>
-                            <input type="range" id="tempSlider" min="0" max="2" step="0.1" value="0.7">
-                        </div>
-                        <div class="slider-group">
-                            <label for="topPSlider">Top P <span id="topPValue">1.0</span></label>
-                            <input type="range" id="topPSlider" min="0" max="1" step="0.05" value="1.0">
-                        </div>
-                        <div class="slider-group">
-                            <label for="maxTokensInput">Max tokens</label>
-                            <input type="number" id="maxTokensInput" min="16" max="4096" step="16" value="512">
-                        </div>
-                        <div class="slider-group checkbox-group">
-                            <label><input type="checkbox" id="useSearchToggle"> Use web search</label>
-                        </div>
-                    </div>
-                    <div class="control-row theme-custom tab-panel" data-tab-panel="theme" hidden>
-                        <div class="control-group">
-                            <label>Gradient start</label>
-                            <div class="color-pair">
-                                <input type="color" id="gradStartPicker" value="#0b84ff">
-                                <input type="text" id="gradStartHex" value="#0b84ff" spellcheck="false">
-                            </div>
-                        </div>
-                        <div class="control-group">
-                            <label>Gradient end</label>
-                            <div class="color-pair">
-                                <input type="color" id="gradEndPicker" value="#0c9eff">
-                                <input type="text" id="gradEndHex" value="#0c9eff" spellcheck="false">
-                            </div>
-                        </div>
-                        <div class="slider-group">
-                            <label for="gradAngle">Gradient angle <span id="gradAngleValue">140 deg</span></label>
-                            <input type="range" id="gradAngle" min="0" max="360" step="5" value="140">
-                        </div>
-                        <div class="control-group apply-group">
-                            <button type="button" id="applyThemeBtn" class="theme-apply">Apply theme</button>
-                            <button type="button" id="resetThemeBtn" class="theme-apply ghost">Reset default</button>
-                        </div>
-                    </div>
-                    <div class="control-row theme-custom">
-                        <div class="control-group">
-                            <label for="themePreset">Theme preset</label>
-                            <select id="themePreset">
-                                <option value="">Pick a preset</option>
-                                <option value="aurora">Aurora</option>
-                                <option value="sunrise">Sunrise</option>
-                                <option value="midnight">Midnight</option>
-                                <option value="forest">Forest</option>
-                                <option value="ocean">Ocean</option>
-                                <option value="citrus">Citrus</option>
-                            </select>
-                        </div>
-                    </div>
-                </section>
             </div>
             <button type="button" id="themeToggle" class="theme-toggle" aria-label="Toggle dark mode">Dark</button>
         </div>
     </header>
+
+    <section class="control-panel" id="controlPanel" aria-hidden="true">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">Control hub</p>
+                <h3>Session settings</h3>
+                <p class="muted small">Adjust model, guidance, search, and theme.</p>
+            </div>
+            <div class="panel-actions">
+                <button type="button" id="closeHubBtn" class="icon-btn small" aria-label="Close hub">X</button>
+            </div>
+        </div>
+        <div class="tab-bar">
+            <button type="button" class="tab-btn active" data-tab="model">Models</button>
+            <button type="button" class="tab-btn" data-tab="gen">Generation</button>
+            <button type="button" class="tab-btn" data-tab="theme">Theme</button>
+        </div>
+        <div class="control-row tab-panel" data-tab-panel="model">
+            <div class="control-group">
+                <label for="modelSelect">Model</label>
+                <select id="modelSelect">
+                    <option value="">Default (env)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="systemPrompt">System prompt</label>
+                <textarea id="systemPrompt" rows="2" placeholder="You are a helpful assistant..."></textarea>
+            </div>
+            <div class="control-group">
+                <label for="activeStatus">Current settings</label>
+                <div id="activeStatus" class="pill wide">Default model - temp 0.7 - top_p 1.0 - max 512</div>
+            </div>
+            <div class="control-group">
+                <button type="button" id="reloadModelsBtn" class="theme-apply ghost">Reload models</button>
+            </div>
+        </div>
+        <div class="control-row sliders tab-panel" data-tab-panel="gen" hidden>
+            <div class="slider-group">
+                <label for="tempSlider">Temperature <span id="tempValue">0.7</span></label>
+                <input type="range" id="tempSlider" min="0" max="2" step="0.1" value="0.7">
+            </div>
+            <div class="slider-group">
+                <label for="topPSlider">Top P <span id="topPValue">1.0</span></label>
+                <input type="range" id="topPSlider" min="0" max="1" step="0.05" value="1.0">
+            </div>
+            <div class="slider-group">
+                <label for="maxTokensInput">Max tokens</label>
+                <input type="number" id="maxTokensInput" min="16" max="4096" step="16" value="512">
+            </div>
+            <div class="slider-group checkbox-group">
+                <label><input type="checkbox" id="useSearchToggle"> Use web search</label>
+            </div>
+        </div>
+        <div class="control-row theme-custom tab-panel" data-tab-panel="theme" hidden>
+            <div class="control-group">
+                <label>Gradient start</label>
+                <div class="color-pair">
+                    <input type="color" id="gradStartPicker" value="#0b84ff">
+                    <input type="text" id="gradStartHex" value="#0b84ff" spellcheck="false">
+                </div>
+            </div>
+            <div class="control-group">
+                <label>Gradient end</label>
+                <div class="color-pair">
+                    <input type="color" id="gradEndPicker" value="#0c9eff">
+                    <input type="text" id="gradEndHex" value="#0c9eff" spellcheck="false">
+                </div>
+            </div>
+            <div class="slider-group">
+                <label for="gradAngle">Gradient angle <span id="gradAngleValue">140 deg</span></label>
+                <input type="range" id="gradAngle" min="0" max="360" step="5" value="140">
+            </div>
+            <div class="control-group apply-group">
+                <button type="button" id="applyThemeBtn" class="theme-apply">Apply theme</button>
+                <button type="button" id="resetThemeBtn" class="theme-apply ghost">Reset default</button>
+            </div>
+        </div>
+        <div class="control-row theme-custom">
+            <div class="control-group">
+                <label for="themePreset">Theme preset</label>
+                <select id="themePreset">
+                    <option value="">Pick a preset</option>
+                    <option value="aurora">Aurora</option>
+                    <option value="sunrise">Sunrise</option>
+                    <option value="midnight">Midnight</option>
+                    <option value="forest">Forest</option>
+                    <option value="ocean">Ocean</option>
+                    <option value="citrus">Citrus</option>
+                </select>
+            </div>
+        </div>
+    </section>
+
+    <div class="backdrop" id="hubBackdrop" aria-hidden="true"></div>
 
     <div id="toast" class="toast" aria-live="polite" aria-atomic="true"></div>
 
