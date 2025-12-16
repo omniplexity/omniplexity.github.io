@@ -6,7 +6,7 @@
     <title>OmniAI</title>
     <link rel="stylesheet" href="style.css">
     <script>
-        // Pre-flight auth check: set a sane default backend URL and redirect to login if not authenticated.
+        // Pre-flight auth check: set backend URL and force login unless /api/auth/me succeeds.
         (function () {
             const DEFAULT_CHAT_URL = "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
 
@@ -20,31 +20,30 @@
                 return url.toString();
             };
 
-            // Seed localStorage so chat.js and login.js pick up the same backend without manual input.
             const stored = localStorage.getItem("backendURL");
             const chatUrl = normalizeChatUrl(stored || DEFAULT_CHAT_URL);
             if (chatUrl) {
                 localStorage.setItem("backendURL", chatUrl);
             } else {
-                return; // Can't do anything sensible without a backend URL.
+                window.location.href = "./login.html";
+                return;
             }
 
-            // Derive auth URL and check session; redirect to login if unauthenticated.
             try {
                 const authUrl = new URL(chatUrl);
                 authUrl.pathname = "/api/auth/me";
                 authUrl.search = "";
                 fetch(authUrl.toString(), { credentials: "include" })
                     .then((res) => {
-                        if (res.status === 401) {
+                        if (res.status !== 200) {
                             window.location.href = "./login.html";
                         }
                     })
                     .catch(() => {
-                        // If backend not reachable yet, let chat.js surface status.
+                        window.location.href = "./login.html";
                     });
             } catch {
-                // If URL parsing fails, let chat.js handle it.
+                window.location.href = "./login.html";
             }
         })();
     </script>
