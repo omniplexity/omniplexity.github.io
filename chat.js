@@ -659,29 +659,18 @@ composerEl.addEventListener("submit", async (event) => {
         setStatus("connecting", "Sending...");
 
         const response = await fetch(backendURL, {
-
             method: "POST",
-
+            credentials: "include",
             headers: { "Content-Type": "application/json" },
-
             body: JSON.stringify({
-
                 message: input,
-
                 model: settings.model || null,
-
                 system_prompt: settings.systemPrompt || null,
-
                 temperature: settings.temperature,
-
                 top_p: settings.topP,
-
                 max_tokens: settings.maxTokens,
-
                 use_search: settings.useSearch,
-
             })
-
         });
 
 
