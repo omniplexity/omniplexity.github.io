@@ -423,11 +423,23 @@ const getHealthUrl = () => {
     }
 };
 
+const getRootHealthUrl = () => {
+    try {
+        const url = new URL(backendURL);
+        url.pathname = "/";
+        url.search = "";
+        return url.toString();
+    } catch {
+        return null;
+    }
+};
+
 
 
 const checkBackend = async ({ toast = true } = {}) => {
     if (!ensureBackendConfigured()) return;
     const healthUrl = getHealthUrl();
+    const fallbackUrl = getRootHealthUrl();
     if (!healthUrl) {
         setStatus("error", "Invalid backend URL");
         if (toast) showToast("Invalid backend URL", "error");
@@ -446,6 +458,26 @@ const checkBackend = async ({ toast = true } = {}) => {
             console.warn("Backend health check failed", healthUrl, res.status);
         }
     } catch (err) {
+        // Try a root-level GET as a fallback (avoids auth edge cases)
+        if (fallbackUrl) {
+            try {
+                const res = await fetch(fallbackUrl, { method: "GET", credentials: "include" });
+                if (res.ok) {
+                    setStatus("ok", "Connected to backend");
+                    return;
+                }
+                if (res.status === 401) {
+                    setStatus("ok", "Backend reachable (login required)");
+                    return;
+                }
+                setStatus("error", `Backend ${res.status}`);
+                if (toast) showToast(`Backend error ${res.status}`, "error");
+                console.warn("Backend fallback health failed", fallbackUrl, res.status);
+                return;
+            } catch (err2) {
+                console.warn("Backend fallback health error", fallbackUrl, err2);
+            }
+        }
         setStatus("error", "Backend unreachable");
         if (toast) showToast(`Backend unreachable: ${err.message}`, "error");
         console.warn("Backend health check error", healthUrl, err);
@@ -739,6 +771,9 @@ composerEl.addEventListener("submit", async (event) => {
         if (sendBtn) sendBtn.textContent = sendBtnDefaultText;
 
         promptEl.focus();
+
+        // Successful send sets status to healthy
+        setStatus("ok", "Connected to backend");
 
     }
 
