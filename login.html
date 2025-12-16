@@ -58,6 +58,7 @@ const normalizeChatUrl = (candidate) => {
 let chatURL = "";
 let loginURL = "";
 let healthURL = "";
+let authMeURL = "";
 
 // Force the default backend chat URL into localStorage so chat/index share it.
 try {
@@ -65,6 +66,7 @@ try {
     localStorage.setItem("backendURL", chatURL);
     loginURL = chatURL.replace(/\/api\/chat\/?$/, "/api/auth/login");
     healthURL = chatURL.replace(/\/api\/chat\/?$/, "/");
+    authMeURL = chatURL.replace(/\/api\/chat\/?$/, "/api/auth/me");
 } catch {
     statusEl.textContent = "Invalid backend URL configured.";
 }
@@ -121,8 +123,24 @@ form.addEventListener("submit", async (e) => {
             const data = await res.json().catch(() => ({}));
             throw new Error(data.detail || `Login failed (${res.status})`);
         }
+        statusEl.textContent = "Success. Verifying session...";
+        // Verify the cookie stuck; if it didn't, tell the user why.
+        if (authMeURL) {
+            try {
+                const me = await fetch(authMeURL, { method: "GET", credentials: "include" });
+                if (!me.ok) {
+                    throw new Error("Session not established. Please allow cookies for this site.");
+                }
+            } catch (errCheck) {
+                statusEl.textContent = errCheck.message || "Session check failed. Allow cookies and retry.";
+                return;
+            }
+        }
         statusEl.textContent = "Success. Redirecting...";
-        setTimeout(() => { window.location.href = "./index.html"; }, 400);
+        // Use replace to avoid keeping login page in history; add cache-buster to avoid stale HTML.
+        const target = `./index.html?ts=${Date.now()}`;
+        window.location.replace(target);
+        setTimeout(() => { window.location.href = target; }, 500); // fallback
     } catch (err) {
         statusEl.textContent = err.message;
     } finally {
