@@ -20,6 +20,7 @@
             };
 
             const DEFAULT_CHAT_URL = resolveDefaultBackendUrl();
+            const NGROK_HEADERS = { "ngrok-skip-browser-warning": "true" };
 
             const normalizeChatUrl = (candidate) => {
                 if (!candidate) return "";
@@ -45,7 +46,7 @@
                 const authUrl = new URL(chatUrl);
                 authUrl.pathname = "/api/auth/me";
                 authUrl.search = "";
-                fetch(authUrl.toString(), { credentials: "include" })
+                fetch(authUrl.toString(), { credentials: "include", headers: NGROK_HEADERS })
                     .then((res) => {
                         // Do not redirect here; let chat.js surface auth status and avoid loops.
                         if (res.status !== 200) {

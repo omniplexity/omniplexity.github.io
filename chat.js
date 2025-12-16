@@ -15,6 +15,13 @@ const resolveDefaultBackendUrl = () => {
 
 const defaultBackendURL = resolveDefaultBackendUrl();
 
+const NGROK_HEADERS = { "ngrok-skip-browser-warning": "true" };
+const ngrokFetch = (url, options = {}) => {
+    return fetch(url, {
+        ...options,
+        headers: { ...(options.headers || {}), ...NGROK_HEADERS }
+    });
+};
 
 
 const ensureChatPath = (urlObj) => {
@@ -477,7 +484,7 @@ const checkBackend = async ({ toast = true } = {}) => {
     }
     setStatus("connecting", "Checking backend...");
     try {
-        const res = await fetch(healthUrl, { method: "GET", credentials: "omit" });
+        const res = await ngrokFetch(healthUrl, { method: "GET", credentials: "omit" });
         if (!handleHealthResponse(res, healthUrl)) {
             setStatus("error", `Backend ${res.status}`);
             if (toast) showToast(`Backend error ${res.status}`, "error");
@@ -487,7 +494,7 @@ const checkBackend = async ({ toast = true } = {}) => {
         // Try a root-level GET as a fallback (avoids auth edge cases)
         if (fallbackUrl) {
             try {
-                const res = await fetch(fallbackUrl, { method: "GET", credentials: "omit" });
+                const res = await ngrokFetch(fallbackUrl, { method: "GET", credentials: "omit" });
                 if (handleHealthResponse(res, fallbackUrl)) return;
                 setStatus("error", `Backend ${res.status}`);
                 if (toast) showToast(`Backend error ${res.status}`, "error");
@@ -501,7 +508,7 @@ const checkBackend = async ({ toast = true } = {}) => {
         const opaqueTarget = fallbackUrl || healthUrl;
         if (opaqueTarget) {
             try {
-                const res = await fetch(opaqueTarget, { method: "GET", mode: "no-cors" });
+                const res = await ngrokFetch(opaqueTarget, { method: "GET", mode: "no-cors" });
                 // If we got here without throwing, treat as reachable.
                 handleHealthResponse(res, opaqueTarget);
                 return;
@@ -730,7 +737,7 @@ composerEl.addEventListener("submit", async (event) => {
 
         setStatus("connecting", "Sending...");
 
-        const response = await fetch(backendURL, {
+        const response = await ngrokFetch(backendURL, {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
@@ -1334,7 +1341,7 @@ const fetchModels = async () => {
 
     try {
 
-        const res = await fetch(url, { method: "GET", credentials: "include" });
+        const res = await ngrokFetch(url, { method: "GET", credentials: "include" });
 
         if (!res.ok) {
 
@@ -1440,7 +1447,7 @@ fetchModels();
 const ensureAuth = async () => {
     if (!backendURL) return false;
     try {
-        const res = await fetch(buildApiUrl('/api/auth/me'), { method: 'GET', credentials: 'include' });
+        const res = await ngrokFetch(buildApiUrl('/api/auth/me'), { method: 'GET', credentials: 'include' });
         window.authCheck = { status: res.status, type: res.type };
         if (res.ok) {
             const data = await res.json();
@@ -1489,7 +1496,7 @@ const ensureAuth = async () => {
 
 const logout = async () => {
     try {
-        await fetch(buildApiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' });
+        await ngrokFetch(buildApiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' });
     } catch (err) {
         console.warn('logout failed', err);
     }
@@ -1500,7 +1507,7 @@ const refreshUsers = async () => {
     if (!usersListEl) return;
     usersListEl.textContent = 'Loading...';
     try {
-        const res = await fetch(buildApiUrl('/api/users'), { method: 'GET', credentials: 'include' });
+        const res = await ngrokFetch(buildApiUrl('/api/users'), { method: 'GET', credentials: 'include' });
         if (!res.ok) throw new Error('Failed to load users');
         const data = await res.json();
         if (!data.length) {
@@ -1524,7 +1531,7 @@ const createUser = async () => {
     }
     createUserBtn.disabled = true;
     try {
-        const res = await fetch(buildApiUrl('/api/users'), {
+        const res = await ngrokFetch(buildApiUrl('/api/users'), {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },

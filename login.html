@@ -45,6 +45,7 @@ const form = document.getElementById("loginForm");
 const emailEl = document.getElementById("loginEmail");
 const passEl = document.getElementById("loginPassword");
 const btn = document.getElementById("loginBtn");
+const ngrokHeaders = { "ngrok-skip-browser-warning": "true" };
 
 const normalizeChatUrl = (candidate) => {
     let normalized = candidate.trim();
@@ -81,7 +82,7 @@ try {
 const checkExistingSession = async () => {
     if (!authMeURL) return;
     try {
-        const res = await fetch(authMeURL, { method: "GET", credentials: "include" });
+        const res = await fetch(authMeURL, { method: "GET", credentials: "include", headers: ngrokHeaders });
         if (res.ok) {
             statusEl.textContent = "Session active. Redirecting...";
             redirectToApp();
@@ -109,7 +110,7 @@ const checkBackendStatus = async () => {
         return;
     }
     try {
-        const res = await fetch(healthURL, { method: "GET", credentials: "omit" });
+        const res = await fetch(healthURL, { method: "GET", credentials: "omit", headers: ngrokHeaders });
         // Treat non-5xx and opaque as reachable to avoid CORS false negatives
         if (res.type === "opaque" || res.status === 0 || res.status < 500) {
             indicator.style.background = "#16a34a"; // green
@@ -136,7 +137,7 @@ form.addEventListener("submit", async (e) => {
         const res = await fetch(loginURL, {
             method: "POST",
             credentials: "include",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...ngrokHeaders },
             body: JSON.stringify({ email: emailEl.value.trim(), password: passEl.value })
         });
         if (!res.ok) {
@@ -147,7 +148,7 @@ form.addEventListener("submit", async (e) => {
         // Verify the cookie stuck; if it didn't, tell the user why.
         if (authMeURL) {
             try {
-                const me = await fetch(authMeURL, { method: "GET", credentials: "include" });
+                const me = await fetch(authMeURL, { method: "GET", credentials: "include", headers: ngrokHeaders });
                 if (!me.ok) {
                     throw new Error("Session not established. Please allow cookies for this site.");
                 }
