@@ -1,6 +1,19 @@
-// Your backend root URL (change this when ngrok updates).
-// Forced default; login and chat will both seed this into localStorage.
-const defaultBackendURL = "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
+// Pick a sane default backend depending on where the page is served:
+// - On GitHub Pages, use the public ngrok URL (HTTPS to avoid mixed content).
+// - Locally (localhost/127.0.0.1), use the local tunnel ingress.
+const resolveDefaultBackendUrl = () => {
+    const host = window.location.hostname;
+    if (host && host.endsWith("github.io")) {
+        return "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
+    }
+    if (host === "localhost" || host === "127.0.0.1") {
+        return "http://localhost/api/chat";
+    }
+    // Fallback to the ngrok URL for any other host.
+    return "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
+};
+
+const defaultBackendURL = resolveDefaultBackendUrl();
 
 
 

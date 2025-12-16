@@ -28,7 +28,18 @@
     </div>
 </div>
 <script>
-const defaultBackendURL = "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
+const resolveDefaultBackendUrl = () => {
+    const host = window.location.hostname;
+    if (host && host.endsWith("github.io")) {
+        return "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
+    }
+    if (host === "localhost" || host === "127.0.0.1") {
+        return "http://localhost/api/chat";
+    }
+    return "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
+};
+
+const defaultBackendURL = resolveDefaultBackendUrl();
 const statusEl = document.getElementById("loginStatus");
 const form = document.getElementById("loginForm");
 const emailEl = document.getElementById("loginEmail");
