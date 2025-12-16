@@ -118,6 +118,9 @@ let toastTimer = null;
 let sendBtnDefaultText = sendBtn ? sendBtn.textContent : "Send";
 
 const messageLog = [];
+let lastChatOk = 0;
+let authWarningShown = false;
+let modelWarningShown = false;
 
 // Force the backend URL to the known ngrok endpoint; override any stale stored value
 const storedBackend = defaultBackendURL;
@@ -782,6 +785,9 @@ composerEl.addEventListener("submit", async (event) => {
 
         markBackendReachable("Connected to backend");
 
+        lastChatOk = Date.now();
+        authWarningShown = false;
+
         showToast("Reply received", "success");
 
     } catch (error) {
@@ -1309,22 +1315,21 @@ const fetchModels = async () => {
 
     const url = buildApiUrl("/api/models");
 
-    if (!url) {
-
+    const warnModels = (msg) => {
         populateModelList([]);
-
         settings.model = "";
-
         syncSettingsUI();
-
         persistSettings();
-
         updateActiveStatus();
+        if (!modelWarningShown) {
+            showToast(msg, "warning");
+            modelWarningShown = true;
+        }
+    };
 
-        showToast("Model list unavailable; using default", "error");
-
+    if (!url) {
+        warnModels("Model list unavailable; using default");
         return;
-
     }
 
     try {
@@ -1333,17 +1338,7 @@ const fetchModels = async () => {
 
         if (!res.ok) {
 
-            populateModelList([]);
-
-            settings.model = "";
-
-            syncSettingsUI();
-
-            persistSettings();
-
-            updateActiveStatus();
-
-            showToast("Model list unavailable; using default", "error");
+            warnModels("Model list unavailable; using default");
 
             return;
 
@@ -1383,17 +1378,7 @@ const fetchModels = async () => {
 
         console.warn("Model fetch failed", err);
 
-        populateModelList([]);
-
-        settings.model = "";
-
-        syncSettingsUI();
-
-        persistSettings();
-
-        updateActiveStatus();
-
-        showToast("Model list unavailable; using default", "error");
+        warnModels("Model list unavailable; using default");
 
     }
 
@@ -1456,23 +1441,43 @@ const ensureAuth = async () => {
     if (!backendURL) return false;
     try {
         const res = await fetch(buildApiUrl('/api/auth/me'), { method: 'GET', credentials: 'include' });
-        window.authCheck = { status: res.status };
+        window.authCheck = { status: res.status, type: res.type };
         if (res.ok) {
             const data = await res.json();
             currentUser = data;
             adminTabs.forEach(tab => { if (data.is_admin) { tab.removeAttribute('hidden'); } else { tab.setAttribute('hidden', ''); } });
             markBackendReachable("Authenticated");
+            authWarningShown = false;
             return true;
         }
+        const recentOk = lastChatOk && (Date.now() - lastChatOk < 5 * 60 * 1000);
+        const opaque = res.type === "opaque" || res.status === 0;
         if (res.status === 401) {
             setStatus("error", "Not authenticated");
             showToast('Session missing/expired. Please log in again.', 'error');
             return false;
         }
+        if (opaque || recentOk) {
+            markBackendReachable(recentOk ? "Connected (recent activity)" : "Connected (auth check blocked)");
+            if (!authWarningShown) {
+                showToast('Auth check blocked by browser; assuming session is active.', 'warning');
+                authWarningShown = true;
+            }
+            return true;
+        }
         setStatus("error", `Auth check ${res.status}`);
         showToast(`Auth check failed (${res.status}). See console for details.`, 'error');
     } catch (err) {
         console.warn('auth check failed', err);
+        const recentOk = lastChatOk && (Date.now() - lastChatOk < 5 * 60 * 1000);
+        if (recentOk) {
+            markBackendReachable("Connected (recent activity)");
+            if (!authWarningShown) {
+                showToast('Auth check failed; using recent activity as proof of session.', 'warning');
+                authWarningShown = true;
+            }
+            return true;
+        }
         setStatus("error", "Auth check failed");
         showToast('Auth check failed (network/CORS). Check console.', 'error');
     }
