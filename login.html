@@ -59,6 +59,7 @@ let chatURL = "";
 let loginURL = "";
 let healthURL = "";
 let authMeURL = "";
+const LAST_LOGIN_KEY = "omniLastLoginTs";
 const redirectToApp = () => {
     const target = `./index.html?ts=${Date.now()}`;
     window.location.replace(target);
@@ -157,6 +158,11 @@ form.addEventListener("submit", async (e) => {
             }
         }
         statusEl.textContent = "Success. Redirecting...";
+        try {
+            localStorage.setItem(LAST_LOGIN_KEY, String(Date.now()));
+        } catch {
+            // ignore storage failures
+        }
         redirectToApp();
     } catch (err) {
         statusEl.textContent = err.message;

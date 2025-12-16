@@ -8,12 +8,6 @@
     <script>
         // Pre-flight auth check: set backend URL and force login unless /api/auth/me succeeds.
         (function () {
-            // For the GitHub Pages base URL, always land on the login screen first.
-            if (window.location.hostname === "omniplexity.github.io" && !window.location.pathname.endsWith("login.html")) {
-                window.location.replace("./login.html");
-                return;
-            }
-
             const resolveDefaultBackendUrl = () => {
                 const host = window.location.hostname;
                 if (host && host.endsWith("github.io")) {
@@ -43,6 +37,16 @@
                 localStorage.setItem("backendURL", chatUrl);
             } else {
                 window.location.href = "./login.html";
+                return;
+            }
+
+            // For the GitHub Pages base URL, send first-time visitors to login.
+            if (
+                window.location.hostname === "omniplexity.github.io" &&
+                !window.location.pathname.endsWith("login.html") &&
+                !localStorage.getItem("omniLastLoginTs")
+            ) {
+                window.location.replace("./login.html");
                 return;
             }
 
