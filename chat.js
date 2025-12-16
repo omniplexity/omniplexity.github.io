@@ -434,8 +434,11 @@ const getRootHealthUrl = () => {
     }
 };
 
+let lastBackendOk = 0;
+
 const markBackendReachable = (message = "Connected to backend") => {
     setStatus("ok", message);
+    lastBackendOk = Date.now();
 };
 
 const handleHealthResponse = (res, label) => {
@@ -503,8 +506,14 @@ const checkBackend = async ({ toast = true } = {}) => {
                 console.warn("Backend opaque health error", opaqueTarget, err3);
             }
         }
-        setStatus("error", "Backend unreachable");
-        if (toast) showToast(`Backend unreachable: ${err.message}`, "error");
+        // If we recently had a successful contact, keep the badge green to avoid flapping.
+        const RECENT_OK_MS = 120000; // 2 minutes
+        if (Date.now() - lastBackendOk < RECENT_OK_MS) {
+            markBackendReachable("Recently connected");
+        } else {
+            setStatus("error", "Backend unreachable");
+            if (toast) showToast(`Backend unreachable: ${err.message}`, "error");
+        }
         console.warn("Backend health check error", healthUrl, err);
     }
 };
@@ -513,7 +522,9 @@ let healthPollTimer = null;
 
 const startHealthPolling = () => {
     if (healthPollTimer) clearInterval(healthPollTimer);
-    healthPollTimer = setInterval(() => checkBackend({ toast: false }), 30000);
+    const run = () => checkBackend({ toast: false });
+    run();
+    healthPollTimer = setInterval(run, 30000);
 };
 
 
@@ -769,7 +780,7 @@ composerEl.addEventListener("submit", async (event) => {
 
         messageLog.push({ role: "assistant", content: reply, ts: Date.now() });
 
-        setStatus("ok", "Connected to backend");
+        markBackendReachable("Connected to backend");
 
         showToast("Reply received", "success");
 
