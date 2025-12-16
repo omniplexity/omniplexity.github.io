@@ -7,7 +7,7 @@ const resolveDefaultBackendUrl = () => {
         return "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
     }
     if (host === "localhost" || host === "127.0.0.1") {
-        return "http://localhost/api/chat";
+        return "http://localhost:8000/api/chat";
     }
     // Fallback to the ngrok URL for any other host.
     return "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
