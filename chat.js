@@ -433,12 +433,12 @@ const getHealthUrl = () => {
 
 
 
-const checkBackend = async () => {
+const checkBackend = async ({ toast = true } = {}) => {
     if (!ensureBackendConfigured()) return;
     const healthUrl = getHealthUrl();
     if (!healthUrl) {
         setStatus("error", "Invalid backend URL");
-        showToast("Invalid backend URL", "error");
+        if (toast) showToast("Invalid backend URL", "error");
         return;
     }
     setStatus("connecting", "Checking backend...");
@@ -450,12 +450,19 @@ const checkBackend = async () => {
             setStatus("ok", "Backend reachable (login required)");
         } else {
             setStatus("error", `Backend ${res.status}`);
-            showToast(`Backend error ${res.status}`, "error");
+            if (toast) showToast(`Backend error ${res.status}`, "error");
         }
     } catch (err) {
         setStatus("error", "Backend unreachable");
-        showToast("Backend unreachable", "error");
+        if (toast) showToast(`Backend unreachable: ${err.message}`, "error");
     }
+};
+
+let healthPollTimer = null;
+
+const startHealthPolling = () => {
+    if (healthPollTimer) clearInterval(healthPollTimer);
+    healthPollTimer = setInterval(() => checkBackend({ toast: false }), 30000);
 };
 
 
@@ -1463,6 +1470,7 @@ if (createUserBtn) {
 (async () => {
     ensureBackendConfigured();
     await checkBackend();
+    startHealthPolling();
     await ensureAuth();
     syncSettingsUI();
     applyGradient();
