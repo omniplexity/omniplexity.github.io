@@ -50,32 +50,26 @@
                 return;
             }
 
-            const redirectToLogin = () => {
-                // Use replace to avoid loops in history
-                window.location.replace("./login.html");
-            };
-
             try {
                 const authUrl = new URL(chatUrl);
                 authUrl.pathname = "/api/auth/me";
                 authUrl.search = "";
                 fetch(authUrl.toString(), { credentials: "include" })
                     .then((res) => {
-                        if (res.status === 401) {
-                            redirectToLogin();
-                        } else if (res.status !== 200) {
-                            // Warn but allow the page to load; chat.js will surface status.
-                            console.warn("Auth precheck non-200; continuing", res.status);
+                        // Do not redirect here; let chat.js surface auth status and avoid loops.
+                        if (res.status !== 200) {
+                            console.warn("Auth precheck non-OK; continuing", res.status);
                             window.authPrecheckWarning = res.status;
+                        } else {
+                            window.authPrecheckWarning = "ok";
                         }
                     })
                     .catch((err) => {
-                        // Avoid hard redirect on network/CORS errors; user may have just logged in.
                         console.warn("Auth precheck failed; continuing", err);
                         window.authPrecheckWarning = "error";
                     });
             } catch {
-                redirectToLogin();
+                // If URL parsing fails, let chat.js handle errors.
             }
         })();
     </script>

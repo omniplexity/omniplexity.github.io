@@ -1456,19 +1456,25 @@ const ensureAuth = async () => {
     if (!backendURL) return false;
     try {
         const res = await fetch(buildApiUrl('/api/auth/me'), { method: 'GET', credentials: 'include' });
+        window.authCheck = { status: res.status };
         if (res.ok) {
             const data = await res.json();
             currentUser = data;
             adminTabs.forEach(tab => { if (data.is_admin) { tab.removeAttribute('hidden'); } else { tab.setAttribute('hidden', ''); } });
+            markBackendReachable("Authenticated");
             return true;
         }
         if (res.status === 401) {
-            window.location.href = './login.html';
+            setStatus("error", "Not authenticated");
+            showToast('Session missing/expired. Please log in again.', 'error');
+            return false;
         }
+        setStatus("error", `Auth check ${res.status}`);
+        showToast(`Auth check failed (${res.status}). See console for details.`, 'error');
     } catch (err) {
         console.warn('auth check failed', err);
-        // If we cannot verify auth (CORS or network), force login to avoid a false "logged-in" state.
-        window.location.href = './login.html';
+        setStatus("error", "Auth check failed");
+        showToast('Auth check failed (network/CORS). Check console.', 'error');
     }
     return false;
 };
