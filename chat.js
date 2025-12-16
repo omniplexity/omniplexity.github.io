@@ -439,6 +439,11 @@ const markBackendReachable = (message = "Connected to backend") => {
 };
 
 const handleHealthResponse = (res, label) => {
+    // Opaque or status 0 (e.g., no-cors) still means the server responded.
+    if (res.type === "opaque" || res.status === 0) {
+        markBackendReachable("Backend reachable");
+        return true;
+    }
     // Treat any non-5xx response as reachable so users don't see false negatives.
     if (res.status < 500) {
         if (res.status === 401) {
@@ -466,7 +471,7 @@ const checkBackend = async ({ toast = true } = {}) => {
     }
     setStatus("connecting", "Checking backend...");
     try {
-        const res = await fetch(healthUrl, { method: "GET", credentials: "include" });
+        const res = await fetch(healthUrl, { method: "GET", credentials: "omit" });
         if (!handleHealthResponse(res, healthUrl)) {
             setStatus("error", `Backend ${res.status}`);
             if (toast) showToast(`Backend error ${res.status}`, "error");
@@ -476,7 +481,7 @@ const checkBackend = async ({ toast = true } = {}) => {
         // Try a root-level GET as a fallback (avoids auth edge cases)
         if (fallbackUrl) {
             try {
-                const res = await fetch(fallbackUrl, { method: "GET", credentials: "include" });
+                const res = await fetch(fallbackUrl, { method: "GET", credentials: "omit" });
                 if (handleHealthResponse(res, fallbackUrl)) return;
                 setStatus("error", `Backend ${res.status}`);
                 if (toast) showToast(`Backend error ${res.status}`, "error");
@@ -484,6 +489,18 @@ const checkBackend = async ({ toast = true } = {}) => {
                 return;
             } catch (err2) {
                 console.warn("Backend fallback health error", fallbackUrl, err2);
+            }
+        }
+        // As a last resort, try a no-cors ping which yields an opaque response on success.
+        const opaqueTarget = fallbackUrl || healthUrl;
+        if (opaqueTarget) {
+            try {
+                const res = await fetch(opaqueTarget, { method: "GET", mode: "no-cors" });
+                // If we got here without throwing, treat as reachable.
+                handleHealthResponse(res, opaqueTarget);
+                return;
+            } catch (err3) {
+                console.warn("Backend opaque health error", opaqueTarget, err3);
             }
         }
         setStatus("error", "Backend unreachable");
