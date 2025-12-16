@@ -45,12 +45,46 @@ const normalizeBackendUrl = (candidate) => {
 };
 
 let backendURL = "";
+
+// Force the default backend URL into localStorage so the chat page aligns.
 try {
-    const stored = localStorage.getItem("backendURL") || defaultBackendURL;
-    backendURL = normalizeBackendUrl(stored);
+    backendURL = normalizeBackendUrl(defaultBackendURL);
+    localStorage.setItem("backendURL", backendURL);
 } catch {
     statusEl.textContent = "Invalid backend URL configured.";
 }
+
+// Quick connectivity check with a status indicator (green = ok, red = bad)
+const checkBackendStatus = async () => {
+    const indicator = document.createElement("span");
+    indicator.style.display = "inline-block";
+    indicator.style.marginLeft = "8px";
+    indicator.style.width = "10px";
+    indicator.style.height = "10px";
+    indicator.style.borderRadius = "50%";
+    indicator.style.verticalAlign = "middle";
+    indicator.style.background = "#c1121f"; // red default
+    statusEl.prepend(indicator);
+
+    if (!backendURL) {
+        statusEl.textContent = "Backend URL missing";
+        indicator.style.background = "#c1121f";
+        return;
+    }
+    try {
+        const res = await fetch(backendURL.replace(/\/api\/chat\/?$/, "/"), { method: "GET", credentials: "include" });
+        if (res.ok) {
+            indicator.style.background = "#16a34a"; // green
+            statusEl.textContent = "Backend reachable";
+        } else {
+            indicator.style.background = "#c1121f";
+            statusEl.textContent = `Backend error ${res.status}`;
+        }
+    } catch (err) {
+        indicator.style.background = "#c1121f";
+        statusEl.textContent = "Backend unreachable";
+    }
+};
 
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -79,6 +113,9 @@ form.addEventListener("submit", async (e) => {
         btn.disabled = false;
     }
 });
+
+// Run initial backend check
+checkBackendStatus();
 </script>
 </body>
 </html>

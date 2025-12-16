@@ -5,6 +5,49 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OmniAI</title>
     <link rel="stylesheet" href="style.css">
+    <script>
+        // Pre-flight auth check: set a sane default backend URL and redirect to login if not authenticated.
+        (function () {
+            const DEFAULT_CHAT_URL = "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
+
+            const normalizeChatUrl = (candidate) => {
+                if (!candidate) return "";
+                let normalized = candidate.trim();
+                if (!/^https?:\/\//i.test(normalized)) normalized = `https://${normalized}`;
+                const url = new URL(normalized);
+                if (!/\/api\/chat\/?$/.test(url.pathname)) url.pathname = "/api/chat";
+                url.search = "";
+                return url.toString();
+            };
+
+            // Seed localStorage so chat.js and login.js pick up the same backend without manual input.
+            const stored = localStorage.getItem("backendURL");
+            const chatUrl = normalizeChatUrl(stored || DEFAULT_CHAT_URL);
+            if (chatUrl) {
+                localStorage.setItem("backendURL", chatUrl);
+            } else {
+                return; // Can't do anything sensible without a backend URL.
+            }
+
+            // Derive auth URL and check session; redirect to login if unauthenticated.
+            try {
+                const authUrl = new URL(chatUrl);
+                authUrl.pathname = "/api/auth/me";
+                authUrl.search = "";
+                fetch(authUrl.toString(), { credentials: "include" })
+                    .then((res) => {
+                        if (res.status === 401) {
+                            window.location.href = "./login.html";
+                        }
+                    })
+                    .catch(() => {
+                        // If backend not reachable yet, let chat.js surface status.
+                    });
+            } catch {
+                // If URL parsing fails, let chat.js handle it.
+            }
+        })();
+    </script>
 </head>
 <body>
 

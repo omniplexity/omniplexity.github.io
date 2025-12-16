@@ -1,7 +1,5 @@
 // Your backend root URL (change this when ngrok updates).
-
-// Leave blank to force setting via the UI input.
-
+// Forced default; login and chat will both seed this into localStorage.
 const defaultBackendURL = "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
 
 
