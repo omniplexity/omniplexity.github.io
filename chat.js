@@ -1456,6 +1456,8 @@ const ensureAuth = async () => {
         }
     } catch (err) {
         console.warn('auth check failed', err);
+        // If we cannot verify auth (CORS or network), force login to avoid a false "logged-in" state.
+        window.location.href = './login.html';
     }
     return false;
 };
