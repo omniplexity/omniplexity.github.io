@@ -8,7 +8,18 @@
     <script>
         // Pre-flight auth check: set backend URL and force login unless /api/auth/me succeeds.
         (function () {
-            const DEFAULT_CHAT_URL = "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
+            const resolveDefaultBackendUrl = () => {
+                const host = window.location.hostname;
+                if (host && host.endsWith("github.io")) {
+                    return "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
+                }
+                if (host === "localhost" || host === "127.0.0.1") {
+                    return `http://${host}:8000/api/chat`;
+                }
+                return "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
+            };
+
+            const DEFAULT_CHAT_URL = resolveDefaultBackendUrl();
 
             const normalizeChatUrl = (candidate) => {
                 if (!candidate) return "";
