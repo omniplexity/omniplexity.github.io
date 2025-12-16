@@ -46,21 +46,25 @@ const emailEl = document.getElementById("loginEmail");
 const passEl = document.getElementById("loginPassword");
 const btn = document.getElementById("loginBtn");
 
-const normalizeBackendUrl = (candidate) => {
+const normalizeChatUrl = (candidate) => {
     let normalized = candidate.trim();
     if (!/^https?:\/\//i.test(normalized)) normalized = `https://${normalized}`;
     const url = new URL(normalized);
-    url.pathname = "/api/auth/login";
+    url.pathname = "/api/chat";
     url.search = "";
     return url.toString();
 };
 
-let backendURL = "";
+let chatURL = "";
+let loginURL = "";
+let healthURL = "";
 
-// Force the default backend URL into localStorage so the chat page aligns.
+// Force the default backend chat URL into localStorage so chat/index share it.
 try {
-    backendURL = normalizeBackendUrl(defaultBackendURL);
-    localStorage.setItem("backendURL", backendURL);
+    chatURL = normalizeChatUrl(defaultBackendURL);
+    localStorage.setItem("backendURL", chatURL);
+    loginURL = chatURL.replace(/\/api\/chat\/?$/, "/api/auth/login");
+    healthURL = chatURL.replace(/\/api\/chat\/?$/, "/");
 } catch {
     statusEl.textContent = "Invalid backend URL configured.";
 }
@@ -77,16 +81,17 @@ const checkBackendStatus = async () => {
     indicator.style.background = "#c1121f"; // red default
     statusEl.prepend(indicator);
 
-    if (!backendURL) {
+    if (!healthURL) {
         statusEl.textContent = "Backend URL missing";
         indicator.style.background = "#c1121f";
         return;
     }
     try {
-        const res = await fetch(backendURL.replace(/\/api\/chat\/?$/, "/"), { method: "GET", credentials: "include" });
-        if (res.ok) {
+        const res = await fetch(healthURL, { method: "GET", credentials: "omit" });
+        // Treat non-5xx and opaque as reachable to avoid CORS false negatives
+        if (res.type === "opaque" || res.status === 0 || res.status < 500) {
             indicator.style.background = "#16a34a"; // green
-            statusEl.textContent = "Backend reachable";
+            statusEl.textContent = res.status === 401 ? "Backend reachable (login required)" : "Backend reachable";
         } else {
             indicator.style.background = "#c1121f";
             statusEl.textContent = `Backend error ${res.status}`;
@@ -99,14 +104,14 @@ const checkBackendStatus = async () => {
 
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (!backendURL) {
+    if (!loginURL) {
         statusEl.textContent = "Set a valid backend URL first.";
         return;
     }
     btn.disabled = true;
     statusEl.textContent = "Signing in...";
     try {
-        const res = await fetch(backendURL, {
+        const res = await fetch(loginURL, {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
