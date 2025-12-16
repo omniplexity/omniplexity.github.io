@@ -106,7 +106,8 @@ let sendBtnDefaultText = sendBtn ? sendBtn.textContent : "Send";
 
 const messageLog = [];
 
-const storedBackend = localStorage.getItem("backendURL");
+// Force the backend URL to the known ngrok endpoint; override any stale stored value
+const storedBackend = defaultBackendURL;
 let currentUser = null;
 
 
@@ -324,42 +325,28 @@ const showToast = (message, type = "info") => {
 
 
 const normalizeBackendUrl = (candidate) => {
-
     if (!candidate) throw new Error("Backend URL is empty");
-
-
-
     let normalized = candidate.trim();
-
     if (!/^https?:\/\//i.test(normalized)) {
-
         normalized = `https://${normalized}`;
-
     }
-
-
-
     const url = new URL(normalized);
-
     ensureChatPath(url);
-
     return url.toString();
-
 };
-
-
 
 let backendURL = "";
 
-try {
+const seedBackendUrl = () => {
+    try {
+        backendURL = normalizeBackendUrl(defaultBackendURL);
+        localStorage.setItem("backendURL", backendURL);
+    } catch {
+        backendURL = "";
+    }
+};
 
-    backendURL = normalizeBackendUrl(storedBackend || defaultBackendURL);
-
-} catch {
-
-    backendURL = "";
-
-}
+seedBackendUrl();
 
 let theme = localStorage.getItem("theme") || "light";
 
@@ -428,47 +415,28 @@ const getHealthUrl = () => {
 
 
 const checkBackend = async () => {
-
     if (!ensureBackendConfigured()) return;
-
     const healthUrl = getHealthUrl();
-
     if (!healthUrl) {
-
         setStatus("error", "Invalid backend URL");
-
         showToast("Invalid backend URL", "error");
-
         return;
-
     }
-
     setStatus("connecting", "Checking backend...");
-
     try {
-
         const res = await fetch(healthUrl, { method: "GET", credentials: "include" });
-
         if (res.ok) {
-
             setStatus("ok", "Connected to backend");
-
+        } else if (res.status === 401) {
+            setStatus("ok", "Backend reachable (login required)");
         } else {
-
             setStatus("error", `Backend ${res.status}`);
-
             showToast(`Backend error ${res.status}`, "error");
-
         }
-
     } catch (err) {
-
         setStatus("error", "Backend unreachable");
-
         showToast("Backend unreachable", "error");
-
     }
-
 };
 
 
@@ -1485,12 +1453,13 @@ if (createUserBtn) {
 }
 
 (async () => {
+    ensureBackendConfigured();
+    await checkBackend();
     await ensureAuth();
-    checkBackend();
     syncSettingsUI();
     applyGradient();
     updateActiveStatus();
-    fetchModels();
+    await fetchModels();
     if (currentUser && currentUser.is_admin) {
         refreshUsers();
     }
