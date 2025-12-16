@@ -434,6 +434,25 @@ const getRootHealthUrl = () => {
     }
 };
 
+const markBackendReachable = (message = "Connected to backend") => {
+    setStatus("ok", message);
+};
+
+const handleHealthResponse = (res, label) => {
+    // Treat any non-5xx response as reachable so users don't see false negatives.
+    if (res.status < 500) {
+        if (res.status === 401) {
+            markBackendReachable("Backend reachable (login required)");
+        } else if (res.status === 404 || res.status === 405) {
+            markBackendReachable(`${label} reachable (${res.status})`);
+        } else {
+            markBackendReachable();
+        }
+        return true;
+    }
+    return false;
+};
+
 
 
 const checkBackend = async ({ toast = true } = {}) => {
@@ -448,11 +467,7 @@ const checkBackend = async ({ toast = true } = {}) => {
     setStatus("connecting", "Checking backend...");
     try {
         const res = await fetch(healthUrl, { method: "GET", credentials: "include" });
-        if (res.ok) {
-            setStatus("ok", "Connected to backend");
-        } else if (res.status === 401) {
-            setStatus("ok", "Backend reachable (login required)");
-        } else {
+        if (!handleHealthResponse(res, healthUrl)) {
             setStatus("error", `Backend ${res.status}`);
             if (toast) showToast(`Backend error ${res.status}`, "error");
             console.warn("Backend health check failed", healthUrl, res.status);
@@ -462,14 +477,7 @@ const checkBackend = async ({ toast = true } = {}) => {
         if (fallbackUrl) {
             try {
                 const res = await fetch(fallbackUrl, { method: "GET", credentials: "include" });
-                if (res.ok) {
-                    setStatus("ok", "Connected to backend");
-                    return;
-                }
-                if (res.status === 401) {
-                    setStatus("ok", "Backend reachable (login required)");
-                    return;
-                }
+                if (handleHealthResponse(res, fallbackUrl)) return;
                 setStatus("error", `Backend ${res.status}`);
                 if (toast) showToast(`Backend error ${res.status}`, "error");
                 console.warn("Backend fallback health failed", fallbackUrl, res.status);
