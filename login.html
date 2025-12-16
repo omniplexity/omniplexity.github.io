@@ -59,6 +59,11 @@ let chatURL = "";
 let loginURL = "";
 let healthURL = "";
 let authMeURL = "";
+const redirectToApp = () => {
+    const target = `./index.html?ts=${Date.now()}`;
+    window.location.replace(target);
+    setTimeout(() => { window.location.href = target; }, 500); // fallback for aggressive caches
+};
 
 // Force the default backend chat URL into localStorage so chat/index share it.
 try {
@@ -70,6 +75,20 @@ try {
 } catch {
     statusEl.textContent = "Invalid backend URL configured.";
 }
+
+// If a valid session already exists, go straight to the app.
+const checkExistingSession = async () => {
+    if (!authMeURL) return;
+    try {
+        const res = await fetch(authMeURL, { method: "GET", credentials: "include" });
+        if (res.ok) {
+            statusEl.textContent = "Session active. Redirecting...";
+            redirectToApp();
+        }
+    } catch (err) {
+        console.warn("Session check on login page failed", err);
+    }
+};
 
 // Quick connectivity check with a status indicator (green = ok, red = bad)
 const checkBackendStatus = async () => {
@@ -138,10 +157,7 @@ form.addEventListener("submit", async (e) => {
             }
         }
         statusEl.textContent = "Success. Redirecting...";
-        // Use replace to avoid keeping login page in history; add cache-buster to avoid stale HTML.
-        const target = `./index.html?ts=${Date.now()}`;
-        window.location.replace(target);
-        setTimeout(() => { window.location.href = target; }, 500); // fallback
+        redirectToApp();
     } catch (err) {
         statusEl.textContent = err.message;
     } finally {
@@ -151,6 +167,7 @@ form.addEventListener("submit", async (e) => {
 
 // Run initial backend check
 checkBackendStatus();
+checkExistingSession();
 </script>
 </body>
 </html>
