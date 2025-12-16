@@ -1458,7 +1458,9 @@ const ensureAuth = async () => {
             return false;
         }
         if (opaque || recentOk) {
-            markBackendReachable(recentOk ? "Connected (recent activity)" : "Connected (auth check blocked)");
+            const label = recentOk ? "Connected (recent activity)" : "Connected (auth check blocked)";
+            markBackendReachable(label);
+            setStatus("ok", label);
             if (!authWarningShown) {
                 showToast('Auth check blocked by browser; assuming session is active.', 'warning');
                 authWarningShown = true;
@@ -1472,6 +1474,7 @@ const ensureAuth = async () => {
         const recentOk = lastChatOk && (Date.now() - lastChatOk < 5 * 60 * 1000);
         if (recentOk) {
             markBackendReachable("Connected (recent activity)");
+            setStatus("ok", "Connected (recent activity)");
             if (!authWarningShown) {
                 showToast('Auth check failed; using recent activity as proof of session.', 'warning');
                 authWarningShown = true;
