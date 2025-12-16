@@ -36,17 +36,8 @@
             if (chatUrl) {
                 localStorage.setItem("backendURL", chatUrl);
             } else {
-                window.location.href = "./login.html";
-                return;
-            }
-
-            // For the GitHub Pages base URL, send first-time visitors to login.
-            if (
-                window.location.hostname === "omniplexity.github.io" &&
-                !window.location.pathname.endsWith("login.html") &&
-                !localStorage.getItem("omniLastLoginTs")
-            ) {
-                window.location.replace("./login.html");
+                // Stay on the page and let chat.js surface a clear error instead of looping redirects.
+                console.warn("No backend URL resolved; staying on page.");
                 return;
             }
 
