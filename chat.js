@@ -343,6 +343,12 @@ const normalizeBackendUrl = (candidate) => {
     if (!/^https?:\/\//i.test(normalized)) {
         normalized = `https://${normalized}`;
     }
+    // If the page is served over HTTPS and we're not targeting localhost, force HTTPS to avoid mixed-content blocks.
+    const pageIsHttps = window.location.protocol === "https:";
+    const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)/i.test(normalized);
+    if (pageIsHttps && !isLocal) {
+        normalized = normalized.replace(/^http:\/\//i, "https://");
+    }
     const url = new URL(normalized);
     ensureChatPath(url);
     return url.toString();
