@@ -412,23 +412,15 @@ const themePresets = {
 
 
 const getHealthUrl = () => {
-
     try {
-
         const url = new URL(backendURL);
-
-        url.pathname = "/";
-
+        // Prefer an authenticated ping so we learn about CORS/cookie issues
+        url.pathname = "/api/auth/me";
         url.search = "";
-
         return url.toString();
-
     } catch {
-
         return null;
-
     }
-
 };
 
 
@@ -451,10 +443,12 @@ const checkBackend = async ({ toast = true } = {}) => {
         } else {
             setStatus("error", `Backend ${res.status}`);
             if (toast) showToast(`Backend error ${res.status}`, "error");
+            console.warn("Backend health check failed", healthUrl, res.status);
         }
     } catch (err) {
         setStatus("error", "Backend unreachable");
         if (toast) showToast(`Backend unreachable: ${err.message}`, "error");
+        console.warn("Backend health check error", healthUrl, err);
     }
 };
 
