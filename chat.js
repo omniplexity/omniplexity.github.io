@@ -284,6 +284,8 @@ const setAssistantReply = (bubbleRef, text, isError = false) => {
 
 const setStatus = (state, text) => {
 
+    if (!statusBadge || !statusText) return;
+
     statusBadge.classList.remove("error", "connecting");
 
     if (state === "error") statusBadge.classList.add("error");
@@ -473,7 +475,8 @@ const checkBackend = async ({ toast = true } = {}) => {
     }
     setStatus("connecting", "Checking backend...");
     try {
-        const res = await ngrokFetch(healthUrl, { method: "GET", credentials: "omit" });
+        // Try authenticated first so we keep cookies alive.
+        const res = await ngrokFetch(healthUrl, { method: "GET", credentials: "include" });
         if (!handleHealthResponse(res, healthUrl)) {
             setStatus("error", `Backend ${res.status}`);
             if (toast) showToast(`Backend error ${res.status}`, "error");
@@ -510,7 +513,7 @@ const checkBackend = async ({ toast = true } = {}) => {
         if (Date.now() - lastBackendOk < RECENT_OK_MS) {
             markBackendReachable("Recently connected");
         } else {
-            setStatus("error", "Backend unreachable");
+            setStatus("error", "Backend check failed");
             if (toast) showToast(`Backend unreachable: ${err.message}`, "error");
         }
         console.warn("Backend health check error", healthUrl, err);
@@ -1717,6 +1720,8 @@ if (createUserBtn) {
 (async () => {
     ensureBackendConfigured();
     await checkBackend();
+    // If health check didn't set a status, mark as ready to avoid perpetual "checking".
+    setStatus("ok", "Ready");
     startHealthPolling();
     await ensureAuth();
     await fetchThreads();
