@@ -123,6 +123,7 @@ let currentThreadId = null;
 let lastChatOk = 0;
 let authWarningShown = false;
 let modelWarningShown = false;
+let threadsDisabled = false;
 
 // Force the backend URL to the known ngrok endpoint; override any stale stored value
 const storedBackend = defaultBackendURL;
@@ -698,7 +699,7 @@ const renderThreads = () => {
     if (!threads.length) {
         const empty = document.createElement("div");
         empty.className = "muted small";
-        empty.textContent = "No chats yet";
+        empty.textContent = threadsDisabled ? "Threads disabled (local only)" : "No chats yet";
         threadListEl.appendChild(empty);
         return;
     }
@@ -731,6 +732,12 @@ const fetchThreads = async () => {
             window.location.replace("./login.html");
             return;
         }
+        if (res.status === 404) {
+            threadsDisabled = true;
+            setStatus("ok", "Chat ready");
+            renderThreads();
+            return;
+        }
         if (!res.ok) throw new Error(`Threads fetch failed: ${res.status}`);
         const fetched = await res.json();
         threads = fetched;
@@ -748,6 +755,10 @@ const fetchThreads = async () => {
 };
 
 const fetchThreadMessages = async (threadId) => {
+    if (!threadId || threadsDisabled) {
+        renderMessageLog();
+        return;
+    }
     try {
         const res = await ngrokFetch(buildApiUrl(`/api/threads/${threadId}/messages`), { credentials: "include" });
         if (res.status === 401) {
@@ -788,6 +799,10 @@ const createThread = async (title = "New chat") => {
             window.location.replace("./login.html");
             throw new Error("Not authenticated");
         }
+        if (res.status === 404) {
+            threadsDisabled = true;
+            throw new Error("Threads disabled on backend");
+        }
         if (!res.ok) throw new Error(`Thread create failed: ${res.status}`);
         const thread = await res.json();
         threads.unshift(thread);
@@ -798,13 +813,14 @@ const createThread = async (title = "New chat") => {
         return thread;
     } catch (err) {
         console.warn("Thread create failed", err);
-        showToast("Could not start a new chat. Using local session.", "error");
         // Fallback: local-only thread (no backend persistence)
+        threadsDisabled = true;
         const localThread = { id: null, title: title || "Local chat", created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
         currentThreadId = null;
         messageLog = [];
         renderThreads();
         if (messagesEl) messagesEl.innerHTML = "";
+        if (!modelWarningShown) showToast("Threads unavailable; using local chat.", "warning");
         return localThread;
     }
 };
@@ -826,7 +842,7 @@ const renameThread = async (threadId, title) => {
 };
 
 const selectThread = async (threadId) => {
-    currentThreadId = threadId;
+    currentThreadId = threadId || null;
     renderThreads();
     messageLog = [];
     renderMessageLog();
@@ -1691,6 +1707,9 @@ if (createUserBtn) {
     await fetchThreads();
     if (threads.length) {
         await selectThread(threads[0].id);
+    } else if (threadsDisabled) {
+        currentThreadId = null;
+        renderThreads();
     }
     syncSettingsUI();
     applyGradient();
