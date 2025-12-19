@@ -1555,7 +1555,8 @@ const ensureAuth = async () => {
         const opaque = res.type === "opaque" || res.status === 0;
         if (res.status === 401) {
             setStatus("error", "Not authenticated");
-            showToast('Session missing/expired. Please log in again.', 'error');
+            showToast('Session missing/expired. Redirecting to login.', 'error');
+            window.location.replace("./login.html");
             return false;
         }
         if (opaque || recentOk) {
