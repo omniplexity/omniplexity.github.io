@@ -64,21 +64,23 @@ const modelSelect = document.getElementById("modelSelect");
 
 const systemPromptEl = document.getElementById("systemPrompt");
 
+// Theme controls
 const gradStartPicker = document.getElementById("gradStartPicker");
-
 const gradEndPicker = document.getElementById("gradEndPicker");
-
 const gradStartHex = document.getElementById("gradStartHex");
-
 const gradEndHex = document.getElementById("gradEndHex");
-
 const gradAngle = document.getElementById("gradAngle");
-
 const gradAngleValue = document.getElementById("gradAngleValue");
-
 const applyThemeBtn = document.getElementById("applyThemeBtn");
-
 const themePreset = document.getElementById("themePreset");
+
+// Legacy generation controls removed from UI; keep nulls to avoid ReferenceErrors
+const tempSlider = null;
+const tempValue = null;
+const topPSlider = null;
+const topPValue = null;
+const maxTokensInput = null;
+const useSearchToggle = null;
 
 const reloadModelsBtn = document.getElementById("reloadModelsBtn");
 
