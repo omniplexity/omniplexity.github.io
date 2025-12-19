@@ -734,11 +734,13 @@ const fetchThreads = async () => {
         }
         if (res.status === 404) {
             threadsDisabled = true;
-            setStatus("ok", "Chat ready");
+            setStatus("ok", "Chat ready (local)");
             renderThreads();
             return;
         }
-        if (!res.ok) throw new Error(`Threads fetch failed: ${res.status}`);
+        if (!res.ok) {
+            throw new Error(`Threads fetch failed: ${res.status}`);
+        }
         const fetched = await res.json();
         threads = fetched;
         if (!currentThreadId && threads.length) {
@@ -750,7 +752,10 @@ const fetchThreads = async () => {
         setStatus("ok", "Connected to backend");
     } catch (err) {
         console.warn("Failed to load threads", err);
-        setStatus("error", "Threads unavailable");
+        threadsDisabled = true;
+        renderThreads();
+        setStatus("ok", "Chat ready (local)");
+        showToast("Threads unavailable; using local chat.", "warning");
     }
 };
 
@@ -787,6 +792,15 @@ const renderMessageLog = () => {
 };
 
 const createThread = async (title = "New chat") => {
+    // If threads are disabled or backend lacks endpoints, stay local.
+    if (threadsDisabled) {
+        const localThread = { id: null, title: title || "Local chat", created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+        currentThreadId = null;
+        messageLog = [];
+        renderThreads();
+        if (messagesEl) messagesEl.innerHTML = "";
+        return localThread;
+    }
     try {
         const url = buildApiUrl("/api/threads");
         const res = await ngrokFetch(url, {
@@ -853,6 +867,7 @@ if (newChatBtn) {
     newChatBtn.addEventListener("click", async () => {
         try {
             await createThread("New chat");
+            setStatus("ok", threadsDisabled ? "Chat ready (local)" : "Connected to backend");
         } catch (err) {
             showToast("Could not start new chat", "error");
         }
