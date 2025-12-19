@@ -726,6 +726,11 @@ const renderThreads = () => {
 const fetchThreads = async () => {
     try {
         const res = await ngrokFetch(buildApiUrl("/api/threads"), { credentials: "include" });
+        if (res.status === 401) {
+            setStatus("error", "Auth required");
+            window.location.replace("./login.html");
+            return;
+        }
         if (!res.ok) throw new Error(`Threads fetch failed: ${res.status}`);
         const fetched = await res.json();
         threads = fetched;
@@ -745,6 +750,11 @@ const fetchThreads = async () => {
 const fetchThreadMessages = async (threadId) => {
     try {
         const res = await ngrokFetch(buildApiUrl(`/api/threads/${threadId}/messages`), { credentials: "include" });
+        if (res.status === 401) {
+            setStatus("error", "Auth required");
+            window.location.replace("./login.html");
+            return;
+        }
         if (!res.ok) throw new Error(`Messages fetch failed: ${res.status}`);
         const data = await res.json();
         messageLog = data.map((m) => ({ role: m.role, content: m.content, ts: new Date(m.created_at).getTime() }));
