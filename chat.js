@@ -730,8 +730,10 @@ const fetchThreads = async () => {
             currentThreadId = threads[0]?.id || null;
         }
         renderThreads();
+        setStatus("ok", "Connected to backend");
     } catch (err) {
         console.warn("Failed to load threads", err);
+        setStatus("error", "Threads unavailable");
     }
 };
 
@@ -1527,6 +1529,7 @@ const fetchModels = async () => {
         persistSettings();
 
         updateActiveStatus();
+        setStatus("ok", "Connected to backend");
 
     } catch (err) {
 
@@ -1560,6 +1563,7 @@ if (clearChatBtn && messagesEl) {
     clearChatBtn.addEventListener("click", () => {
         messagesEl.innerHTML = "";
         messageLog = [];
+        setStatus("ok", "Ready");
     });
 }
 
@@ -1608,6 +1612,7 @@ const ensureAuth = async () => {
             currentUser = data;
             adminTabs.forEach(tab => { if (data.is_admin) { tab.removeAttribute('hidden'); } else { tab.setAttribute('hidden', ''); } });
             markBackendReachable("Authenticated");
+            setStatus("ok", "Connected to backend");
             authWarningShown = false;
             return true;
         }
