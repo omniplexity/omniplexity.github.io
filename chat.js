@@ -714,8 +714,22 @@ const renderThreads = () => {
         meta.className = "meta";
         const date = new Date(t.updated_at || t.created_at || Date.now());
         meta.textContent = date.toLocaleString();
+        const actions = document.createElement("div");
+        actions.className = "thread-actions";
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "icon-btn tiny ghost";
+        delBtn.textContent = "✕";
+        delBtn.title = "Delete chat";
+        delBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            deleteThread(t.id);
+        });
+        actions.appendChild(delBtn);
+
         item.appendChild(title);
         item.appendChild(meta);
+        item.appendChild(actions);
         item.addEventListener("click", () => {
             if (t.id === currentThreadId) return;
             selectThread(t.id);
@@ -861,6 +875,44 @@ const selectThread = async (threadId) => {
     messageLog = [];
     renderMessageLog();
     await fetchThreadMessages(threadId);
+};
+
+const deleteThread = async (threadId) => {
+    if (!threadId || threadsDisabled) {
+        // Local delete only
+        threads = threads.filter((t) => t.id !== threadId);
+        if (currentThreadId === threadId) {
+            currentThreadId = threads[0]?.id || null;
+            messageLog = [];
+            renderMessageLog();
+        }
+        renderThreads();
+        return;
+    }
+    try {
+        const res = await ngrokFetch(buildApiUrl(`/api/threads/${threadId}`), {
+            method: "DELETE",
+            credentials: "include",
+        });
+        if (res.status === 401) {
+            window.location.replace("./login.html");
+            return;
+        }
+        if (!res.ok) throw new Error(`Delete failed ${res.status}`);
+        threads = threads.filter((t) => t.id !== threadId);
+        if (currentThreadId === threadId) {
+            currentThreadId = threads[0]?.id || null;
+            messageLog = [];
+            renderMessageLog();
+            if (currentThreadId) {
+                await fetchThreadMessages(currentThreadId);
+            }
+        }
+        renderThreads();
+    } catch (err) {
+        console.warn("Delete thread failed", err);
+        showToast("Could not delete chat", "error");
+    }
 };
 
 if (newChatBtn) {

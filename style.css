@@ -79,7 +79,7 @@ body {
 
 .app-layout {
     display: grid;
-    grid-template-columns: 280px 1fr;
+    grid-template-columns: 260px 1fr;
     gap: 14px;
     align-items: start;
 }
@@ -175,6 +175,19 @@ body {
 .thread-item .meta {
     color: var(--muted);
     font-size: 12px;
+}
+
+.thread-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+}
+
+.thread-item:hover .thread-actions {
+    opacity: 1;
 }
 
 .sidebar-footer {
@@ -632,7 +645,7 @@ body {
 }
 
 .messages {
-    padding: 16px 16px 8px;
+    padding: 20px 22px 12px;
     flex: 1;
     overflow-y: auto;
     display: flex;
@@ -655,8 +668,8 @@ body {
 }
 
 .bubble {
-    max-width: 760px;
-    padding: 14px 16px;
+    max-width: 960px;
+    padding: 16px 18px;
     border-radius: 14px;
     line-height: 1.5;
     border: 1px solid var(--border);
@@ -725,7 +738,7 @@ body {
 
 .composer {
     border-top: 1px solid var(--border);
-    padding: 16px 16px 18px;
+    padding: 18px 18px 20px;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -734,15 +747,15 @@ body {
 
 textarea {
     width: 100%;
-    padding: 14px 16px;
+    padding: 16px 18px;
     background: var(--panel-strong);
     color: var(--text);
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 16px;
     resize: none;
     font: inherit;
     line-height: 1.5;
-    min-height: 92px;
+    min-height: 110px;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
