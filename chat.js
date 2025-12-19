@@ -56,8 +56,6 @@ const logoutBtn = document.getElementById("logoutBtn");
 
 const settingsToggle = document.getElementById("settingsToggle");
 
-const hubWrapper = document.getElementById("hubWrapper");
-
 const controlPanel = document.getElementById("controlPanel");
 
 const hubBackdrop = document.getElementById("hubBackdrop");
@@ -65,18 +63,6 @@ const hubBackdrop = document.getElementById("hubBackdrop");
 const modelSelect = document.getElementById("modelSelect");
 
 const systemPromptEl = document.getElementById("systemPrompt");
-
-const tempSlider = document.getElementById("tempSlider");
-
-const tempValue = document.getElementById("tempValue");
-
-const topPSlider = document.getElementById("topPSlider");
-
-const topPValue = document.getElementById("topPValue");
-
-const maxTokensInput = document.getElementById("maxTokensInput");
-
-const useSearchToggle = document.getElementById("useSearchToggle");
 
 const gradStartPicker = document.getElementById("gradStartPicker");
 
@@ -97,7 +83,6 @@ const themePreset = document.getElementById("themePreset");
 const reloadModelsBtn = document.getElementById("reloadModelsBtn");
 
 const activeStatusEl = document.getElementById("activeStatus");
-
 const sessionStatusEl = document.getElementById("sessionStatus");
 
 const closeHubBtn = document.getElementById("closeHubBtn");
@@ -120,11 +105,19 @@ const fallbackModels = [];
 
 const toastEl = document.getElementById("toast");
 
+// Sidebar elements
+const newChatBtn = document.getElementById("newChatBtn");
+const imageNavBtn = document.getElementById("imageNavBtn");
+const threadListEl = document.getElementById("threadList");
+const reloadThreadsBtn = document.getElementById("reloadThreadsBtn");
+
 let toastTimer = null;
 
 let sendBtnDefaultText = sendBtn ? sendBtn.textContent : "Send";
 
-const messageLog = [];
+let messageLog = [];
+let threads = [];
+let currentThreadId = null;
 let lastChatOk = 0;
 let authWarningShown = false;
 let modelWarningShown = false;
@@ -384,13 +377,9 @@ const settings = {
     model: localStorage.getItem("model") || "",
 
     systemPrompt: localStorage.getItem("systemPrompt") || "",
-
     temperature: parseFloat(localStorage.getItem("temperature") || "0.7"),
-
     topP: parseFloat(localStorage.getItem("topP") || "1.0"),
-
     maxTokens: parseInt(localStorage.getItem("maxTokens") || "512", 10),
-
     useSearch: localStorage.getItem("useSearch") === "true",
 
     gradientStart: localStorage.getItem("gradientStart") || "#0b84ff",
@@ -611,7 +600,7 @@ const applyGradient = () => {
 
 const updateActiveStatus = () => {
 
-    if (!activeStatusEl && !sessionStatusEl) return;
+    // Status pills removed from UI; keep for potential future use.
 
     const parts = [];
 
@@ -695,6 +684,141 @@ if (promptEl) {
 
 }
 
+// -----------------
+// Threads sidebar
+// -----------------
+const renderThreads = () => {
+    if (!threadListEl) return;
+    threadListEl.innerHTML = "";
+    if (!threads.length) {
+        const empty = document.createElement("div");
+        empty.className = "muted small";
+        empty.textContent = "No chats yet";
+        threadListEl.appendChild(empty);
+        return;
+    }
+    threads.forEach((t) => {
+        const item = document.createElement("div");
+        item.className = "thread-item";
+        if (t.id === currentThreadId) item.classList.add("active");
+        const title = document.createElement("p");
+        title.className = "title";
+        title.textContent = t.title || "Untitled chat";
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        const date = new Date(t.updated_at || t.created_at || Date.now());
+        meta.textContent = date.toLocaleString();
+        item.appendChild(title);
+        item.appendChild(meta);
+        item.addEventListener("click", () => {
+            if (t.id === currentThreadId) return;
+            selectThread(t.id);
+        });
+        threadListEl.appendChild(item);
+    });
+};
+
+const fetchThreads = async () => {
+    try {
+        const res = await ngrokFetch(buildApiUrl("/api/threads"), { credentials: "include" });
+        if (!res.ok) throw new Error(`Threads fetch failed: ${res.status}`);
+        const fetched = await res.json();
+        threads = fetched;
+        if (!currentThreadId && threads.length) {
+            currentThreadId = threads[0].id;
+        } else if (currentThreadId && !threads.find((t) => t.id === currentThreadId)) {
+            currentThreadId = threads[0]?.id || null;
+        }
+        renderThreads();
+    } catch (err) {
+        console.warn("Failed to load threads", err);
+    }
+};
+
+const fetchThreadMessages = async (threadId) => {
+    try {
+        const res = await ngrokFetch(buildApiUrl(`/api/threads/${threadId}/messages`), { credentials: "include" });
+        if (!res.ok) throw new Error(`Messages fetch failed: ${res.status}`);
+        const data = await res.json();
+        messageLog = data.map((m) => ({ role: m.role, content: m.content, ts: new Date(m.created_at).getTime() }));
+        renderMessageLog();
+        currentThreadId = threadId;
+        renderThreads();
+    } catch (err) {
+        console.warn("Failed to load messages", err);
+    }
+};
+
+const renderMessageLog = () => {
+    if (!messagesEl) return;
+    messagesEl.innerHTML = "";
+    messageLog.forEach((m) => {
+        appendMessage(m.role === "assistant" ? "assistant" : "user", m.content, false);
+    });
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+};
+
+const createThread = async (title = "New chat") => {
+    const res = await ngrokFetch(buildApiUrl("/api/threads"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+    });
+    if (!res.ok) throw new Error(`Thread create failed: ${res.status}`);
+    const thread = await res.json();
+    threads.unshift(thread);
+    currentThreadId = thread.id;
+    messageLog = [];
+    renderThreads();
+    if (messagesEl) messagesEl.innerHTML = "";
+    return thread;
+};
+
+const renameThread = async (threadId, title) => {
+    try {
+        await ngrokFetch(buildApiUrl(`/api/threads/${threadId}`), {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title }),
+        });
+        const t = threads.find((th) => th.id === threadId);
+        if (t) t.title = title;
+        renderThreads();
+    } catch (err) {
+        console.warn("Rename thread failed", err);
+    }
+};
+
+const selectThread = async (threadId) => {
+    currentThreadId = threadId;
+    renderThreads();
+    messageLog = [];
+    renderMessageLog();
+    await fetchThreadMessages(threadId);
+};
+
+if (newChatBtn) {
+    newChatBtn.addEventListener("click", async () => {
+        try {
+            await createThread("New chat");
+        } catch (err) {
+            showToast("Could not start new chat", "error");
+        }
+    });
+}
+
+if (reloadThreadsBtn) {
+    reloadThreadsBtn.addEventListener("click", fetchThreads);
+}
+
+if (imageNavBtn) {
+    imageNavBtn.addEventListener("click", () => {
+        window.location.href = "./image.html";
+    });
+}
+
 
 
 composerEl.addEventListener("submit", async (event) => {
@@ -733,6 +857,19 @@ composerEl.addEventListener("submit", async (event) => {
 
 
 
+    // Ensure we have a thread to attach messages
+    if (!currentThreadId) {
+        try {
+            const newThread = await createThread("New chat");
+            currentThreadId = newThread.id;
+        } catch (err) {
+            setAssistantReply(assistantBubble, "Could not start a new chat.", true);
+            sendBtn.disabled = false;
+            if (sendBtn) sendBtn.textContent = sendBtnDefaultText;
+            return;
+        }
+    }
+
     try {
 
         setStatus("connecting", "Sending...");
@@ -743,6 +880,7 @@ composerEl.addEventListener("submit", async (event) => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 message: input,
+                thread_id: currentThreadId,
                 model: settings.model || null,
                 system_prompt: settings.systemPrompt || null,
                 temperature: settings.temperature,
@@ -789,6 +927,15 @@ composerEl.addEventListener("submit", async (event) => {
         setAssistantReply(assistantBubble, reply);
 
         messageLog.push({ role: "assistant", content: reply, ts: Date.now() });
+
+        // Auto-rename thread based on first user prompt
+        const t = threads.find((th) => th.id === currentThreadId);
+        if (t && (!t.title || t.title === "New chat")) {
+            const newTitle = input.slice(0, 42) || "New chat";
+            t.title = newTitle;
+            renameThread(currentThreadId, newTitle);
+            renderThreads();
+        }
 
         markBackendReachable("Connected to backend");
 
@@ -1409,6 +1556,13 @@ if (reloadModelsBtn) {
 
 }
 
+if (clearChatBtn && messagesEl) {
+    clearChatBtn.addEventListener("click", () => {
+        messagesEl.innerHTML = "";
+        messageLog = [];
+    });
+}
+
 
 
 if (clearChatBtn && messagesEl) {
@@ -1560,6 +1714,10 @@ if (createUserBtn) {
     await checkBackend();
     startHealthPolling();
     await ensureAuth();
+    await fetchThreads();
+    if (threads.length) {
+        await selectThread(threads[0].id);
+    }
     syncSettingsUI();
     applyGradient();
     updateActiveStatus();

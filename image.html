@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniAI Image</title>
+    <link rel="stylesheet" href="style.css">
+    <script>
+        (function () {
+            const resolveDefaultBackendUrl = () => {
+                const host = window.location.hostname;
+                if (host && host.endsWith("github.io")) {
+                    return "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
+                }
+                if (host === "localhost" || host === "127.0.0.1") {
+                    return `http://${host}:8000/api/chat`;
+                }
+                return "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
+            };
+            const DEFAULT_CHAT_URL = resolveDefaultBackendUrl();
+            const NGROK_HEADERS = { "ngrok-skip-browser-warning": "true" };
+            const normalizeChatUrl = (candidate) => {
+                if (!candidate) return "";
+                let normalized = candidate.trim();
+                if (!/^https?:\/\//i.test(normalized)) normalized = `https://${normalized}`;
+                const url = new URL(normalized);
+                if (!/\/api\/chat\/?$/.test(url.pathname)) url.pathname = "/api/chat";
+                url.search = "";
+                return url.toString();
+            };
+            const stored = localStorage.getItem("backendURL");
+            const chatUrl = normalizeChatUrl(stored || DEFAULT_CHAT_URL);
+            if (chatUrl) {
+                localStorage.setItem("backendURL", chatUrl);
+            }
+            try {
+                const authUrl = new URL(chatUrl);
+                authUrl.pathname = "/api/auth/me";
+                fetch(authUrl.toString(), { credentials: "include", headers: NGROK_HEADERS })
+                    .then((res) => {
+                        if (res.status !== 200) {
+                            window.location.replace("./login.html");
+                        }
+                    })
+                    .catch(() => window.location.replace("./login.html"));
+            } catch {
+                window.location.replace("./login.html");
+            }
+        })();
+    </script>
+</head>
+<body>
+<div class="background-grid"></div>
+<div class="shell">
+    <header class="masthead">
+        <div class="brand">
+            <div class="glyph">AI</div>
+            <div>
+                <p class="eyebrow">omniplexity</p>
+                <h1>Image Studio</h1>
+            </div>
+        </div>
+        <div class="masthead-right">
+            <button type="button" class="icon-btn" onclick="window.location.href='./index.html'">Chat</button>
+        </div>
+    </header>
+
+    <main class="chat-panel image-panel">
+        <div class="control-row">
+            <div class="control-group">
+                <label for="imageModelSelect">Model</label>
+                <select id="imageModelSelect">
+                    <option value="">Default (env)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="imagePrompt">Prompt</label>
+                <textarea id="imagePrompt" rows="2" placeholder="Describe the image you want..."></textarea>
+            </div>
+            <div class="control-group apply-group">
+                <button type="button" id="generateImageBtn" class="theme-apply">Generate</button>
+            </div>
+        </div>
+        <div id="imageResults" class="image-results muted small">No images yet.</div>
+    </main>
+</div>
+
+<script>
+    const NGROK_HEADERS = { "ngrok-skip-browser-warning": "true" };
+    const backendURL = localStorage.getItem("backendURL") || "";
+    const imageModelSelect = document.getElementById("imageModelSelect");
+    const imagePrompt = document.getElementById("imagePrompt");
+    const generateImageBtn = document.getElementById("generateImageBtn");
+    const imageResults = document.getElementById("imageResults");
+
+    const buildApiUrl = (path) => {
+        if (!backendURL) return null;
+        try {
+            const u = new URL(backendURL);
+            u.pathname = path;
+            u.search = "";
+            return u.toString();
+        } catch {
+            return null;
+        }
+    };
+
+    const ngrokFetch = (url, options = {}) => fetch(url, { ...options, headers: { ...(options.headers || {}), ...NGROK_HEADERS } });
+
+    const fetchModels = async () => {
+        const url = buildApiUrl("/api/models");
+        if (!url) return;
+        try {
+            const res = await ngrokFetch(url, { credentials: "include" });
+            if (!res.ok) return;
+            const data = await res.json();
+            const list = (data.models || []).filter(Boolean);
+            imageModelSelect.innerHTML = "";
+            const defaultOpt = document.createElement("option");
+            defaultOpt.value = "";
+            defaultOpt.textContent = "Default (env)";
+            imageModelSelect.appendChild(defaultOpt);
+            list.forEach((id) => {
+                const opt = document.createElement("option");
+                opt.value = id;
+                opt.textContent = id;
+                imageModelSelect.appendChild(opt);
+            });
+        } catch (err) {
+            console.warn("Image models load failed", err);
+        }
+    };
+
+    const renderImages = (urls) => {
+        if (!urls || !urls.length) {
+            imageResults.textContent = "No images yet.";
+            return;
+        }
+        imageResults.innerHTML = "";
+        urls.forEach((u) => {
+            const img = document.createElement("img");
+            img.src = u;
+            img.alt = "Generated";
+            img.className = "image-thumb";
+            imageResults.appendChild(img);
+        });
+    };
+
+    if (generateImageBtn) {
+        generateImageBtn.addEventListener("click", async () => {
+            const url = buildApiUrl("/api/image/generate");
+            if (!url) {
+                alert("Backend URL missing.");
+                return;
+            }
+            const prompt = (imagePrompt.value || "").trim();
+            if (!prompt) {
+                alert("Enter a prompt.");
+                return;
+            }
+            generateImageBtn.disabled = true;
+            generateImageBtn.textContent = "Generating...";
+            imageResults.textContent = "Generating...";
+            try {
+                const res = await ngrokFetch(url, {
+                    method: "POST",
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt, model: imageModelSelect.value || null }),
+                });
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.detail || `Error ${res.status}`);
+                }
+                const data = await res.json();
+                renderImages(data.urls || []);
+            } catch (err) {
+                imageResults.textContent = `Image generation not available: ${err.message}`;
+            } finally {
+                generateImageBtn.disabled = false;
+                generateImageBtn.textContent = "Generate";
+            }
+        });
+    }
+
+    fetchModels();
+</script>
+</body>
+</html>
