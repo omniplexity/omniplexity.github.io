@@ -48,7 +48,10 @@
                 authUrl.search = "";
                 fetch(authUrl.toString(), { credentials: "include", headers: NGROK_HEADERS })
                     .then((res) => {
-                        // Do not redirect here; let chat.js surface auth status and avoid loops.
+                        if (res.status === 401 || res.status === 403) {
+                            window.location.replace("./login.html");
+                            return;
+                        }
                         if (res.status !== 200) {
                             console.warn("Auth precheck non-OK; continuing", res.status);
                             window.authPrecheckWarning = res.status;
@@ -57,11 +60,11 @@
                         }
                     })
                     .catch((err) => {
-                        console.warn("Auth precheck failed; continuing", err);
-                        window.authPrecheckWarning = "error";
+                        console.warn("Auth precheck failed; redirecting", err);
+                        window.location.replace("./login.html");
                     });
             } catch {
-                // If URL parsing fails, let chat.js handle errors.
+                window.location.replace("./login.html");
             }
         })();
     </script>
