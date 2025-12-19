@@ -776,20 +776,37 @@ const renderMessageLog = () => {
 };
 
 const createThread = async (title = "New chat") => {
-    const res = await ngrokFetch(buildApiUrl("/api/threads"), {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title }),
-    });
-    if (!res.ok) throw new Error(`Thread create failed: ${res.status}`);
-    const thread = await res.json();
-    threads.unshift(thread);
-    currentThreadId = thread.id;
-    messageLog = [];
-    renderThreads();
-    if (messagesEl) messagesEl.innerHTML = "";
-    return thread;
+    try {
+        const url = buildApiUrl("/api/threads");
+        const res = await ngrokFetch(url, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title }),
+        });
+        if (res.status === 401) {
+            window.location.replace("./login.html");
+            throw new Error("Not authenticated");
+        }
+        if (!res.ok) throw new Error(`Thread create failed: ${res.status}`);
+        const thread = await res.json();
+        threads.unshift(thread);
+        currentThreadId = thread.id;
+        messageLog = [];
+        renderThreads();
+        if (messagesEl) messagesEl.innerHTML = "";
+        return thread;
+    } catch (err) {
+        console.warn("Thread create failed", err);
+        showToast("Could not start a new chat. Using local session.", "error");
+        // Fallback: local-only thread (no backend persistence)
+        const localThread = { id: null, title: title || "Local chat", created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+        currentThreadId = null;
+        messageLog = [];
+        renderThreads();
+        if (messagesEl) messagesEl.innerHTML = "";
+        return localThread;
+    }
 };
 
 const renameThread = async (threadId, title) => {
@@ -891,20 +908,24 @@ composerEl.addEventListener("submit", async (event) => {
 
         setStatus("connecting", "Sending...");
 
+        const payload = {
+            message: input,
+            model: settings.model || null,
+            system_prompt: settings.systemPrompt || null,
+            temperature: settings.temperature,
+            top_p: settings.topP,
+            max_tokens: settings.maxTokens,
+            use_search: settings.useSearch,
+        };
+        if (currentThreadId) {
+            payload.thread_id = currentThreadId;
+        }
+
         const response = await ngrokFetch(backendURL, {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                message: input,
-                thread_id: currentThreadId,
-                model: settings.model || null,
-                system_prompt: settings.systemPrompt || null,
-                temperature: settings.temperature,
-                top_p: settings.topP,
-                max_tokens: settings.maxTokens,
-                use_search: settings.useSearch,
-            })
+            body: JSON.stringify(payload)
         });
 
 
