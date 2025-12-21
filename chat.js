@@ -956,14 +956,21 @@ composerEl.addEventListener("submit", async (event) => {
 
     }
 
-
+    // Ensure we have a thread to attach messages
+    if (!currentThreadId) {
+        try {
+            const newThread = await createThread("New chat");
+            currentThreadId = newThread.id;
+        } catch (err) {
+            showToast("Could not start new chat", "error");
+            return;
+        }
+    }
 
     messageLog.push({ role: "user", content: input, ts: Date.now() });
     renderMessageLog();
 
     promptEl.value = "";
-
-
 
     const thinkingText = `Thinking...\n\nPrompt: ${input.slice(0, 240)}`;
     const assistantBubble = appendMessage("assistant", thinkingText, true);
@@ -971,21 +978,6 @@ composerEl.addEventListener("submit", async (event) => {
     sendBtn.disabled = true;
 
     if (sendBtn) sendBtn.textContent = "Sending...";
-
-
-
-    // Ensure we have a thread to attach messages
-    if (!currentThreadId) {
-        try {
-            const newThread = await createThread("New chat");
-            currentThreadId = newThread.id;
-        } catch (err) {
-            setAssistantReply(assistantBubble, "Could not start a new chat.", true);
-            sendBtn.disabled = false;
-            if (sendBtn) sendBtn.textContent = sendBtnDefaultText;
-            return;
-        }
-    }
 
     try {
 
