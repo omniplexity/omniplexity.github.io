@@ -958,15 +958,15 @@ composerEl.addEventListener("submit", async (event) => {
 
 
 
-    appendMessage("user", input);
+    messageLog.push({ role: "user", content: input, ts: Date.now() });
+    renderMessageLog();
 
     promptEl.value = "";
 
-    messageLog.push({ role: "user", content: input, ts: Date.now() });
 
 
-
-    const assistantBubble = appendMessage("assistant", "Thinking...", true);
+    const thinkingText = `Thinking...\n\nPrompt: ${input.slice(0, 240)}`;
+    const assistantBubble = appendMessage("assistant", thinkingText, true);
 
     sendBtn.disabled = true;
 
@@ -1048,6 +1048,7 @@ composerEl.addEventListener("submit", async (event) => {
         setAssistantReply(assistantBubble, reply);
 
         messageLog.push({ role: "assistant", content: reply, ts: Date.now() });
+        renderMessageLog();
 
         // Auto-rename thread based on first user prompt
         const t = threads.find((th) => th.id === currentThreadId);
