@@ -5,38 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OmniAI</title>
     <link rel="stylesheet" href="style.css">
+    <script src="config.js"></script>
     <script>
         // Pre-flight auth check: set backend URL and force login unless /api/auth/me succeeds.
         (function () {
-            const resolveDefaultBackendUrl = () => {
-                const host = window.location.hostname;
-                if (host && host.endsWith("github.io")) {
-                    return "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
-                }
-                if (host === "localhost" || host === "127.0.0.1") {
-                    return `http://${host}:8000/api/chat`;
-                }
-                return "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
-            };
-
-            const DEFAULT_CHAT_URL = resolveDefaultBackendUrl();
             const NGROK_HEADERS = { "ngrok-skip-browser-warning": "true" };
-
-            const normalizeChatUrl = (candidate) => {
-                if (!candidate) return "";
-                let normalized = candidate.trim();
-                if (!/^https?:\/\//i.test(normalized)) normalized = `https://${normalized}`;
-                const url = new URL(normalized);
-                if (!/\/api\/chat\/?$/.test(url.pathname)) url.pathname = "/api/chat";
-                url.search = "";
-                return url.toString();
-            };
-
-            const stored = localStorage.getItem("backendURL");
-            const chatUrl = normalizeChatUrl(stored || DEFAULT_CHAT_URL);
-            if (chatUrl) {
-                localStorage.setItem("backendURL", chatUrl);
-            } else {
+            const backendConfig = window.BackendConfig;
+            const chatUrl = backendConfig ? backendConfig.getStoredBackendUrl() : "";
+            if (!chatUrl) {
                 // Stay on the page and let chat.js surface a clear error instead of looping redirects.
                 console.warn("No backend URL resolved; staying on page.");
                 return;
@@ -152,6 +128,7 @@
         </div>
         <div class="tab-bar">
             <button type="button" class="tab-btn active" data-tab="model">Models</button>
+            <button type="button" class="tab-btn" data-tab="connection">Connection</button>
             <button type="button" class="tab-btn" data-tab="theme">Theme</button>
             <button type="button" class="tab-btn admin-tab" data-tab="admin" hidden>Admin</button>
         </div>
@@ -166,9 +143,28 @@
                 <label for="systemPrompt">System prompt</label>
                 <textarea id="systemPrompt" rows="2" placeholder="You are a helpful assistant..."></textarea>
             </div>
+            <div class="control-group checkbox-group">
+                <label><input type="checkbox" id="useSearchToggle"> Use web search</label>
+            </div>
+            <div class="control-group">
+                <label>Tools</label>
+                <div id="toolsList" class="tool-list muted small">Loading tools...</div>
+            </div>
             <div class="control-group">
                 <button type="button" id="reloadModelsBtn" class="theme-apply ghost">Reload models</button>
             </div>
+        </div>
+        <div class="control-row tab-panel" data-tab-panel="connection" hidden>
+            <div class="control-group">
+                <label for="backendUrlInput">Backend URL</label>
+                <input type="text" id="backendUrlInput" placeholder="https://your-backend.example.com/api/chat">
+                <p class="muted small">Saved to this browser; used across chat, login, and image pages.</p>
+            </div>
+            <div class="control-group apply-group">
+                <button type="button" id="saveBackendBtn" class="theme-apply">Save backend</button>
+                <button type="button" id="testBackendBtn" class="theme-apply ghost">Test connection</button>
+            </div>
+            <p class="muted small" id="backendStatus">No backend configured</p>
         </div>
         <div class="control-row theme-custom tab-panel" data-tab-panel="theme" hidden>
             <div class="control-group">
@@ -212,6 +208,11 @@
             <div class="control-group">
                 <label>Users</label>
                 <div id="usersList" class="pill wide muted">Loading...</div>
+            </div>
+            <div class="control-group">
+                <label>Tool usage (recent)</label>
+                <div id="toolUsageList" class="pill wide muted">Loading...</div>
+                <button type="button" id="reloadToolUsageBtn" class="theme-apply ghost">Refresh usage</button>
             </div>
             <div class="control-group">
                 <label for="newUserEmail">Add user (admin only)</label>

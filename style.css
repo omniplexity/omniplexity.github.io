@@ -226,6 +226,26 @@ body {
     gap: 10px;
 }
 
+.backend-config {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+}
+
+.backend-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.backend-row input {
+    flex: 1;
+}
+
 .auth-form input {
     padding: 12px;
     border-radius: 10px;
@@ -563,6 +583,49 @@ body {
     gap: 6px;
     min-width: 180px;
     flex: 1;
+}
+
+.control-group.checkbox-group {
+    align-items: flex-start;
+}
+
+.tool-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tool-item {
+    display: flex;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.02);
+    align-items: flex-start;
+}
+
+.tool-item input[type="checkbox"] {
+    margin-top: 3px;
+}
+
+.tool-item.disabled {
+    opacity: 0.65;
+}
+
+.tool-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tool-name {
+    font-weight: 600;
+}
+
+.tool-desc {
+    color: var(--muted);
+    font-size: 13px;
 }
 
 .control-group textarea {

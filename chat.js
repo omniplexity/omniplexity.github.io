@@ -1,19 +1,5 @@
-// Pick a sane default backend depending on where the page is served:
-// - On GitHub Pages, use the public ngrok URL (HTTPS to avoid mixed content).
-// - Locally (localhost/127.0.0.1), use the local tunnel ingress.
-const resolveDefaultBackendUrl = () => {
-    const host = window.location.hostname;
-    if (host && host.endsWith("github.io")) {
-        return "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
-    }
-    if (host === "localhost" || host === "127.0.0.1") {
-        return `http://${host}:8000/api/chat`;
-    }
-    // Fallback to the ngrok URL for any other host.
-    return "https://rossie-chargeful-plentifully.ngrok-free.dev/api/chat";
-};
-
-const defaultBackendURL = resolveDefaultBackendUrl();
+const backendConfig = window.BackendConfig || null;
+const defaultBackendURL = backendConfig ? backendConfig.getStoredBackendUrl() : "";
 
 const NGROK_HEADERS = { "ngrok-skip-browser-warning": "true" };
 const ngrokFetch = (url, options = {}) => {
@@ -21,19 +7,6 @@ const ngrokFetch = (url, options = {}) => {
         ...options,
         headers: { ...(options.headers || {}), ...NGROK_HEADERS }
     });
-};
-
-
-const ensureChatPath = (urlObj) => {
-
-    if (!/\/api\/chat\/?$/.test(urlObj.pathname)) {
-
-        urlObj.pathname = "/api/chat";
-
-    }
-
-    return urlObj;
-
 };
 
 
@@ -80,7 +53,12 @@ const tempValue = null;
 const topPSlider = null;
 const topPValue = null;
 const maxTokensInput = null;
-const useSearchToggle = null;
+const useSearchToggle = document.getElementById("useSearchToggle");
+const toolsListEl = document.getElementById("toolsList");
+const backendUrlInput = document.getElementById("backendUrlInput");
+const saveBackendBtn = document.getElementById("saveBackendBtn");
+const testBackendBtn = document.getElementById("testBackendBtn");
+const backendStatusEl = document.getElementById("backendStatus");
 
 const reloadModelsBtn = document.getElementById("reloadModelsBtn");
 
@@ -100,6 +78,8 @@ const resetThemeBtn = document.getElementById("resetThemeBtn");
 const createUserBtn = document.getElementById("createUserBtn");
 
 const usersListEl = document.getElementById("usersList");
+const toolUsageListEl = document.getElementById("toolUsageList");
+const reloadToolUsageBtn = document.getElementById("reloadToolUsageBtn");
 
 const adminTabs = Array.from(document.querySelectorAll(".admin-tab"));
 
@@ -125,8 +105,7 @@ let authWarningShown = false;
 let modelWarningShown = false;
 let threadsDisabled = false;
 
-// Force the backend URL to the known ngrok endpoint; override any stale stored value
-const storedBackend = defaultBackendURL;
+let backendURL = defaultBackendURL || "";
 let currentUser = null;
 
 
@@ -346,34 +325,20 @@ const showToast = (message, type = "info") => {
 
 
 const normalizeBackendUrl = (candidate) => {
-    if (!candidate) throw new Error("Backend URL is empty");
-    let normalized = candidate.trim();
-    if (!/^https?:\/\//i.test(normalized)) {
-        normalized = `https://${normalized}`;
-    }
-    // If the page is served over HTTPS and we're not targeting localhost, force HTTPS to avoid mixed-content blocks.
-    const pageIsHttps = window.location.protocol === "https:";
-    const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)/i.test(normalized);
-    if (pageIsHttps && !isLocal) {
-        normalized = normalized.replace(/^http:\/\//i, "https://");
-    }
-    const url = new URL(normalized);
-    ensureChatPath(url);
-    return url.toString();
+    if (!backendConfig) throw new Error("Backend config missing");
+    return backendConfig.normalizeBackendUrl(candidate);
 };
 
-let backendURL = "";
-
-const seedBackendUrl = () => {
-    try {
-        backendURL = normalizeBackendUrl(defaultBackendURL);
-        localStorage.setItem("backendURL", backendURL);
-    } catch {
-        backendURL = "";
+const syncBackendInput = () => {
+    if (backendUrlInput) {
+        backendUrlInput.value = backendURL || "";
+    }
+    if (backendStatusEl) {
+        backendStatusEl.textContent = backendURL ? backendURL : "No backend configured";
     }
 };
 
-seedBackendUrl();
+syncBackendInput();
 
 let theme = localStorage.getItem("theme") || "light";
 
@@ -546,9 +511,10 @@ const ensureBackendConfigured = () => {
 
     try {
 
-        backendURL = normalizeBackendUrl(backendURL || defaultBackendURL);
-
-        localStorage.setItem("backendURL", backendURL);
+        backendURL = backendConfig
+            ? backendConfig.setStoredBackendUrl(backendURL || defaultBackendURL)
+            : normalizeBackendUrl(backendURL || defaultBackendURL);
+        syncBackendInput();
 
     } catch {
 
@@ -560,6 +526,25 @@ const ensureBackendConfigured = () => {
 
     return true;
 
+};
+
+
+const updateBackendUrl = async (candidate) => {
+    if (!candidate) {
+        showToast("Backend URL is empty", "error");
+        return;
+    }
+    try {
+        backendURL = backendConfig
+            ? backendConfig.setStoredBackendUrl(candidate)
+            : normalizeBackendUrl(candidate);
+        syncBackendInput();
+        showToast("Backend updated", "success");
+        await checkBackend({ toast: false });
+    } catch (err) {
+        setStatus("error", "Invalid backend URL");
+        showToast(err.message || "Invalid backend URL", "error");
+    }
 };
 
 
@@ -584,6 +569,50 @@ const persistSettings = () => {
 
     localStorage.setItem("gradientAngle", settings.gradientAngle);
 
+};
+
+
+const saveUserSettings = async () => {
+    const url = buildApiUrl("/api/settings");
+    if (!url) return;
+    try {
+        await ngrokFetch(url, {
+            method: "PUT",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                theme_mode: theme,
+                gradient_start: settings.gradientStart,
+                gradient_end: settings.gradientEnd,
+                gradient_angle: settings.gradientAngle,
+            }),
+        });
+    } catch (err) {
+        console.warn("Settings save failed", err);
+    }
+};
+
+
+const loadUserSettings = async () => {
+    const url = buildApiUrl("/api/settings");
+    if (!url) return;
+    try {
+        const res = await ngrokFetch(url, { method: "GET", credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.theme_mode) {
+            theme = data.theme_mode;
+        }
+        if (data.gradient_start) settings.gradientStart = data.gradient_start;
+        if (data.gradient_end) settings.gradientEnd = data.gradient_end;
+        if (typeof data.gradient_angle === "number") settings.gradientAngle = data.gradient_angle;
+        syncSettingsUI();
+        applyTheme(theme, false);
+        applyGradient();
+        persistSettings();
+    } catch (err) {
+        console.warn("Settings load failed", err);
+    }
 };
 
 
@@ -1026,8 +1055,9 @@ composerEl.addEventListener("submit", async (event) => {
             }
 
             const detail = data?.detail ? ` - ${data.detail}` : "";
+            const reqId = data?.request_id ? ` (req ${data.request_id})` : "";
 
-            throw new Error(`Request failed: ${response.status}${detail}`);
+            throw new Error(`Request failed: ${response.status}${detail}${reqId}`);
 
         }
 
@@ -1095,7 +1125,7 @@ composerEl.addEventListener("submit", async (event) => {
 
 // THEME TOGGLE
 
-const applyTheme = (value) => {
+const applyTheme = (value, persistRemote = true) => {
 
     const mode = value === "dark" ? "dark" : "light";
 
@@ -1117,11 +1147,15 @@ const applyTheme = (value) => {
 
     }
 
+    if (persistRemote) {
+        saveUserSettings();
+    }
+
 };
 
 
 
-applyTheme(theme);
+applyTheme(theme, false);
 
 
 
@@ -1223,6 +1257,27 @@ if (settingsToggle && controlPanel) {
 
 }
 
+if (saveBackendBtn && backendUrlInput) {
+    saveBackendBtn.addEventListener("click", () => {
+        updateBackendUrl(backendUrlInput.value);
+    });
+}
+
+if (testBackendBtn) {
+    testBackendBtn.addEventListener("click", () => {
+        checkBackend({ toast: true });
+    });
+}
+
+if (backendUrlInput) {
+    backendUrlInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            updateBackendUrl(backendUrlInput.value);
+        }
+    });
+}
+
 
 
 const activateTab = (name) => {
@@ -1300,6 +1355,7 @@ if (modelSelect) {
         persistSettings();
 
         updateActiveStatus();
+        fetchTools();
 
     });
 
@@ -1319,6 +1375,14 @@ if (systemPromptEl) {
 
     });
 
+}
+
+if (useSearchToggle) {
+    useSearchToggle.addEventListener("change", () => {
+        settings.useSearch = useSearchToggle.checked;
+        persistSettings();
+        updateActiveStatus();
+    });
 }
 
 
@@ -1396,6 +1460,7 @@ if (applyThemeBtn) {
         persistSettings();
 
         updateActiveStatus();
+        saveUserSettings();
 
     });
 
@@ -1422,6 +1487,7 @@ if (resetThemeBtn) {
         persistSettings();
 
         updateActiveStatus();
+        saveUserSettings();
 
     });
 
@@ -1458,6 +1524,7 @@ if (themePreset) {
         persistSettings();
 
         updateActiveStatus();
+        saveUserSettings();
 
     });
 
@@ -1572,6 +1639,7 @@ const fetchModels = async () => {
 
         updateActiveStatus();
         setStatus("ok", "Connected to backend");
+        fetchTools();
 
     } catch (err) {
 
@@ -1581,6 +1649,107 @@ const fetchModels = async () => {
 
     }
 
+};
+
+
+const renderTools = (tools) => {
+    if (!toolsListEl) return;
+    toolsListEl.innerHTML = "";
+    if (!tools || !tools.length) {
+        toolsListEl.textContent = "No tools available.";
+        return;
+    }
+    tools.forEach((tool) => {
+        const item = document.createElement("label");
+        item.className = "tool-item";
+        if (!tool.allowed_for_model) item.classList.add("disabled");
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = !!tool.enabled;
+        checkbox.disabled = !tool.allowed_for_model;
+        checkbox.addEventListener("change", () => {
+            updateToolPreference(tool.name, checkbox.checked);
+        });
+
+        const body = document.createElement("div");
+        body.className = "tool-body";
+        const name = document.createElement("div");
+        name.className = "tool-name";
+        name.textContent = tool.name;
+        const desc = document.createElement("div");
+        desc.className = "tool-desc";
+        desc.textContent = tool.description;
+        body.appendChild(name);
+        body.appendChild(desc);
+
+        if (!tool.allowed_for_model) {
+            const badge = document.createElement("span");
+            badge.className = "pill";
+            badge.textContent = "Not allowed for model";
+            body.appendChild(badge);
+        }
+
+        item.appendChild(checkbox);
+        item.appendChild(body);
+        toolsListEl.appendChild(item);
+
+        if (tool.name === "web_search" && useSearchToggle) {
+            const canUseSearch = tool.allowed_for_model && tool.enabled;
+            useSearchToggle.disabled = !canUseSearch;
+            if (!canUseSearch && settings.useSearch) {
+                settings.useSearch = false;
+                persistSettings();
+                syncSettingsUI();
+            }
+        }
+    });
+};
+
+
+const updateToolPreference = async (toolName, enabled) => {
+    const url = buildApiUrl(`/api/tools/${toolName}`);
+    if (!url) return;
+    try {
+        const res = await ngrokFetch(url, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ enabled: !!enabled }),
+        });
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.detail || `Tool update failed (${res.status})`);
+        }
+        showToast(`Tool ${toolName} updated`, "success");
+    } catch (err) {
+        showToast(err.message || "Tool update failed", "error");
+        fetchTools();
+    }
+};
+
+
+const fetchTools = async () => {
+    if (!toolsListEl) return;
+    const query = settings.model ? `?model=${encodeURIComponent(settings.model)}` : "";
+    const url = buildApiUrl(`/api/tools${query}`);
+    if (!url) {
+        toolsListEl.textContent = "Tool list unavailable.";
+        return;
+    }
+    toolsListEl.textContent = "Loading tools...";
+    try {
+        const res = await ngrokFetch(url, { method: "GET", credentials: "include" });
+        if (!res.ok) {
+            toolsListEl.textContent = "Tool list unavailable.";
+            return;
+        }
+        const data = await res.json();
+        renderTools(data);
+    } catch (err) {
+        console.warn("Tool fetch failed", err);
+        toolsListEl.textContent = "Tool list unavailable.";
+    }
 };
 
 
@@ -1722,6 +1891,24 @@ const refreshUsers = async () => {
     }
 };
 
+const refreshToolUsage = async () => {
+    if (!toolUsageListEl) return;
+    toolUsageListEl.textContent = "Loading...";
+    try {
+        const res = await ngrokFetch(buildApiUrl('/api/admin/tool-usage'), { method: 'GET', credentials: 'include' });
+        if (!res.ok) throw new Error('Failed to load tool usage');
+        const data = await res.json();
+        if (!data.length) {
+            toolUsageListEl.textContent = "No tool usage yet.";
+            return;
+        }
+        const summary = data.slice(0, 8).map((u) => `${u.tool_name} (${u.status})`).join(", ");
+        toolUsageListEl.textContent = summary;
+    } catch (err) {
+        toolUsageListEl.textContent = "Error loading tool usage";
+    }
+};
+
 const createUser = async () => {
     if (!createUserBtn) return;
     const email = document.getElementById('newUserEmail')?.value.trim();
@@ -1757,6 +1944,10 @@ if (createUserBtn) {
     createUserBtn.addEventListener('click', createUser);
 }
 
+if (reloadToolUsageBtn) {
+    reloadToolUsageBtn.addEventListener("click", refreshToolUsage);
+}
+
 (async () => {
     ensureBackendConfigured();
     await checkBackend();
@@ -1764,6 +1955,8 @@ if (createUserBtn) {
     setStatus("ok", "Ready");
     startHealthPolling();
     await ensureAuth();
+    await loadUserSettings();
+    await fetchTools();
     await fetchThreads();
     if (threads.length) {
         await selectThread(threads[0].id);
@@ -1777,5 +1970,6 @@ if (createUserBtn) {
     await fetchModels();
     if (currentUser && currentUser.is_admin) {
         refreshUsers();
+        refreshToolUsage();
     }
 })();
