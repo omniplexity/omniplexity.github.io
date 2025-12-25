@@ -1,13 +1,17 @@
-const backendConfig = window.BackendConfig || null;
-const defaultBackendURL = backendConfig ? backendConfig.getStoredBackendUrl() : "";
+const utils = window.OmniUtils || null;
+const backendConfig = utils ? utils.getBackendConfig() : (window.BackendConfig || null);
+const defaultBackendURL = utils
+    ? utils.getStoredBackendUrl()
+    : (backendConfig ? backendConfig.getStoredBackendUrl() : "");
 
-const NGROK_HEADERS = { "ngrok-skip-browser-warning": "true" };
-const ngrokFetch = (url, options = {}) => {
-    return fetch(url, {
-        ...options,
-        headers: { ...(options.headers || {}), ...NGROK_HEADERS }
+const ngrokFetch = utils
+    ? utils.ngrokFetch
+    : ((url, options = {}) => {
+        return fetch(url, {
+            ...options,
+            headers: { ...(options.headers || {}), "ngrok-skip-browser-warning": "true" }
+        });
     });
-};
 
 
 
@@ -18,6 +22,7 @@ const composerEl = document.getElementById("composer");
 const promptEl = document.getElementById("prompt");
 
 const sendBtn = document.getElementById("sendBtn");
+const cancelBtn = document.getElementById("cancelBtn");
 
 const statusBadge = document.getElementById("statusBadge");
 
@@ -98,6 +103,7 @@ let toastTimer = null;
 let sendBtnDefaultText = sendBtn ? sendBtn.textContent : "Send";
 
 let messageLog = [];
+let activeRequestController = null;
 let threads = [];
 let currentThreadId = null;
 let lastChatOk = 0;
@@ -281,23 +287,15 @@ const setStatus = (state, text) => {
 
 
 const buildApiUrl = (path) => {
-
+    if (utils) return utils.buildApiUrl(path, backendURL);
     try {
-
         const u = new URL(backendURL);
-
         u.pathname = path;
-
         u.search = "";
-
         return u.toString();
-
     } catch {
-
         return null;
-
     }
-
 };
 
 
@@ -322,9 +320,28 @@ const showToast = (message, type = "info") => {
 
 };
 
+const setPendingState = (pending, label = "Sending...") => {
+    if (sendBtn) {
+        sendBtn.disabled = pending;
+        sendBtn.textContent = pending ? label : sendBtnDefaultText;
+    }
+    if (cancelBtn) {
+        cancelBtn.hidden = !pending;
+        cancelBtn.disabled = !pending;
+    }
+};
+
+const abortActiveRequest = () => {
+    if (activeRequestController) {
+        activeRequestController.abort();
+        activeRequestController = null;
+    }
+};
+
 
 
 const normalizeBackendUrl = (candidate) => {
+    if (utils) return utils.normalizeBackendUrl(candidate);
     if (!backendConfig) throw new Error("Backend config missing");
     return backendConfig.normalizeBackendUrl(candidate);
 };
@@ -965,6 +982,79 @@ if (imageNavBtn) {
     });
 }
 
+const fetchChatResponse = async (payload, signal) => {
+    const response = await ngrokFetch(backendURL, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal,
+    });
+
+    if (!response.ok) {
+        let data;
+        try {
+            data = await response.json();
+        } catch {
+            const text = await response.text();
+            throw new Error(`Request failed: ${response.status}${text ? ` - ${text}` : ""}`);
+        }
+        const detail = data?.detail ? ` - ${data.detail}` : "";
+        const reqId = data?.request_id ? ` (req ${data.request_id})` : "";
+        throw new Error(`Request failed: ${response.status}${detail}${reqId}`);
+    }
+
+    const data = await response.json();
+    return data.response || "I couldn't find a reply.";
+};
+
+const streamChatResponse = async (payload, assistantBubble, signal) => {
+    const streamUrl = buildApiUrl("/api/chat/stream");
+    if (!streamUrl || !window.ReadableStream || !window.TextDecoder) {
+        const err = new Error("Streaming not supported");
+        err.streamFallback = true;
+        throw err;
+    }
+
+    const response = await ngrokFetch(streamUrl, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal,
+    });
+
+    if (!response.ok || !response.body) {
+        let detail = "";
+        try {
+            const data = await response.json();
+            detail = data?.detail ? ` - ${data.detail}` : "";
+        } catch {
+            const text = await response.text().catch(() => "");
+            detail = text ? ` - ${text}` : "";
+        }
+        const err = new Error(`Stream unavailable: ${response.status}${detail}`);
+        err.streamFallback = true;
+        throw err;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let reply = "";
+
+    while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        reply += decoder.decode(value, { stream: true });
+        setAssistantReply(assistantBubble, reply);
+    }
+    reply += decoder.decode();
+    if (reply) {
+        setAssistantReply(assistantBubble, reply);
+    }
+    return reply || "I couldn't find a reply.";
+};
+
 
 
 composerEl.addEventListener("submit", async (event) => {
@@ -1004,12 +1094,13 @@ composerEl.addEventListener("submit", async (event) => {
     const thinkingText = `Thinking...\n\nPrompt: ${input.slice(0, 240)}`;
     const assistantBubble = appendMessage("assistant", thinkingText, true);
 
-    sendBtn.disabled = true;
-
-    if (sendBtn) sendBtn.textContent = "Sending...";
+    setPendingState(true);
+    const controller = new AbortController();
+    activeRequestController = controller;
+    let reply = "";
+    let cancelled = false;
 
     try {
-
         setStatus("connecting", "Sending...");
 
         const payload = {
@@ -1025,48 +1116,23 @@ composerEl.addEventListener("submit", async (event) => {
             payload.thread_id = currentThreadId;
         }
 
-        const response = await ngrokFetch(backendURL, {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-
-
-
-        let data;
-
-
-
-        if (!response.ok) {
-
-            // Try to surface backend error details
-
-            try {
-
-                data = await response.json();
-
-            } catch {
-
-                const text = await response.text();
-
-                throw new Error(`Request failed: ${response.status}${text ? ` - ${text}` : ""}`);
-
+        try {
+            setPendingState(true, "Streaming...");
+            reply = await streamChatResponse(payload, assistantBubble, controller.signal);
+        } catch (error) {
+            if (error && error.name === "AbortError") {
+                throw error;
             }
-
-            const detail = data?.detail ? ` - ${data.detail}` : "";
-            const reqId = data?.request_id ? ` (req ${data.request_id})` : "";
-
-            throw new Error(`Request failed: ${response.status}${detail}${reqId}`);
-
+            if (error && error.streamFallback) {
+                setPendingState(true, "Sending...");
+                reply = await fetchChatResponse(payload, controller.signal);
+                setAssistantReply(assistantBubble, reply);
+            } else {
+                throw error;
+            }
         }
 
-
-
-        data = data || await response.json();
-
-        const reply = data.response || "I couldn't find a reply.";
-
+        reply = reply || "I couldn't find a reply.";
         setAssistantReply(assistantBubble, reply);
 
         messageLog.push({ role: "assistant", content: reply, ts: Date.now() });
@@ -1089,32 +1155,27 @@ composerEl.addEventListener("submit", async (event) => {
         showToast("Reply received", "success");
 
     } catch (error) {
-
-        setAssistantReply(
-
-            assistantBubble,
-
-            `Error: ${error.message}`,
-
-            true
-
-        );
-
-        setStatus("error", "Request failed");
-
-        showToast(error.message, "error");
-
+        if (error && error.name === "AbortError") {
+            cancelled = true;
+            setAssistantReply(assistantBubble, "Request cancelled.", true);
+            setStatus("ok", "Request cancelled");
+            showToast("Request cancelled", "info");
+        } else {
+            setAssistantReply(
+                assistantBubble,
+                `Error: ${error.message}`,
+                true
+            );
+            setStatus("error", "Request failed");
+            showToast(error.message, "error");
+        }
     } finally {
-
-        sendBtn.disabled = false;
-
-        if (sendBtn) sendBtn.textContent = sendBtnDefaultText;
-
+        activeRequestController = null;
+        setPendingState(false);
         promptEl.focus();
-
-        // Successful send sets status to healthy
-        setStatus("ok", "Connected to backend");
-
+        if (!cancelled) {
+            setStatus("ok", "Connected to backend");
+        }
     }
 
 });
@@ -1775,6 +1836,12 @@ if (clearChatBtn && messagesEl) {
         messagesEl.innerHTML = "";
         messageLog = [];
         setStatus("ok", "Ready");
+    });
+}
+
+if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => {
+        abortActiveRequest();
     });
 }
 

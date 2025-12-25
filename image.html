@@ -6,10 +6,12 @@
     <title>OmniAI Image</title>
     <link rel="stylesheet" href="style.css">
     <script src="config.js"></script>
+    <script src="utils.js"></script>
     <script>
         (function () {
-            const NGROK_HEADERS = { "ngrok-skip-browser-warning": "true" };
-            const backendConfig = window.BackendConfig;
+            const utils = window.OmniUtils;
+            const NGROK_HEADERS = utils ? utils.NGROK_HEADERS : { "ngrok-skip-browser-warning": "true" };
+            const backendConfig = utils ? utils.getBackendConfig() : window.BackendConfig;
             const chatUrl = backendConfig ? backendConfig.getStoredBackendUrl() : "";
             try {
                 const authUrl = new URL(chatUrl);
@@ -64,27 +66,20 @@
 </div>
 
 <script>
-    const NGROK_HEADERS = { "ngrok-skip-browser-warning": "true" };
-    const backendConfig = window.BackendConfig;
-    const backendURL = backendConfig ? backendConfig.getStoredBackendUrl() : "";
+    const utils = window.OmniUtils;
+    const NGROK_HEADERS = utils ? utils.NGROK_HEADERS : { "ngrok-skip-browser-warning": "true" };
+    const backendConfig = utils ? utils.getBackendConfig() : window.BackendConfig;
+    const backendURL = utils ? utils.getStoredBackendUrl() : (backendConfig ? backendConfig.getStoredBackendUrl() : "");
     const imageModelSelect = document.getElementById("imageModelSelect");
     const imagePrompt = document.getElementById("imagePrompt");
     const generateImageBtn = document.getElementById("generateImageBtn");
     const imageResults = document.getElementById("imageResults");
 
-    const buildApiUrl = (path) => {
-        if (!backendURL) return null;
-        try {
-            const u = new URL(backendURL);
-            u.pathname = path;
-            u.search = "";
-            return u.toString();
-        } catch {
-            return null;
-        }
-    };
-
-    const ngrokFetch = (url, options = {}) => fetch(url, { ...options, headers: { ...(options.headers || {}), ...NGROK_HEADERS } });
+    const buildApiUrl = (path) => utils ? utils.buildApiUrl(path, backendURL) : null;
+    const ngrokFetch = (url, options = {}) =>
+        utils
+            ? utils.ngrokFetch(url, options)
+            : fetch(url, { ...options, headers: { ...(options.headers || {}), ...NGROK_HEADERS } });
 
     const fetchModels = async () => {
         const url = buildApiUrl("/api/models");

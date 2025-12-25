@@ -6,6 +6,7 @@
     <title>OmniAI Login</title>
     <link rel="stylesheet" href="style.css">
     <script src="config.js"></script>
+    <script src="utils.js"></script>
 </head>
 <body>
 <div class="background-grid"></div>
@@ -46,8 +47,9 @@ const btn = document.getElementById("loginBtn");
 const backendUrlInput = document.getElementById("backendUrlInput");
 const saveBackendBtn = document.getElementById("saveBackendBtn");
 const backendStatusEl = document.getElementById("backendStatus");
-const ngrokHeaders = { "ngrok-skip-browser-warning": "true" };
-const backendConfig = window.BackendConfig;
+const utils = window.OmniUtils;
+const ngrokHeaders = utils ? utils.NGROK_HEADERS : { "ngrok-skip-browser-warning": "true" };
+const backendConfig = utils ? utils.getBackendConfig() : window.BackendConfig;
 
 let chatURL = "";
 let loginURL = "";
@@ -70,11 +72,11 @@ const setBackendUrls = (chatUrl) => {
 };
 
 const initializeBackend = () => {
-    if (!backendConfig) {
+    if (!backendConfig && !utils) {
         statusEl.textContent = "Backend config missing.";
         return;
     }
-    const chatUrl = backendConfig.getStoredBackendUrl();
+    const chatUrl = utils ? utils.getStoredBackendUrl() : backendConfig.getStoredBackendUrl();
     if (!chatUrl) {
         statusEl.textContent = "Set a valid backend URL to continue.";
         return;
@@ -83,9 +85,11 @@ const initializeBackend = () => {
 };
 
 const applyBackendUrl = () => {
-    if (!backendConfig) return;
+    if (!backendConfig && !utils) return;
     try {
-        const updated = backendConfig.setStoredBackendUrl(backendUrlInput.value);
+        const updated = utils
+            ? utils.setStoredBackendUrl(backendUrlInput.value)
+            : backendConfig.setStoredBackendUrl(backendUrlInput.value);
         setBackendUrls(updated);
         statusEl.textContent = "Backend updated.";
         checkBackendStatus();
