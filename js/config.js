@@ -1,6 +1,6 @@
 // OmniAI WebUI Configuration
 
-const DEFAULT_API_BASE_URL = "https://your-tunnel-or-domain"; // Replace with actual tunnel URL
+const DEFAULT_API_BASE_URL = "https://rossie-chargeful-plentifully.ngrok-free.dev"; // ngrok tunnel URL
 
 function getApiBaseUrl() {
     const stored = localStorage.getItem('apiBaseUrl');
