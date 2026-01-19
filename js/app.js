@@ -315,11 +315,14 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
 });
 
 // Backend URL setting
-document.getElementById('save-url-btn').addEventListener('click', () => {
-    const url = document.getElementById('api-base-url').value.trim();
-    if (url) {
-        setApiBaseUrl(url);
-        alert('API Base URL saved. Please refresh the page.');
+on('save-url-btn', 'click', () => {
+    const urlInput = el('api-base-url');
+    if (urlInput) {
+        const url = urlInput.value.trim();
+        if (url) {
+            setApiBaseUrl(url);
+            alert('API Base URL saved. Please refresh the page.');
+        }
     }
 });
 
@@ -515,12 +518,15 @@ async function sendMessage() {
         disableSendButton();
         clearMessageInput();
 
-        // Add user message to transcript
+        // Add user message to transcript (visual update)
         const transcript = document.getElementById('transcript');
         const userDiv = document.createElement('div');
         userDiv.className = 'message user';
         userDiv.innerHTML = content.replace(/\n/g, '<br>');
         transcript.appendChild(userDiv);
+
+        // First, append the user message to the conversation via API
+        await appendMessage(currentConversationId, content);
 
         // Add empty assistant message placeholder for streaming
         const assistantDiv = document.createElement('div');
@@ -529,8 +535,8 @@ async function sendMessage() {
         transcript.appendChild(assistantDiv);
         transcript.scrollTop = transcript.scrollHeight;
 
-        // Start streaming
-        await startStreaming(content, providerId, modelId);
+        // Start streaming (now the message is in the conversation)
+        await startStreaming(providerId, modelId);
 
     } catch (error) {
         showError('Failed to send message: ' + error.message);
@@ -538,7 +544,7 @@ async function sendMessage() {
     }
 }
 
-async function startStreaming(content, providerId, modelId) {
+async function startStreaming(providerId, modelId) {
     if (currentStreamingParser) {
         currentStreamingParser.stop();
     }
@@ -707,6 +713,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await initializeAuth();
     handleRouteChange();
 
-    // Load saved API URL
-    document.getElementById('api-base-url').value = getApiBaseUrl();
+    // Load saved API URL (defensive access)
+    const apiUrlInput = el('api-base-url');
+    if (apiUrlInput) apiUrlInput.value = getApiBaseUrl();
 });

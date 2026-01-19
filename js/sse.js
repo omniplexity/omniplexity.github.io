@@ -99,21 +99,22 @@ class SSEParser {
 // Helper function to stream chat
 async function streamChat(conversationId, providerId, modelId, settings = {}, onEvent, onError, onDisconnect) {
     const baseUrl = getApiBaseUrl();
-    const url = `${baseUrl}/conversations/${conversationId}/stream`;
 
-    const body = JSON.stringify({
-        provider_id: providerId,
-        model_id: modelId,
-        generation_settings: settings,
-    });
+    // Build query parameters (backend expects query params, not JSON body)
+    const params = new URLSearchParams();
+    params.append('provider_id', providerId);
+    params.append('model', modelId);  // Backend expects 'model', not 'model_id'
+    if (settings.temperature != null) params.append('temperature', settings.temperature);
+    if (settings.top_p != null) params.append('top_p', settings.top_p);
+    if (settings.max_tokens != null) params.append('max_tokens', settings.max_tokens);
+
+    const url = `${baseUrl}/conversations/${conversationId}/stream?${params.toString()}`;
 
     const parser = new SSEParser(url, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
             'ngrok-skip-browser-warning': 'true',
         },
-        body,
         onEvent,
         onError,
         onDisconnect,

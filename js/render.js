@@ -97,7 +97,7 @@ function renderTranscript(messages) {
             receipt.innerHTML = `
                 <div class="receipt-line">
                     <span class="receipt-text">Run details</span>
-                    <button class="receipt-toggle" aria-label="Toggle run details">¼</button>
+                    <button class="receipt-toggle" aria-label="Toggle run details">ï¿½</button>
                 </div>
                 <div class="receipt-expanded hidden">
                     <button class="receipt-re-run">Re-run with same settings</button>
@@ -208,10 +208,17 @@ function updateUserDisplay(user) {
 }
 
 function updateSettingsInputs() {
-    document.getElementById('temperature').value = getTemperature();
-    document.getElementById('top-p').value = getTopP();
-    const maxTokens = getMaxTokens();
-    document.getElementById('max-tokens').value = maxTokens || '';
+    // Use correct drawer element IDs with defensive access
+    const tempEl = document.getElementById('drawer-temperature');
+    const topPEl = document.getElementById('drawer-top-p');
+    const maxTokensEl = document.getElementById('drawer-max-tokens');
+
+    if (tempEl) tempEl.value = getTemperature();
+    if (topPEl) topPEl.value = getTopP();
+    if (maxTokensEl) {
+        const maxTokens = getMaxTokens();
+        maxTokensEl.value = maxTokens || '';
+    }
 }
 
 function enableSendButton() {

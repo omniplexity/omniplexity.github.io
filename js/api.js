@@ -136,15 +136,10 @@ async function getConversationMessages(conversationId) {
     return await apiRequest(`/conversations/${conversationId}/messages`);
 }
 
-async function createMessage(conversationId, content, providerId, modelId, settings = {}) {
-    return await apiRequest(`/conversations/${conversationId}/messages`, {
+// Append a user message to a conversation (uses query parameter as expected by backend)
+async function appendMessage(conversationId, content) {
+    return await apiRequest(`/conversations/${conversationId}/messages?content=${encodeURIComponent(content)}`, {
         method: 'POST',
-        body: JSON.stringify({
-            content,
-            provider_id: providerId,
-            model_id: modelId,
-            generation_settings: settings,
-        }),
     });
 }
 
