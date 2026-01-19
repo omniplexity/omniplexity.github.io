@@ -270,8 +270,7 @@ class PromptDock {
     }
 }
 
-// Initialize prompt dock
-const promptDock = new PromptDock();
-
-// Make globally available
-window.promptDock = promptDock;
+// Initialize prompt dock after DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    window.promptDock = new PromptDock();
+});

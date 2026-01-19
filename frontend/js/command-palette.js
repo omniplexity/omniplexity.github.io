@@ -363,8 +363,10 @@ class CommandPalette {
     }
 }
 
-// Initialize command palette
-const commandPalette = new CommandPalette();
+// Initialize command palette after DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    window.commandPalette = new CommandPalette();
+});
 
 // Make it globally available
 window.commandPalette = commandPalette;
