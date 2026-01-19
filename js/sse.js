@@ -32,7 +32,19 @@ class SSEParser {
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+                // Try to get detailed error message from response
+                let errorMsg = `HTTP ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorMsg = errorData.detail?.message || errorData.detail || errorData.message || errorMsg;
+                } catch (e) {
+                    // Response wasn't JSON, try text
+                    try {
+                        const text = await response.text();
+                        if (text) errorMsg += `: ${text.slice(0, 200)}`;
+                    } catch (e2) {}
+                }
+                throw new Error(errorMsg);
             }
 
             this.controller = new AbortController();
