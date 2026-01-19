@@ -340,10 +340,14 @@ async function initializeChat() {
         const savedConversationId = getCurrentConversationId();
         if (savedConversationId) {
             try {
-                await selectConversation(savedConversationId);
+                // Don't show error on fail - we'll create a new conversation instead
+                await selectConversation(savedConversationId, false);
                 conversationReady = true;
             } catch (error) {
-                console.warn('Saved conversation not found, will create new one');
+                // Clear stale conversation ID and create new one
+                console.warn('Saved conversation not found, clearing and creating new one');
+                setCurrentConversationId(null);
+                currentConversationId = null;
             }
         }
 
@@ -364,6 +368,8 @@ async function initializeChat() {
         showError('Failed to initialize chat: ' + error.message);
         // Last resort - try to create a conversation anyway
         try {
+            setCurrentConversationId(null);
+            currentConversationId = null;
             await createNewConversation();
         } catch (e) {
             console.error('Could not create fallback conversation:', e);
@@ -415,7 +421,7 @@ async function createNewConversation() {
     }
 }
 
-async function selectConversation(conversationId) {
+async function selectConversation(conversationId, showErrorOnFail = true) {
     try {
         const messages = await getConversationMessages(conversationId);
         currentConversationId = conversationId;
@@ -423,7 +429,9 @@ async function selectConversation(conversationId) {
         renderTranscript(messages);
         updateStatusLine('Ready');
     } catch (error) {
-        showError('Failed to load conversation: ' + error.message);
+        if (showErrorOnFail) {
+            showError('Failed to load conversation: ' + error.message);
+        }
         throw error; // Re-throw so callers can handle (e.g., create new conversation)
     }
 }
