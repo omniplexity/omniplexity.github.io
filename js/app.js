@@ -328,13 +328,13 @@ async function initializeChat() {
         // If no conversation yet, create one
         if (!conversationReady) {
             console.log('Creating new conversation...');
-            await createNewConversation();
+            await createNewConversationUI();
         }
 
         // Final check - ensure we have a conversation
         if (!currentConversationId) {
             console.error('Failed to establish conversation, retrying...');
-            await createNewConversation();
+            await createNewConversationUI();
         }
 
         console.log('Chat initialized with conversation:', currentConversationId);
@@ -344,7 +344,7 @@ async function initializeChat() {
         try {
             setCurrentConversationId(null);
             currentConversationId = null;
-            await createNewConversation();
+            await createNewConversationUI();
         } catch (e) {
             console.error('Could not create fallback conversation:', e);
         }
@@ -381,12 +381,12 @@ async function loadConversations(query = '') {
 }
 
 // Conversation management
-async function createNewConversation() {
+async function createNewConversationUI() {
     try {
         const conversation = await createConversation();
-        setCurrentConversationId(conversation.id);
         currentConversationId = conversation.id;
         state.activeThreadId = conversation.id;
+        setCurrentConversationId(conversation.id);
         renderTranscript([]);
         updateStatusLine('Ready');
         // Refresh conversation list to show the new one
@@ -431,7 +431,7 @@ async function deleteConversationUI(conversationId) {
         try {
             await deleteConversation(conversationId); // Calls API function from api.js
             if (currentConversationId === conversationId) {
-                await createNewConversation();
+                await createNewConversationUI();
             }
             await loadConversations();
         } catch (error) {
@@ -440,38 +440,12 @@ async function deleteConversationUI(conversationId) {
     }
 }
 
-// Provider/Model handling
-on('provider-select', 'change', async (e) => {
-    const providerId = e.target.value;
-    setSelectedProvider(providerId);
-    // Clear model selection when provider changes
-    setSelectedModel('');
-    updateSendButtonState();
-
-    if (providerId) {
-        try {
-            const models = await getProviderModels(providerId);
-            renderModels(models);
-            updateSendButtonState();
-        } catch (error) {
-            showError('Failed to load models: ' + error.message);
-            renderModels([]);
-        }
-    } else {
-        renderModels([]);
-    }
-});
-
-on('model-select', 'change', (e) => {
-    setSelectedModel(e.target.value);
-    updateSendButtonState();
-});
-
+// Provider/Model handling moved to bindUI()
 function updateSendButtonState() {
     const providerId = getSelectedProvider();
     const modelId = getSelectedModel();
     const sendBtn = el('send-btn');
-    if (sendBtn) sendBtn.disabled = !providerId || !modelId || state.stream.status === 'streaming';
+    if (sendBtn) sendBtn.disabled = !providerId || !modelId || !currentConversationId || state.stream.status === 'streaming';
 }
 
 function autoSelectProvider(providers) {
@@ -774,9 +748,10 @@ on('sidebar-toggle', 'click', () => {
 
 on('new-conversation-btn', 'click', () => {
     debugLog('NEW_CHAT_CLICK');
-    createNewConversation().catch(error => {
+    createNewConversationUI().catch(error => {
         debugLog('NEW_CHAT_ERROR', { error: error.message });
         console.error('New chat error:', error);
+        showError('Failed to create new conversation: ' + error.message);
     });
 });
 
@@ -1069,7 +1044,7 @@ function bindUI() {
 
     on('new-conversation-btn', 'click', () => {
         debugLog('NEW_CHAT_CLICK');
-        createNewConversation().catch(error => {
+        createNewConversationUI().catch(error => {
             debugLog('NEW_CHAT_ERROR', { error: error.message });
             console.error('New chat error:', error);
             showError('Failed to create new conversation: ' + error.message);
