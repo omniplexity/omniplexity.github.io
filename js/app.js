@@ -18,6 +18,7 @@ let state = {
 };
 
 // Legacy variables (to be phased out)
+let currentConversationId = null;
 let currentStreamingParser = null;
 let streamingStartTime = null;
 let currentGenerationId = null;
@@ -400,6 +401,7 @@ async function selectConversation(conversationId) {
         updateStatusLine('Ready');
     } catch (error) {
         showError('Failed to load conversation: ' + error.message);
+        throw error; // Re-throw so callers can handle (e.g., create new conversation)
     }
 }
 
