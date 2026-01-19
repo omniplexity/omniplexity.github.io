@@ -48,11 +48,6 @@
                     <div id="connection-indicator" aria-label="Connection status">● Connected</div>
                 </div>
                 <div id="topbar-right">
-                    <div id="backend-url-setting">
-                        <label for="api-base-url">Backend URL:</label>
-                        <input type="text" id="api-base-url" placeholder="https://your-backend-url">
-                        <button id="save-url-btn">Save</button>
-                    </div>
                     <button id="settings-btn" aria-label="Settings">⚙</button>
                     <div id="user-info">
                         <span id="user-display"></span>
@@ -147,6 +142,24 @@
                             <input type="checkbox" id="setting-stream-response" checked>
                             <label for="setting-stream-response">Stream responses (show as they generate)</label>
                         </div>
+                    </div>
+
+                    <!-- Generation Settings -->
+                    <div class="settings-section">
+                        <h3>Generation Settings</h3>
+                        <div class="setting-group">
+                            <label for="setting-temperature">Temperature:</label>
+                            <input type="number" id="setting-temperature" step="0.1" min="0" max="2" placeholder="default">
+                        </div>
+                        <div class="setting-group">
+                            <label for="setting-top-p">Top-P:</label>
+                            <input type="number" id="setting-top-p" step="0.01" min="0" max="1" placeholder="default">
+                        </div>
+                        <div class="setting-group">
+                            <label for="setting-max-tokens">Max Tokens:</label>
+                            <input type="number" id="setting-max-tokens" min="1" placeholder="default">
+                        </div>
+                        <button id="reset-generation-settings-btn">Reset to provider defaults</button>
                     </div>
 
                     <!-- Provider Defaults -->
@@ -305,4 +318,4 @@
 
 
 </body>
-</html> 
+</html>

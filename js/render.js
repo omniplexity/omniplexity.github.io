@@ -169,8 +169,12 @@ function renderModels(models) {
         select.appendChild(option);
     });
 
-    // Restore selected model
-    const selected = getSelectedModel();
+    // Restore selected model or auto-select first
+    let selected = getSelectedModel();
+    if (!selected && models.length > 0) {
+        selected = models[0].id;
+        setSelectedModel(selected);
+    }
     if (selected) {
         select.value = selected;
     }

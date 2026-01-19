@@ -13,7 +13,7 @@ let state = {
     session: { user: null },
     threads: [],
     activeThreadId: null,
-    run: { model: null, temperature: 0.7, top_p: 1, max_tokens: 1024 },
+    run: { model: null, temperature: null, top_p: null, max_tokens: null },
     stream: { status: "idle", elapsedMs: 0, usage: null, lastError: null }
 };
 
@@ -41,7 +41,12 @@ function renderTopbar() {
     }
 
     // Run settings summary
-    const summary = `Temp: ${state.run.temperature}, Top-P: ${state.run.top_p}, Max: ${state.run.max_tokens}`;
+    let summary;
+    if (state.run.temperature === null && state.run.top_p === null && state.run.max_tokens === null) {
+        summary = 'Using provider defaults';
+    } else {
+        summary = `Temp: ${state.run.temperature ?? 'default'}, Top-P: ${state.run.top_p ?? 'default'}, Max: ${state.run.max_tokens ?? 'default'}`;
+    }
     document.getElementById('run-settings-summary').textContent = summary;
 
     // Connection indicator
@@ -107,7 +112,7 @@ function renderToasts() {
         toast.className = 'toast error';
         toast.innerHTML = `
             <div>Error: ${state.stream.lastError.message}</div>
-            <button onclick="this.parentElement.remove()">�</button>
+            <button onclick="this.parentElement.remove()">×</button>
         `;
         toastHost.appendChild(toast);
     }
@@ -314,17 +319,7 @@ on('logout-btn', 'click', async () => {
     setRoute('login');
 });
 
-// Backend URL setting
-on('save-url-btn', 'click', () => {
-    const urlInput = el('api-base-url');
-    if (urlInput) {
-        const url = urlInput.value.trim();
-        if (url) {
-            setApiBaseUrl(url);
-            alert('API Base URL saved. Please refresh the page.');
-        }
-    }
-});
+// Backend URL setting removed from UI
 
 // Chat initialization
 async function initializeChat() {
@@ -390,6 +385,8 @@ async function loadProviders() {
     try {
         const providers = await getProviders();
         renderProviders(providers);
+        // Auto-select provider if none selected
+        autoSelectProvider(providers);
     } catch (error) {
         console.error('Failed to load providers:', error);
     }
@@ -493,7 +490,27 @@ function updateSendButtonState() {
     const providerId = getSelectedProvider();
     const modelId = getSelectedModel();
     const sendBtn = el('send-btn');
-    if (sendBtn) sendBtn.disabled = !providerId || !modelId;
+    if (sendBtn) sendBtn.disabled = !providerId || !modelId || state.stream.status === 'streaming';
+}
+
+function autoSelectProvider(providers) {
+    let selectedProvider = getSelectedProvider();
+    if (!selectedProvider) {
+        // Prefer LM Studio if available
+        const lmStudio = providers.find(p => p.name.toLowerCase().includes('lm studio') || p.provider_id.toLowerCase().includes('lmstudio'));
+        if (lmStudio) {
+            selectedProvider = lmStudio.provider_id;
+        } else if (providers.length > 0) {
+            selectedProvider = providers[0].provider_id;
+        }
+        if (selectedProvider) {
+            setSelectedProvider(selectedProvider);
+            const select = el('provider-select');
+            if (select) select.value = selectedProvider;
+            // Trigger change to load models
+            select.dispatchEvent(new Event('change'));
+        }
+    }
 }
 
 // Settings drawer open/close
@@ -530,6 +547,14 @@ function loadSettingsUI() {
     if (timestampsEl) timestampsEl.checked = getSetting('showTimestamps');
     if (streamEl) streamEl.checked = getSetting('streamResponse');
 
+    // Generation Settings
+    const temperatureEl = el('setting-temperature');
+    const topPEl = el('setting-top-p');
+    const maxTokensEl = el('setting-max-tokens');
+    if (temperatureEl) temperatureEl.value = state.run.temperature ?? '';
+    if (topPEl) topPEl.value = state.run.top_p ?? '';
+    if (maxTokensEl) maxTokensEl.value = state.run.max_tokens ?? '';
+
     // Provider Defaults
     const rememberProviderEl = el('setting-remember-provider');
     const rememberModelEl = el('setting-remember-model');
@@ -548,9 +573,35 @@ on('setting-enter-send', 'change', (e) => setSetting('enterToSend', e.target.che
 on('setting-timestamps', 'change', (e) => setSetting('showTimestamps', e.target.checked));
 on('setting-stream-response', 'change', (e) => setSetting('streamResponse', e.target.checked));
 
+// Settings change handlers - Generation Settings
+on('setting-temperature', 'input', (e) => {
+    const val = e.target.value.trim();
+    state.run.temperature = val === '' ? null : parseFloat(val);
+    renderTopbar();
+});
+on('setting-top-p', 'input', (e) => {
+    const val = e.target.value.trim();
+    state.run.top_p = val === '' ? null : parseFloat(val);
+    renderTopbar();
+});
+on('setting-max-tokens', 'input', (e) => {
+    const val = e.target.value.trim();
+    state.run.max_tokens = val === '' ? null : parseInt(val, 10);
+    renderTopbar();
+});
+
 // Settings change handlers - Provider Defaults
 on('setting-remember-provider', 'change', (e) => setSetting('rememberProvider', e.target.checked));
 on('setting-remember-model', 'change', (e) => setSetting('rememberModel', e.target.checked));
+
+// Reset generation settings
+on('reset-generation-settings-btn', 'click', () => {
+    state.run.temperature = null;
+    state.run.top_p = null;
+    state.run.max_tokens = null;
+    loadSettingsUI(); // Reload UI to reflect changes
+    renderTopbar();
+});
 
 // Data actions
 on('clear-history-btn', 'click', async () => {
@@ -803,8 +854,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('hashchange', handleRouteChange);
     await initializeAuth();
     handleRouteChange();
-
-    // Load saved API URL (defensive access)
-    const apiUrlInput = el('api-base-url');
-    if (apiUrlInput) apiUrlInput.value = getApiBaseUrl();
 });
