@@ -79,6 +79,13 @@ def test_create_conversation(authenticated_client):
 
     conv_id = data["id"]
 
+    # Get single conversation
+    response = authenticated_client.get(f"/conversations/{conv_id}")
+    assert response.status_code == 200
+    conv_data = response.json()
+    assert conv_data["id"] == conv_id
+    assert conv_data["title"] == "Test Conversation"
+
     # List conversations
     response = authenticated_client.get("/conversations")
     assert response.status_code == 200

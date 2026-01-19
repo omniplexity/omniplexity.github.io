@@ -6,10 +6,17 @@
     --panel: #111114;
     --panel2: #16161a;
     --border: rgba(255,255,255,0.08);
+
+    /* compatibility aliases (prevents white/transparent regressions) */
+    --bg-solid: var(--bg);
+    --panel-solid: var(--panel);
+    --panel2-solid: var(--panel2);
     --text: rgba(255,255,255,0.92);
     --muted: rgba(255,255,255,0.62);
     --accent: #1a7fff;
-    --accent-hover: #0056cc;
+    --accent-hover: #3a92ff;
+    --bubble-user: rgba(26,127,255,0.18);
+    --bubble-user-border: rgba(26,127,255,0.28);
     --danger: #ff3b30;
     --success: #34c759;
     --shadow: 0 8px 30px rgba(0,0,0,.45);
@@ -19,7 +26,7 @@
     /* Layout */
     --topbar-height: 52px;
     --sidebar-width: 300px;
-    --chat-max-width: 900px;
+    --chat-max-width: 960px;
     --radius: 16px;
     --radius-sm: 10px;
     --radius-lg: 20px;
@@ -75,7 +82,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 var(--space-4);
+    padding: 0 var(--space-3);
     position: relative;
     z-index: 100;
     backdrop-filter: blur(20px);
@@ -220,7 +227,7 @@ body {
 }
 
 #new-conversation-btn:hover {
-    background-color: #0056cc;
+    background-color: var(--accent-hover);
 }
 
 #search-conversations {
@@ -328,7 +335,7 @@ body {
 }
 
 /* Main Chat Area */
-.main {
+#main, .main, #chat-view {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -422,7 +429,7 @@ body {
 .transcript-wrap {
     flex: 1;
     overflow-y: auto;
-    padding: var(--space-6);
+    padding: var(--space-5);
     max-width: var(--chat-max-width);
     margin: 0 auto;
     width: 100%;
@@ -452,18 +459,18 @@ body {
     border-radius: var(--radius);
     word-wrap: break-word;
     font-size: 14px;
-    line-height: 1.6;
+    line-height: 1.55;
     position: relative;
 }
 
 .message.user {
-    background-color: var(--panel2);
+    background-color: var(--bubble-user);
     color: var(--text);
     align-self: flex-end;
     margin-left: auto;
-    max-width: 80%;
+    max-width: 78%;
     border-bottom-right-radius: var(--space-1);
-    border: 1px solid var(--border);
+    border: 1px solid var(--bubble-user-border);
 }
 
 .message.assistant {
@@ -471,7 +478,7 @@ body {
     color: var(--text);
     align-self: flex-start;
     margin-right: auto;
-    max-width: 80%;
+    max-width: 78%;
     border-bottom-left-radius: var(--space-1);
     border: 1px solid var(--border);
 }
@@ -621,6 +628,7 @@ body {
     background-color: var(--panel);
     position: sticky;
     bottom: 0;
+    box-shadow: var(--shadow-inner);
 }
 
 #input-area {
@@ -673,7 +681,7 @@ body {
 }
 
 #send-btn:hover:not(:disabled) {
-    background-color: #0056cc;
+    background-color: var(--accent-hover);
 }
 
 #send-btn:disabled {
@@ -1196,4 +1204,18 @@ tbody tr:hover {
         padding: var(--space-2) var(--space-3);
         font-size: 13px;
     }
+}
+
+/* Safe overrides to prevent white backgrounds */
+html, body {
+    background: var(--bg);
+    color: var(--text);
+}
+
+#main, .main, #chat-view {
+    background: var(--bg);
+}
+
+#transcript, .transcript-wrap {
+    background: transparent;
 }

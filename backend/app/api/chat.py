@@ -9,6 +9,7 @@ from typing import AsyncGenerator
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.app.auth.csrf import require_csrf
@@ -31,6 +32,27 @@ from fastapi import Request
 logger = logging.getLogger("backend")
 
 
+class AppendMessageRequest(BaseModel):
+    content: str
+
+
+class StreamChatRequest(BaseModel):
+    provider_id: str
+    model: str
+    temperature: float | None = None
+    top_p: float | None = None
+    max_tokens: int | None = None
+
+
+class RetryChatRequest(BaseModel):
+    conversation_id: int
+    provider_id: str
+    model: str
+    temperature: float | None = None
+    top_p: float | None = None
+    max_tokens: int | None = None
+
+
 def check_rate_limits(request: Request, user: User) -> None:
     """Check IP and user rate limits."""
     client_ip = request.client.host if request.client else "unknown"
@@ -43,9 +65,9 @@ router = APIRouter()
 
 @router.post("/conversations/{conversation_id}/messages", dependencies=[Depends(require_csrf)])
 def append_message(
-    request: Request,
     conversation_id: int,
-    content: str,
+    req: AppendMessageRequest,
+    request: Request = None,
     user: User = Depends(require_active_user),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -63,7 +85,7 @@ def append_message(
     if not conversation:
         raise HTTPException(status_code=404, detail={"code": "CONVERSATION_NOT_FOUND", "message": "Conversation not found"})
 
-    message = append_user_message_service(db, user.id, conversation_id, content)
+    message = append_user_message_service(db, user.id, conversation_id, req.content)
     increment_message_usage(db, user.id)
     db.commit()
     return {
@@ -74,13 +96,9 @@ def append_message(
 
 @router.post("/conversations/{conversation_id}/stream")
 def stream_chat(
-    request: Request,
     conversation_id: int,
-    provider_id: str,
-    model: str,
-    temperature: float | None = None,
-    top_p: float | None = None,
-    max_tokens: int | None = None,
+    req: StreamChatRequest,
+    request: Request = None,
     user: User = Depends(require_active_user),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
@@ -97,16 +115,16 @@ def stream_chat(
         raise HTTPException(status_code=404, detail={"code": "CONVERSATION_NOT_FOUND", "message": "Conversation not found"})
 
     # Get provider
-    provider = registry.get_provider(provider_id)
+    provider = registry.get_provider(req.provider_id)
     if not provider:
-        raise HTTPException(status_code=400, detail={"code": "PROVIDER_NOT_FOUND", "message": f"Provider {provider_id} not found"})
+        raise HTTPException(status_code=400, detail={"code": "PROVIDER_NOT_FOUND", "message": f"Provider {req.provider_id} not found"})
 
     # Check if model is available
-    if not any(m.id == model for m in provider.list_models()):
-        raise HTTPException(status_code=400, detail={"code": "MODEL_NOT_FOUND", "message": f"Model {model} not found for provider {provider_id}"})
+    if not any(m.id == req.model for m in provider.list_models()):
+        raise HTTPException(status_code=400, detail={"code": "MODEL_NOT_FOUND", "message": f"Model {req.model} not found for provider {req.provider_id}"})
 
     return StreamingResponse(
-        stream_chat_generator(conversation_id, provider_id, model, temperature, top_p, max_tokens, user, db),
+        stream_chat_generator(conversation_id, req.provider_id, req.model, req.temperature, req.top_p, req.max_tokens, user, db),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
     )
@@ -236,13 +254,8 @@ async def cancel_generation(
 
 @router.post("/chat/retry", dependencies=[Depends(require_csrf)])
 def retry_chat(
-    request: Request,
-    conversation_id: int,
-    provider_id: str,
-    model: str,
-    temperature: float | None = None,
-    top_p: float | None = None,
-    max_tokens: int | None = None,
+    req: RetryChatRequest,
+    request: Request = None,
     user: User = Depends(require_active_user),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -255,13 +268,13 @@ def retry_chat(
 
     # Check ownership
     conversation = db.query(Conversation).filter(
-        Conversation.id == conversation_id, Conversation.user_id == user.id
+        Conversation.id == req.conversation_id, Conversation.user_id == user.id
     ).first()
     if not conversation:
         raise HTTPException(status_code=404, detail={"code": "CONVERSATION_NOT_FOUND", "message": "Conversation not found"})
 
     # Find last user message
-    messages = list_messages_service(db, user.id, conversation_id)
+    messages = list_messages_service(db, user.id, req.conversation_id)
     last_user_message = None
     for msg in reversed(messages):
         if msg.role == "user":
@@ -272,11 +285,11 @@ def retry_chat(
         raise HTTPException(status_code=400, detail={"code": "NO_USER_MESSAGE", "message": "No user message found to retry"})
 
     # Re-append the user message (to ensure it's the latest)
-    message = append_user_message_service(db, user.id, conversation_id, last_user_message.content)
+    message = append_user_message_service(db, user.id, req.conversation_id, last_user_message.content)
     increment_message_usage(db, user.id)
     db.commit()
 
     return {
         "message_id": message.id,
-        "conversation_id": conversation_id,
+        "conversation_id": req.conversation_id,
     }

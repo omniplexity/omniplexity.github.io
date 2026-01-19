@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.app.auth.csrf import require_csrf
@@ -16,17 +17,26 @@ from backend.app.services.chat_service import (
     rename_conversation_service,
 )
 
+
+class CreateConversationRequest(BaseModel):
+    title: str | None = None
+
+
+class RenameConversationRequest(BaseModel):
+    title: str
+
+
 router = APIRouter()
 
 
 @router.post("/conversations", dependencies=[Depends(require_csrf)])
 def create_conversation(
-    title: str | None = None,
+    request: CreateConversationRequest,
     user: User = Depends(require_active_user),
     db: Session = Depends(get_db),
 ) -> dict:
     """Create a new conversation."""
-    conversation = create_conversation_service(db, user.id, title)
+    conversation = create_conversation_service(db, user.id, request.title)
     return {
         "id": conversation.id,
         "title": conversation.title,
@@ -54,10 +64,31 @@ def list_conversations(
     ]
 
 
+@router.get("/conversations/{conversation_id}")
+def get_conversation(
+    conversation_id: int,
+    user: User = Depends(require_active_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Get a single conversation by ID."""
+    conversation = db.query(Conversation).filter(
+        Conversation.id == conversation_id, Conversation.user_id == user.id
+    ).first()
+    if not conversation:
+        raise HTTPException(status_code=404, detail={"code": "CONVERSATION_NOT_FOUND", "message": "Conversation not found"})
+
+    return {
+        "id": conversation.id,
+        "title": conversation.title,
+        "created_at": conversation.created_at.isoformat(),
+        "updated_at": conversation.updated_at.isoformat(),
+    }
+
+
 @router.patch("/conversations/{conversation_id}", dependencies=[Depends(require_csrf)])
 def rename_conversation(
     conversation_id: int,
-    title: str,
+    request: RenameConversationRequest,
     user: User = Depends(require_active_user),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -69,7 +100,7 @@ def rename_conversation(
     if not conversation:
         raise HTTPException(status_code=404, detail={"code": "CONVERSATION_NOT_FOUND", "message": "Conversation not found"})
 
-    rename_conversation_service(db, user.id, conversation_id, title)
+    rename_conversation_service(db, user.id, conversation_id, request.title)
     db.commit()
     return {"message": "Conversation renamed"}
 
