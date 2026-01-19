@@ -257,54 +257,6 @@
     <script src="js/admin.js"></script>
     <script src="js/app.js"></script>
 
-    <!-- Debug: Force show login view and test functionality -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('DOM loaded, forcing login view');
-            setTimeout(() => {
-                try {
-                    document.querySelectorAll('.view').forEach(view => view.classList.add('hidden'));
-                    document.getElementById('login-view').classList.remove('hidden');
-                    console.log('Login view should be visible now');
 
-                    // Test basic functionality
-                    const loginForm = document.getElementById('login-form');
-                    const usernameInput = document.getElementById('username');
-                    const passwordInput = document.getElementById('password');
-                    const submitBtn = loginForm.querySelector('button[type="submit"]');
-
-                    console.log('Login form elements:', {
-                        form: !!loginForm,
-                        username: !!usernameInput,
-                        password: !!passwordInput,
-                        submitBtn: !!submitBtn
-                    });
-
-                    // Test form submission
-                    if (loginForm) {
-                        loginForm.addEventListener('submit', (e) => {
-                            e.preventDefault();
-                            console.log('Login form submitted with:', {
-                                username: usernameInput.value,
-                                password: passwordInput.value
-                            });
-                            alert('Login form works! Username: ' + usernameInput.value);
-                        });
-                        console.log('Login form event listener attached');
-                    }
-
-                    // Test button click
-                    if (submitBtn) {
-                        submitBtn.addEventListener('click', () => {
-                            console.log('Submit button clicked');
-                        });
-                    }
-
-                } catch (error) {
-                    console.error('Error in debug script:', error);
-                }
-            }, 100);
-        });
-    </script>
 </body>
 </html>
