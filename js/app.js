@@ -28,6 +28,9 @@
     let rightDrawerOpen = false;
     let controlsPanelOpen = false;
     let userScrolledUp = false;
+    // Drawer focus-trap helpers
+    let _previouslyFocused = null;
+    let _drawerKeydownHandler = null;
 
     // ============================================
     // UTILITY FUNCTIONS
@@ -262,6 +265,53 @@
             closeSettingsDrawer();
             closeControlsPanel();
             syncRightDrawerSettings();
+            // show backdrop
+            const backdrop = $('drawer-backdrop');
+            if (backdrop) backdrop.classList.remove('hidden');
+            // focus trap: save previous and focus first focusable
+            _previouslyFocused = document.activeElement;
+            try {
+                const focusable = drawer.querySelectorAll('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                if (focusable && focusable.length) {
+                    focusable[0].focus();
+                } else {
+                    drawer.focus();
+                }
+            } catch (e) {
+                // ignore
+            }
+            // install keydown trap
+            _drawerKeydownHandler = function(e) {
+                if (e.key === 'Tab') {
+                    const nodes = Array.from(drawer.querySelectorAll('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+                        .filter(n => !n.disabled && n.offsetParent !== null);
+                    if (nodes.length === 0) return;
+                    const first = nodes[0];
+                    const last = nodes[nodes.length - 1];
+                    if (e.shiftKey && document.activeElement === first) {
+                        e.preventDefault();
+                        last.focus();
+                    } else if (!e.shiftKey && document.activeElement === last) {
+                        e.preventDefault();
+                        first.focus();
+                    }
+                } else if (e.key === 'Escape') {
+                    closeRightDrawer();
+                }
+            };
+            document.addEventListener('keydown', _drawerKeydownHandler);
+        } else {
+            // hide backdrop and remove trap
+            const backdrop = $('drawer-backdrop');
+            if (backdrop) backdrop.classList.add('hidden');
+            if (_drawerKeydownHandler) {
+                document.removeEventListener('keydown', _drawerKeydownHandler);
+                _drawerKeydownHandler = null;
+            }
+            if (_previouslyFocused && typeof _previouslyFocused.focus === 'function') {
+                _previouslyFocused.focus();
+                _previouslyFocused = null;
+            }
         }
     }
 
@@ -270,24 +320,8 @@
     }
 
     function syncRightDrawerSettings() {
-        const temp = getTemperature();
-        const topP = getTopP();
-        const maxTokens = getMaxTokens();
-
-        // Generation tab
-        const genTemp = $('drawer-gen-temperature');
-        const genTempRange = $('drawer-gen-temperature-range');
-        const genTopP = $('drawer-gen-top-p');
-        const genTopPRange = $('drawer-gen-top-p-range');
-        const genMaxTokens = $('drawer-gen-max-tokens');
-
-        if (genTemp) genTemp.value = temp;
-        if (genTempRange) genTempRange.value = temp;
-        if (genTopP) genTopP.value = topP;
-        if (genTopPRange) genTopPRange.value = topP;
-        if (genMaxTokens) genMaxTokens.value = maxTokens || '';
-
-        // Update controls pill
+        // Reuse existing drawer sync logic (keeps IDs consistent)
+        syncDrawerSettings();
         updateControlsPill();
     }
 
@@ -306,7 +340,7 @@
             } else {
                 parts.push('Tokens Auto');
             }
-            pill.textContent = parts.join(' · ');
+            pill.textContent = parts.join(' ï¿½ ');
         }
     }
 
@@ -365,6 +399,8 @@
     function updateConnectionStatus(status, error = null) {
         const indicator = $('connection-indicator');
         const text = $('connection-text');
+        const chipIndicator = $('status-chip-indicator');
+        const chipText = $('status-chip-text');
 
         if (indicator) {
             indicator.classList.remove('online', 'offline', 'connecting');
@@ -385,6 +421,16 @@
                 connecting: 'Connecting...'
             };
             text.textContent = labels[status] || 'Unknown';
+        }
+
+        // Mirror into conversation header status chip if present
+        if (chipIndicator) {
+            chipIndicator.classList.remove('online', 'offline', 'connecting');
+            chipIndicator.classList.add(status);
+        }
+        if (chipText) {
+            const labels2 = { online: 'Connected', offline: 'Offline', connecting: 'Reconnecting...' };
+            chipText.textContent = labels2[status] || '';
         }
 
         lastHealthError = error;
@@ -1171,6 +1217,8 @@
                 closeSettingsDrawer();
             } else if (controlsPanelOpen) {
                 closeControlsPanel();
+            } else if (rightDrawerOpen) {
+                closeRightDrawer();
             } else if (sidebarOpen && window.innerWidth <= 768) {
                 closeSidebar();
             }
@@ -1207,6 +1255,16 @@
         bindClick('settings-toggle-btn', () => toggleSettingsDrawer());
         bindClick('close-settings-btn', closeSettingsDrawer);
         bindClick('controls-btn', () => toggleControlsPanel());
+        // Right drawer controls
+        bindClick('drawer-toggle-btn', () => toggleRightDrawer());
+        bindClick('close-right-drawer-btn', () => closeRightDrawer());
+        bindClick('drawer-backdrop', () => closeRightDrawer());
+        // Drawer tab clicks
+        document.querySelectorAll('.drawer-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                switchDrawerTab(tab.dataset.tab);
+            });
+        });
 
         // Chat actions
         bindClick('rename-chat-btn', renameCurrentConversation);
@@ -1264,10 +1322,18 @@
         document.addEventListener('click', (e) => {
             const controlsPanel = $('controls-panel');
             const controlsBtn = $('controls-btn');
-
             if (controlsPanelOpen && controlsPanel && controlsBtn) {
                 if (!controlsPanel.contains(e.target) && !controlsBtn.contains(e.target)) {
                     closeControlsPanel();
+                }
+            }
+
+            // Close right drawer when clicking outside
+            const rightDrawerEl = $('right-drawer');
+            const drawerToggle = $('drawer-toggle-btn');
+            if (rightDrawerOpen && rightDrawerEl) {
+                if (!rightDrawerEl.contains(e.target) && !(drawerToggle && drawerToggle.contains(e.target))) {
+                    closeRightDrawer();
                 }
             }
         });
