@@ -1113,6 +1113,20 @@
             }
         });
 
+        // Suggestion buttons
+        document.querySelectorAll('.suggestion-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const prompt = btn.dataset.prompt;
+                const messageInput = $('message-input');
+                if (messageInput && prompt) {
+                    messageInput.value = prompt;
+                    messageInput.focus();
+                    autoResizeTextarea(messageInput);
+                    updateComposerState();
+                }
+            });
+        });
+
         // Diagnostics (if present)
         bindClick('test-me', async () => {
             try {

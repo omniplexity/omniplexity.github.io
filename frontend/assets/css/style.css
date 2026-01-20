@@ -509,8 +509,11 @@ button:disabled {
    ============================================ */
 
 #chat-view {
+    display: flex;
     flex-direction: row;
     background: var(--bg-0);
+    height: 100vh;
+    height: 100dvh;
 }
 
 /* Sidebar Toggle (Mobile) */
@@ -914,27 +917,54 @@ button:disabled {
     padding: var(--space-8);
 }
 
-.empty-icon {
-    width: 64px;
-    height: 64px;
-    margin-bottom: var(--space-4);
-    color: var(--muted);
-}
-
-.empty-icon svg {
-    width: 100%;
-    height: 100%;
-}
-
 .empty-state h2 {
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-2xl);
     color: var(--text-1);
-    margin-bottom: var(--space-2);
+    margin-bottom: var(--space-6);
+    font-weight: 500;
 }
 
 .empty-state p {
     color: var(--text-3);
     margin: 0;
+}
+
+/* Suggestion Grid */
+.suggestion-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
+    max-width: 500px;
+    width: 100%;
+}
+
+.suggestion-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-1);
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
+    font-size: var(--font-size-base);
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.suggestion-btn:hover {
+    background: var(--panel-hover);
+    border-color: var(--accent);
+    color: var(--text-0);
+}
+
+.suggestion-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+    .suggestion-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Message Cards */
@@ -1214,33 +1244,42 @@ button:disabled {
 }
 
 #send-btn,
-#cancel-btn {
-    width: 36px;
-    height: 36px;
-    padding: 0;
+#cancel-btn,
+.send-btn,
+.cancel-btn {
+    padding: var(--space-2) var(--space-4);
     border-radius: var(--radius-md);
+    font-weight: 500;
+    font-size: var(--font-size-sm);
+    min-width: 60px;
 }
 
-#send-btn {
+#send-btn,
+.send-btn {
     background: var(--accent);
     color: var(--text-0);
 }
 
-#send-btn:hover:not(:disabled) {
+#send-btn:hover:not(:disabled),
+.send-btn:hover:not(:disabled) {
     background: var(--accent-hover);
 }
 
-#send-btn:disabled {
+#send-btn:disabled,
+.send-btn:disabled {
     background: var(--bg-3);
     color: var(--muted);
+    cursor: not-allowed;
 }
 
-#cancel-btn {
+#cancel-btn,
+.cancel-btn {
     background: var(--danger);
     color: var(--text-0);
 }
 
-#cancel-btn:hover {
+#cancel-btn:hover,
+.cancel-btn:hover {
     background: #e53935;
 }
 
@@ -1292,7 +1331,8 @@ button:disabled {
    17. SETTINGS DRAWER
    ============================================ */
 
-#settingsDrawer {
+#settingsDrawer,
+.settings-drawer {
     position: fixed;
     top: 0;
     right: 0;
@@ -1308,7 +1348,8 @@ button:disabled {
     box-shadow: var(--shadow-xl);
 }
 
-#settingsDrawer:not(.hidden) {
+#settingsDrawer:not(.hidden),
+.settings-drawer:not(.hidden) {
     transform: translateX(0);
 }
 
@@ -1404,8 +1445,9 @@ button:disabled {
    18. CONTROLS PANEL (Quick Settings)
    ============================================ */
 
-#controls-panel {
-    position: absolute;
+#controls-panel,
+.controls-panel {
+    position: fixed;
     top: calc(var(--topbar-height) + var(--space-2));
     right: var(--space-4);
     background: var(--panel);

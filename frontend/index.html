@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OmniAI</title>
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css?v=202601190260119">
 </head>
 <body>
     <div id="app" data-page="chat">
@@ -57,7 +57,7 @@
         </div>
 
         <!-- Chat View -->
-        <div id="chat-view" class="view hidden">
+        <div id="chat-view" class="view">
             <!-- Mobile Sidebar Toggle -->
             <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Toggle sidebar" aria-expanded="false">
                 <span class="hamburger-icon"></span>
@@ -98,10 +98,10 @@
                 <!-- Topbar -->
                 <header id="topbar">
                     <div id="topbar-left">
-                        <div id="logo">OmniAI</div>
+                        <span id="logo">OmniAI</span>
                     </div>
                     <div id="topbar-center">
-                        <h1 id="chat-title" class="topbar-title" contenteditable="false" aria-label="Conversation title">New Chat</h1>
+                        <h1 id="chat-title" class="topbar-title">New Chat</h1>
                     </div>
                     <div id="topbar-right">
                         <div id="model-picker">
@@ -113,8 +113,8 @@
                             </select>
                         </div>
                         <div id="connection-status">
-                            <span id="connection-indicator" class="status-indicator online" aria-label="Connection status"></span>
-                            <span id="connection-text">Connected</span>
+                            <span id="connection-indicator" class="status-indicator"></span>
+                            <span id="connection-text">Offline</span>
                         </div>
                         <button id="controls-btn" class="topbar-btn" aria-label="Generation controls" title="Generation settings">
                             <span class="icon-sliders"></span>
@@ -140,13 +140,27 @@
                     <!-- Transcript -->
                     <div id="transcript" role="log" aria-live="polite" aria-label="Chat transcript">
                         <div id="empty-state" class="empty-state">
-                            <div class="empty-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
-                                </svg>
+                            <h2>How can I help?</h2>
+                            <div class="suggestion-grid">
+                                <button class="suggestion-btn" data-prompt="Explain quantum computing in simple terms">
+                                    Explain quantum computing
+                                </button>
+                                <button class="suggestion-btn" data-prompt="Write a Python function to sort a list">
+                                    Write a Python function
+                                </button>
+                                <button class="suggestion-btn" data-prompt="Debug this code and explain the issues">
+                                    Debug my code
+                                </button>
+                                <button class="suggestion-btn" data-prompt="Help me plan a new software project">
+                                    Plan a project
+                                </button>
+                                <button class="suggestion-btn" data-prompt="Analyze these data trends and provide insights">
+                                    Analyze data trends
+                                </button>
+                                <button class="suggestion-btn" data-prompt="Help me design a REST API for my application">
+                                    Design an API
+                                </button>
                             </div>
-                            <h2>How can I help you today?</h2>
-                            <p>Start a conversation by typing a message below.</p>
                         </div>
                     </div>
 
@@ -159,20 +173,15 @@
                     <!-- Composer -->
                     <div id="composer">
                         <div id="input-wrapper">
-                            <textarea id="message-input" placeholder="Message OmniAI..." aria-label="Message input" rows="1"></textarea>
+                            <textarea id="message-input" placeholder="Type your message..." aria-label="Message input" rows="1"></textarea>
                             <div id="composer-actions">
-                                <button id="send-btn" disabled aria-label="Send message" title="Send message">
-                                    <span class="icon-send"></span>
+                                <button id="send-btn" class="send-btn" disabled aria-label="Send message" title="Send message">
+                                    Send
                                 </button>
-                                <button id="cancel-btn" class="hidden" aria-label="Stop generating" title="Stop generating">
-                                    <span class="icon-stop"></span>
+                                <button id="cancel-btn" class="cancel-btn hidden" aria-label="Stop generating" title="Stop generating">
+                                    Stop
                                 </button>
                             </div>
-                        </div>
-                        <div id="composer-hints">
-                            <span><kbd>Enter</kbd> to send</span>
-                            <span><kbd>Shift</kbd>+<kbd>Enter</kbd> for newline</span>
-                            <span><kbd>Esc</kbd> to cancel</span>
                         </div>
                     </div>
 
@@ -186,12 +195,10 @@
             </div>
 
             <!-- Settings Drawer -->
-            <div id="settingsDrawer" class="hidden" role="dialog" aria-labelledby="settings-title" aria-modal="true">
+            <div id="settingsDrawer" class="settings-drawer hidden" role="dialog" aria-labelledby="settings-title" aria-modal="true">
                 <div id="settings-header">
                     <h2 id="settings-title">Settings</h2>
-                    <button id="close-settings-btn" class="btn-close" aria-label="Close settings">
-                        <span class="icon-close"></span>
-                    </button>
+                    <button id="close-settings-btn" class="btn-close" aria-label="Close settings">&times;</button>
                 </div>
                 <div id="settings-content">
                     <!-- Generation Settings -->
@@ -267,7 +274,7 @@
             </div>
 
             <!-- Controls Panel (Quick Settings) -->
-            <div id="controls-panel" class="hidden" role="dialog" aria-label="Quick generation settings">
+            <div id="controls-panel" class="controls-panel hidden" role="dialog" aria-label="Quick generation settings">
                 <div class="controls-panel-content">
                     <div class="control-group">
                         <label>Temp: <span id="temp-display">0.7</span></label>
@@ -289,24 +296,13 @@
 
             <!-- Modal Host -->
             <div id="modalHost"></div>
-
-            <!-- Diagnostics (hidden by default) -->
-            <div id="diagnostics" class="hidden">
-                <h3>Diagnostics</h3>
-                <button id="test-me">Test /auth/me</button>
-                <button id="test-providers">Test /providers</button>
-                <div id="diag-results"></div>
-            </div>
         </div>
 
         <!-- Admin View -->
         <div id="admin-view" class="view hidden">
             <header id="admin-header">
                 <div id="admin-brand">
-                    <a href="#chat" class="admin-back-link">
-                        <span class="icon-arrow-left"></span>
-                        Back to Chat
-                    </a>
+                    <a href="#chat" class="admin-back-link">&larr; Back to Chat</a>
                     <span class="admin-title">Admin Panel</span>
                 </div>
                 <div id="admin-user-info">
@@ -410,9 +406,7 @@
         <!-- Global Banners -->
         <div id="error-banner" class="banner banner-error hidden">
             <span id="error-message"></span>
-            <button id="dismiss-error" class="btn-close" aria-label="Dismiss">
-                <span class="icon-close"></span>
-            </button>
+            <button id="dismiss-error" class="btn-close" aria-label="Dismiss">&times;</button>
         </div>
 
         <div id="disconnect-banner" class="banner banner-warning hidden">
@@ -421,15 +415,15 @@
         </div>
     </div>
 
-    <script src="js/config.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/sse.js"></script>
-    <script src="js/store.js"></script>
-    <script src="js/render.js"></script>
-    <script src="js/admin.js"></script>
-    <script src="js/command-palette.js"></script>
-    <script src="js/prompt-dock.js"></script>
-    <script src="./js/app.js" defer></script>
+    <script src="js/config.js?v=20260119"></script>
+    <script src="js/api.js?v=20260119"></script>
+    <script src="js/auth.js?v=20260119"></script>
+    <script src="js/sse.js?v=20260119"></script>
+    <script src="js/store.js?v=20260119"></script>
+    <script src="js/render.js?v=20260119"></script>
+    <script src="js/admin.js?v=20260119"></script>
+    <script src="js/command-palette.js?v=20260119"></script>
+    <script src="js/prompt-dock.js?v=20260119"></script>
+    <script src="js/app.js?v=20260119" defer></script>
 </body>
 </html>
