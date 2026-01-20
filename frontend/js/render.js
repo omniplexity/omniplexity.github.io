@@ -1,32 +1,64 @@
 // OmniAI WebUI DOM Rendering Helpers
 
+// ============================================
+// VIEW MANAGEMENT
+// ============================================
+
 function showView(viewId) {
     document.querySelectorAll('.view').forEach(view => view.classList.add('hidden'));
-    document.getElementById(viewId).classList.remove('hidden');
+    const view = document.getElementById(viewId);
+    if (view) view.classList.remove('hidden');
 }
 
+// ============================================
+// ERROR/BANNER DISPLAY
+// ============================================
+
 function showError(message) {
-    const banner = document.getElementById('error-banner');
-    const messageEl = document.getElementById('error-message');
-    messageEl.textContent = message;
-    banner.classList.remove('hidden');
+    if (window.showToast) {
+        window.showToast(message, 'error', 6000);
+    } else {
+        const banner = document.getElementById('error-banner');
+        const messageEl = document.getElementById('error-message');
+        if (banner && messageEl) {
+            messageEl.textContent = message;
+            banner.classList.remove('hidden');
+        }
+    }
 }
 
 function hideError() {
-    document.getElementById('error-banner').classList.add('hidden');
+    const banner = document.getElementById('error-banner');
+    if (banner) banner.classList.add('hidden');
 }
 
 function showDisconnectBanner() {
-    document.getElementById('disconnect-banner').classList.remove('hidden');
+    const banner = document.getElementById('disconnect-banner');
+    if (banner) banner.classList.remove('hidden');
 }
 
 function hideDisconnectBanner() {
-    document.getElementById('disconnect-banner').classList.add('hidden');
+    const banner = document.getElementById('disconnect-banner');
+    if (banner) banner.classList.add('hidden');
 }
+
+// ============================================
+// CONVERSATIONS LIST
+// ============================================
 
 function renderConversations(conversations) {
     const list = document.getElementById('conversations-list');
+    if (!list) return;
+
     list.innerHTML = '';
+
+    if (!conversations || conversations.length === 0) {
+        const emptyLi = document.createElement('li');
+        emptyLi.className = 'empty-conversations';
+        emptyLi.innerHTML = '<span class="conversation-title" style="color: var(--muted); font-style: italic;">No conversations yet</span>';
+        list.appendChild(emptyLi);
+        return;
+    }
 
     conversations.forEach(conv => {
         const li = document.createElement('li');
@@ -35,7 +67,11 @@ function renderConversations(conversations) {
         const title = document.createElement('span');
         title.className = 'conversation-title';
         title.textContent = conv.title || 'Untitled Chat';
-        title.addEventListener('click', () => selectConversation(conv.id));
+        title.addEventListener('click', () => {
+            if (window.selectConversation) {
+                window.selectConversation(conv.id);
+            }
+        });
 
         const actions = document.createElement('div');
         actions.className = 'conversation-actions';
@@ -44,14 +80,19 @@ function renderConversations(conversations) {
         renameBtn.textContent = 'Rename';
         renameBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            renameConversation(conv.id, conv.title);
+            if (window.renameConversation) {
+                window.renameConversation(conv.id, conv.title);
+            }
         });
 
         const deleteBtn = document.createElement('button');
         deleteBtn.textContent = 'Delete';
+        deleteBtn.className = 'btn-danger';
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            deleteConversation(conv.id);
+            if (window.deleteConversation) {
+                window.deleteConversation(conv.id);
+            }
         });
 
         actions.appendChild(renameBtn);
@@ -63,9 +104,30 @@ function renderConversations(conversations) {
     });
 }
 
+// ============================================
+// TRANSCRIPT / MESSAGES
+// ============================================
+
 function renderTranscript(messages) {
     const transcript = document.getElementById('transcript');
+    if (!transcript) return;
+
+    // Keep empty state if it exists
+    const emptyState = document.getElementById('empty-state');
+
     transcript.innerHTML = '';
+
+    if (!messages || messages.length === 0) {
+        if (emptyState) {
+            transcript.appendChild(emptyState);
+            emptyState.classList.remove('hidden');
+        }
+        return;
+    }
+
+    if (emptyState) {
+        emptyState.classList.add('hidden');
+    }
 
     messages.forEach((msg, index) => {
         const messageCard = createMessageCard(msg, index);
@@ -87,8 +149,9 @@ function createMessageCard(msg, index) {
 
     const meta = document.createElement('div');
     meta.className = 'message-meta';
+
     if (msg.role === 'assistant') {
-        // Add model and timing info if available
+        // Add model info if available
         const modelInfo = document.createElement('span');
         modelInfo.className = 'message-model';
         modelInfo.textContent = msg.model || 'Assistant';
@@ -107,7 +170,14 @@ function createMessageCard(msg, index) {
             tokens.textContent = `${msg.usage.total_tokens || 'N/A'} tokens`;
             meta.appendChild(tokens);
         }
+    } else {
+        // User message
+        const roleInfo = document.createElement('span');
+        roleInfo.className = 'message-model';
+        roleInfo.textContent = 'You';
+        meta.appendChild(roleInfo);
     }
+
     header.appendChild(meta);
 
     // Content section
@@ -116,7 +186,7 @@ function createMessageCard(msg, index) {
 
     if (msg.role === 'assistant' && msg.content === '') {
         card.classList.add('streaming');
-        content.innerHTML = '<div class="skeleton-placeholder">...</div>';
+        content.innerHTML = '<div class="skeleton-placeholder"></div>';
     } else {
         content.innerHTML = renderMessageContent(msg.content);
     }
@@ -125,48 +195,24 @@ function createMessageCard(msg, index) {
     const actions = document.createElement('div');
     actions.className = 'message-actions';
 
+    // Copy button for all messages
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'action-btn copy-btn';
+    copyBtn.innerHTML = '<span title="Copy">Copy</span>';
+    copyBtn.addEventListener('click', () => copyMessageToClipboard(msg.content));
+    actions.appendChild(copyBtn);
+
     if (msg.role === 'assistant') {
-        // Copy button
-        const copyBtn = document.createElement('button');
-        copyBtn.className = 'action-btn copy-btn';
-        copyBtn.textContent = '=Ë';
-        copyBtn.title = 'Copy message';
-        copyBtn.addEventListener('click', () => copyMessageToClipboard(msg.content));
-
-        // Retry button
-        const retryBtn = document.createElement('button');
-        retryBtn.className = 'action-btn retry-btn';
-        retryBtn.textContent = '»';
-        retryBtn.title = 'Retry this message';
-        retryBtn.addEventListener('click', () => retryMessage(index));
-
-        // Continue button
-        const continueBtn = document.createElement('button');
-        continueBtn.className = 'action-btn continue-btn';
-        continueBtn.textContent = '¤';
-        continueBtn.title = 'Continue this message';
-        continueBtn.addEventListener('click', () => continueMessage(msg.content));
-
-        // Quote button
-        const quoteBtn = document.createElement('button');
-        quoteBtn.className = 'action-btn quote-btn';
-        quoteBtn.textContent = ']';
-        quoteBtn.title = 'Quote to composer';
-        quoteBtn.addEventListener('click', () => quoteToComposer(msg.content));
-
-        actions.appendChild(copyBtn);
-        actions.appendChild(retryBtn);
-        actions.appendChild(continueBtn);
-        actions.appendChild(quoteBtn);
-    } else {
-        // For user messages, just copy
-        const copyBtn = document.createElement('button');
-        copyBtn.className = 'action-btn copy-btn';
-        copyBtn.textContent = '=Ë';
-        copyBtn.title = 'Copy message';
-        copyBtn.addEventListener('click', () => copyMessageToClipboard(msg.content));
-
-        actions.appendChild(copyBtn);
+        // Regenerate button
+        const regenBtn = document.createElement('button');
+        regenBtn.className = 'action-btn regen-btn';
+        regenBtn.innerHTML = '<span title="Regenerate">Retry</span>';
+        regenBtn.addEventListener('click', () => {
+            if (window.retryMessageAtIndex) {
+                window.retryMessageAtIndex(index);
+            }
+        });
+        actions.appendChild(regenBtn);
     }
 
     card.appendChild(header);
@@ -179,91 +225,351 @@ function createMessageCard(msg, index) {
 function renderMessageContent(content) {
     if (!content) return '';
 
+    // Escape HTML first
+    let escaped = content
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
     // Process code blocks
-    return content
-        .replace(/```(\w+)?\n?([\s\S]*?)```/g, (match, lang, code) => {
-            const codeBlock = document.createElement('div');
-            codeBlock.className = 'code-block';
+    escaped = escaped.replace(/```(\w+)?\n?([\s\S]*?)```/g, (match, lang, code) => {
+        const language = lang || 'text';
+        const codeId = 'code-' + Math.random().toString(36).substr(2, 9);
 
-            const header = document.createElement('div');
-            header.className = 'code-header';
+        return `<div class="code-block" data-code-id="${codeId}">
+            <div class="code-header">
+                <span class="code-lang">${language}</span>
+                <div class="code-actions">
+                    <button class="code-copy-btn" onclick="copyCodeBlock('${codeId}')">Copy</button>
+                </div>
+            </div>
+            <pre><code class="language-${language}" id="${codeId}">${code.trim()}</code></pre>
+        </div>`;
+    });
 
-            const langLabel = document.createElement('span');
-            langLabel.className = 'code-lang';
-            langLabel.textContent = lang || 'text';
+    // Process inline code
+    escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
 
-            const actions = document.createElement('div');
-            actions.className = 'code-actions';
+    // Process line breaks
+    escaped = escaped.replace(/\n/g, '<br>');
 
-            const copyBtn = document.createElement('button');
-            copyBtn.className = 'code-copy-btn';
-            copyBtn.textContent = 'Copy';
-            copyBtn.addEventListener('click', () => {
-                navigator.clipboard.writeText(code.trim());
-                copyBtn.textContent = 'Copied!';
-                setTimeout(() => copyBtn.textContent = 'Copy', 2000);
-            });
-
-            const saveBtn = document.createElement('button');
-            saveBtn.className = 'code-save-btn';
-            saveBtn.textContent = 'Save';
-            saveBtn.addEventListener('click', () => saveCodeAsFile(code.trim(), lang || 'txt'));
-
-            actions.appendChild(copyBtn);
-            actions.appendChild(saveBtn);
-
-            header.appendChild(langLabel);
-            header.appendChild(actions);
-
-            const pre = document.createElement('pre');
-            const codeEl = document.createElement('code');
-            if (lang) codeEl.className = `language-${lang}`;
-            codeEl.textContent = code.trim();
-
-            pre.appendChild(codeEl);
-            codeBlock.appendChild(header);
-            codeBlock.appendChild(pre);
-
-            return codeBlock.outerHTML;
-        })
-        .replace(/\n/g, '<br>');
+    return escaped;
 }
+
+// Global function for code block copy
+window.copyCodeBlock = function(codeId) {
+    const codeEl = document.getElementById(codeId);
+    if (codeEl) {
+        copyMessageToClipboard(codeEl.textContent);
+        // Find the button and update text
+        const block = codeEl.closest('.code-block');
+        const btn = block?.querySelector('.code-copy-btn');
+        if (btn) {
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 2000);
+        }
+    }
+};
 
 function copyMessageToClipboard(content) {
-    navigator.clipboard.writeText(content).catch(err => {
-        console.error('Failed to copy:', err);
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = content;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-    });
-}
+    if (!content) return;
 
-function retryMessage(messageIndex) {
-    // This will be connected to the app logic
-    if (window.retryMessageAtIndex) {
-        window.retryMessageAtIndex(messageIndex);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(content).then(() => {
+            if (window.showToast) {
+                window.showToast('Copied to clipboard', 'success', 2000);
+            }
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            fallbackCopy(content);
+        });
+    } else {
+        fallbackCopy(content);
     }
 }
 
-function continueMessage(content) {
-    // Insert content into composer for continuation
-    const input = document.getElementById('message-input');
-    input.value = content + '\n\n';
-    input.focus();
-    input.setSelectionRange(input.value.length, input.value.length);
+function fallbackCopy(content) {
+    const textArea = document.createElement('textarea');
+    textArea.value = content;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+        document.execCommand('copy');
+        if (window.showToast) {
+            window.showToast('Copied to clipboard', 'success', 2000);
+        }
+    } catch (err) {
+        console.error('Fallback copy failed:', err);
+    }
+    document.body.removeChild(textArea);
 }
 
-function quoteToComposer(content) {
-    // Insert quoted content into composer
+// ============================================
+// INCREMENTAL MESSAGE UPDATES
+// ============================================
+
+function appendToLastMessage(content) {
+    const transcript = document.getElementById('transcript');
+    if (!transcript) return;
+
+    const lastCard = transcript.querySelector('.message-card.streaming');
+    if (lastCard) {
+        const contentEl = lastCard.querySelector('.message-content');
+        if (contentEl) {
+            // Get current text content and append
+            const currentText = contentEl.textContent || '';
+            contentEl.innerHTML = renderMessageContent(currentText + content);
+        }
+    }
+
+    // Smart scroll
+    const isNearBottom = transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight < 100;
+    if (isNearBottom) {
+        transcript.scrollTop = transcript.scrollHeight;
+    }
+}
+
+function finalizeLastMessage() {
+    const transcript = document.getElementById('transcript');
+    if (!transcript) return;
+
+    const streamingCards = transcript.querySelectorAll('.message-card.streaming');
+    streamingCards.forEach(card => card.classList.remove('streaming'));
+}
+
+// ============================================
+// PROVIDER/MODEL DROPDOWNS
+// ============================================
+
+function renderProviders(providers) {
+    const select = document.getElementById('provider-select');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Provider</option>';
+
+    if (providers && providers.length > 0) {
+        providers.forEach(provider => {
+            const option = document.createElement('option');
+            option.value = provider.provider_id;
+            option.textContent = provider.name;
+            select.appendChild(option);
+        });
+    }
+
+    // Restore selected provider
+    const selected = getSelectedProvider();
+    if (selected) {
+        const optionExists = select.querySelector(`option[value="${selected}"]`);
+        if (optionExists) {
+            select.value = selected;
+            // Trigger change to load models
+            select.dispatchEvent(new Event('change'));
+        } else {
+            // Clear stale provider
+            setSelectedProvider('');
+        }
+    }
+}
+
+function renderModels(models) {
+    const select = document.getElementById('model-select');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Model</option>';
+
+    if (models && models.length > 0) {
+        models.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model.id;
+            option.textContent = model.name;
+            select.appendChild(option);
+        });
+        select.disabled = false;
+    } else {
+        select.disabled = true;
+    }
+
+    // Restore selected model
+    const selected = getSelectedModel();
+    if (selected) {
+        const optionExists = select.querySelector(`option[value="${selected}"]`);
+        if (optionExists) {
+            select.value = selected;
+        }
+    }
+}
+
+// ============================================
+// STATUS LINE
+// ============================================
+
+function updateStatusLine(status, elapsed = null, usage = null) {
+    const statusEl = document.getElementById('status-text');
+    const elapsedEl = document.getElementById('elapsed-time');
+    const usageEl = document.getElementById('token-usage');
+
+    if (statusEl) statusEl.textContent = status;
+
+    if (elapsedEl) {
+        elapsedEl.textContent = elapsed !== null ? `${elapsed}s` : '';
+    }
+
+    if (usageEl) {
+        if (usage) {
+            const parts = [];
+            if (usage.prompt_tokens !== undefined) parts.push(`P:${usage.prompt_tokens}`);
+            if (usage.completion_tokens !== undefined) parts.push(`C:${usage.completion_tokens}`);
+            if (usage.total_tokens !== undefined) parts.push(`T:${usage.total_tokens}`);
+            usageEl.textContent = parts.join(' ');
+        } else {
+            usageEl.textContent = '';
+        }
+    }
+}
+
+// ============================================
+// USER DISPLAY
+// ============================================
+
+function updateUserDisplay(user) {
+    const displays = ['user-display', 'sidebar-user-display', 'admin-user-display'];
+
+    displays.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.textContent = user ? user.username || user.email || 'User' : '';
+        }
+    });
+}
+
+// ============================================
+// SETTINGS INPUTS
+// ============================================
+
+function updateSettingsInputs() {
+    const temp = getTemperature();
+    const topP = getTopP();
+    const maxTokens = getMaxTokens();
+
+    // Drawer inputs
+    const drawerTemp = document.getElementById('drawer-temperature');
+    const drawerTempRange = document.getElementById('drawer-temperature-range');
+    const drawerTopP = document.getElementById('drawer-top-p');
+    const drawerTopPRange = document.getElementById('drawer-top-p-range');
+    const drawerMaxTokens = document.getElementById('drawer-max-tokens');
+
+    if (drawerTemp) drawerTemp.value = temp;
+    if (drawerTempRange) drawerTempRange.value = temp;
+    if (drawerTopP) drawerTopP.value = topP;
+    if (drawerTopPRange) drawerTopPRange.value = topP;
+    if (drawerMaxTokens) drawerMaxTokens.value = maxTokens || '';
+
+    // Quick controls
+    const quickTemp = document.getElementById('quick-temperature');
+    const quickTopP = document.getElementById('quick-top-p');
+    const quickMaxTokens = document.getElementById('quick-max-tokens');
+    const tempDisplay = document.getElementById('temp-display');
+    const topPDisplay = document.getElementById('top-p-display');
+
+    if (quickTemp) quickTemp.value = temp;
+    if (quickTopP) quickTopP.value = topP;
+    if (quickMaxTokens) quickMaxTokens.value = maxTokens || '';
+    if (tempDisplay) tempDisplay.textContent = temp.toFixed(1);
+    if (topPDisplay) topPDisplay.textContent = topP.toFixed(2);
+}
+
+// ============================================
+// BUTTON STATES
+// ============================================
+
+function enableSendButton() {
+    const btn = document.getElementById('send-btn');
+    if (btn) btn.disabled = false;
+}
+
+function disableSendButton() {
+    const btn = document.getElementById('send-btn');
+    if (btn) btn.disabled = true;
+}
+
+function showCancelButton() {
+    const cancelBtn = document.getElementById('cancel-btn');
+    const sendBtn = document.getElementById('send-btn');
+    if (cancelBtn) cancelBtn.classList.remove('hidden');
+    if (sendBtn) sendBtn.classList.add('hidden');
+}
+
+function showSendButton() {
+    const cancelBtn = document.getElementById('cancel-btn');
+    const sendBtn = document.getElementById('send-btn');
+    if (cancelBtn) cancelBtn.classList.add('hidden');
+    if (sendBtn) sendBtn.classList.remove('hidden');
+}
+
+function hideActionButtons() {
+    const cancelBtn = document.getElementById('cancel-btn');
+    if (cancelBtn) cancelBtn.classList.add('hidden');
+}
+
+function clearMessageInput() {
     const input = document.getElementById('message-input');
-    const quote = '> ' + content.replace(/\n/g, '\n> ') + '\n\n';
-    input.value += quote;
-    input.focus();
-    input.setSelectionRange(input.value.length, input.value.length);
+    if (input) {
+        input.value = '';
+        input.style.height = 'auto';
+    }
+}
+
+// ============================================
+// FILE EXTENSIONS (for code save)
+// ============================================
+
+function getFileExtension(lang) {
+    const extensions = {
+        javascript: 'js',
+        js: 'js',
+        typescript: 'ts',
+        ts: 'ts',
+        python: 'py',
+        py: 'py',
+        java: 'java',
+        cpp: 'cpp',
+        c: 'c',
+        csharp: 'cs',
+        cs: 'cs',
+        html: 'html',
+        css: 'css',
+        json: 'json',
+        xml: 'xml',
+        yaml: 'yaml',
+        yml: 'yml',
+        markdown: 'md',
+        md: 'md',
+        sql: 'sql',
+        bash: 'sh',
+        shell: 'sh',
+        sh: 'sh',
+        go: 'go',
+        rust: 'rs',
+        rs: 'rs',
+        php: 'php',
+        ruby: 'rb',
+        rb: 'rb',
+        swift: 'swift',
+        kotlin: 'kt',
+        kt: 'kt',
+        dart: 'dart',
+        scala: 'scala',
+        perl: 'pl',
+        pl: 'pl',
+        lua: 'lua',
+        r: 'r',
+        matlab: 'm',
+        julia: 'jl',
+        jl: 'jl'
+    };
+    return extensions[lang?.toLowerCase()] || 'txt';
 }
 
 function saveCodeAsFile(code, lang) {
@@ -279,165 +585,4 @@ function saveCodeAsFile(code, lang) {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-}
-
-function getFileExtension(lang) {
-    const extensions = {
-        javascript: 'js',
-        python: 'py',
-        java: 'java',
-        cpp: 'cpp',
-        c: 'c',
-        html: 'html',
-        css: 'css',
-        json: 'json',
-        xml: 'xml',
-        yaml: 'yaml',
-        yml: 'yml',
-        markdown: 'md',
-        sql: 'sql',
-        bash: 'sh',
-        shell: 'sh',
-        typescript: 'ts',
-        go: 'go',
-        rust: 'rs',
-        php: 'php',
-        ruby: 'rb',
-        swift: 'swift',
-        kotlin: 'kt',
-        dart: 'dart',
-        scala: 'scala',
-        perl: 'pl',
-        lua: 'lua',
-        r: 'r',
-        matlab: 'm',
-        julia: 'jl'
-    };
-    return extensions[lang] || 'txt';
-}
-
-function appendToLastMessage(content) {
-    const transcript = document.getElementById('transcript');
-    const lastMessage = transcript.lastElementChild;
-    if (lastMessage && lastMessage.classList.contains('assistant')) {
-        lastMessage.innerHTML += content.replace(/\n/g, '<br>');
-        transcript.scrollTop = transcript.scrollHeight;
-    }
-}
-
-function finalizeLastMessage() {
-    const transcript = document.getElementById('transcript');
-    const lastMessage = transcript.lastElementChild;
-    if (lastMessage && lastMessage.classList.contains('streaming')) {
-        lastMessage.classList.remove('streaming');
-    }
-}
-
-function renderProviders(providers) {
-    const select = document.getElementById('provider-select');
-    select.innerHTML = '<option value="">Select Provider</option>';
-
-    providers.forEach(provider => {
-        const option = document.createElement('option');
-        option.value = provider.provider_id;
-        option.textContent = provider.name;
-        select.appendChild(option);
-    });
-
-    // Restore selected provider and trigger change to load models
-    const selected = getSelectedProvider();
-    if (selected) {
-        const optionExists = select.querySelector(`option[value="${selected}"]`);
-        if (optionExists) {
-            select.value = selected;
-            // Dispatch change event to trigger model loading
-            select.dispatchEvent(new Event('change'));
-        } else {
-            // Clear stale provider from storage
-            setSelectedProvider('');
-        }
-    }
-}
-
-function renderModels(models) {
-    const select = document.getElementById('model-select');
-    select.innerHTML = '<option value="">Select Model</option>';
-
-    models.forEach(model => {
-        const option = document.createElement('option');
-        option.value = model.id;
-        option.textContent = model.name;
-        select.appendChild(option);
-    });
-
-    // Restore selected model
-    const selected = getSelectedModel();
-    if (selected) {
-        select.value = selected;
-    }
-
-    select.disabled = models.length === 0;
-}
-
-function updateStatusLine(status, elapsed = null, usage = null) {
-    const statusEl = document.getElementById('status-text');
-    const elapsedEl = document.getElementById('elapsed-time');
-    const usageEl = document.getElementById('token-usage');
-
-    statusEl.textContent = status;
-
-    if (elapsed !== null) {
-        elapsedEl.textContent = `${elapsed}s`;
-    } else {
-        elapsedEl.textContent = '';
-    }
-
-    if (usage) {
-        const parts = [];
-        if (usage.prompt_tokens !== undefined) parts.push(`Prompt: ${usage.prompt_tokens}`);
-        if (usage.completion_tokens !== undefined) parts.push(`Completion: ${usage.completion_tokens}`);
-        if (usage.total_tokens !== undefined) parts.push(`Total: ${usage.total_tokens}`);
-        usageEl.textContent = parts.join(' | ');
-    } else {
-        usageEl.textContent = '';
-    }
-}
-
-function updateUserDisplay(user) {
-    const display = document.getElementById('user-display');
-    display.textContent = user ? user.username || user.email || 'User' : '';
-}
-
-function updateSettingsInputs() {
-    document.getElementById('temperature').value = getTemperature();
-    document.getElementById('top-p').value = getTopP();
-    const maxTokens = getMaxTokens();
-    document.getElementById('max-tokens').value = maxTokens || '';
-}
-
-function enableSendButton() {
-    document.getElementById('send-btn').disabled = false;
-}
-
-function disableSendButton() {
-    document.getElementById('send-btn').disabled = true;
-}
-
-function showCancelButton() {
-    document.getElementById('cancel-btn').classList.remove('hidden');
-    document.getElementById('retry-btn').classList.add('hidden');
-}
-
-function showRetryButton() {
-    document.getElementById('cancel-btn').classList.add('hidden');
-    document.getElementById('retry-btn').classList.remove('hidden');
-}
-
-function hideActionButtons() {
-    document.getElementById('cancel-btn').classList.add('hidden');
-    document.getElementById('retry-btn').classList.add('hidden');
-}
-
-function clearMessageInput() {
-    document.getElementById('message-input').value = '';
 }

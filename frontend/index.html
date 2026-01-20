@@ -3,137 +3,294 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OmniAI WebUI</title>
+    <title>OmniAI</title>
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
     <div id="app" data-page="chat">
-        <div id="login-view" class="view hidden">
-            <h1>Login to OmniAI</h1>
-            <form id="login-form">
-                <input type="text" id="username" placeholder="Username" required aria-label="Username">
-                <input type="password" id="password" placeholder="Password" required aria-label="Password">
-                <button type="submit">Login</button>
-            </form>
-            <div id="login-error" class="error hidden"></div>
-            <p><a href="#" id="show-register">Need an account? Register</a></p>
-        </div>
-
-        <div id="register-view" class="view hidden">
-            <h1>Register for OmniAI</h1>
-            <form id="register-form">
-                <input type="text" id="invite-code" placeholder="Invite Code" required aria-label="Invite Code">
-                <input type="text" id="reg-username" placeholder="Username" required aria-label="Username">
-                <input type="password" id="reg-password" placeholder="Password" required aria-label="Password">
-                <button type="submit">Register</button>
-            </form>
-            <div id="register-error" class="error hidden"></div>
-            <p><a href="#" id="show-login">Already have an account? Login</a></p>
-        </div>
-
-        <div id="chat-view" class="view hidden">
-            <div id="topbar">
-                <div id="topbar-left">
-                    <div id="logo">OmniAI</div>
-                    <div id="model-picker">
-                        <select id="provider-select" aria-label="Provider">
-                            <option value="">Select Provider</option>
-                        </select>
-                        <select id="model-select" aria-label="Model" disabled>
-                            <option value="">Select Model</option>
-                        </select>
+        <!-- Login View -->
+        <div id="login-view" class="view auth-view hidden">
+            <div class="auth-container">
+                <div class="auth-logo">OmniAI</div>
+                <h1>Welcome back</h1>
+                <p class="auth-subtitle">Sign in to continue your conversations</p>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" placeholder="Enter your username" required aria-label="Username">
                     </div>
-                </div>
-                <div id="topbar-right">
-                    <div id="connection-indicator" aria-label="Connection status">● Connected</div>
-                    <button id="settings-btn" aria-label="Settings">⚙</button>
-                    <div id="user-info">
-                        <span id="user-display"></span>
-                        <button id="logout-btn" aria-label="Logout">Logout</button>
-                        <a href="#admin" id="admin-link" class="hidden" aria-label="Admin panel">Admin</a>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" placeholder="Enter your password" required aria-label="Password">
                     </div>
-                </div>
+                    <button type="submit" class="btn-primary btn-full">Sign In</button>
+                </form>
+                <div id="login-error" class="error-message hidden"></div>
+                <p class="auth-switch">Don't have an account? <a href="#" id="show-register">Register</a></p>
             </div>
+        </div>
 
-            <div id="sidebar" role="navigation" aria-label="Conversations">
+        <!-- Register View -->
+        <div id="register-view" class="view auth-view hidden">
+            <div class="auth-container">
+                <div class="auth-logo">OmniAI</div>
+                <h1>Create account</h1>
+                <p class="auth-subtitle">Get started with an invite code</p>
+                <form id="register-form">
+                    <div class="form-group">
+                        <label for="invite-code">Invite Code</label>
+                        <input type="text" id="invite-code" placeholder="Enter your invite code" required aria-label="Invite Code">
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-username">Username</label>
+                        <input type="text" id="reg-username" placeholder="Choose a username" required aria-label="Username">
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-password">Password</label>
+                        <input type="password" id="reg-password" placeholder="Create a password" required aria-label="Password">
+                    </div>
+                    <button type="submit" class="btn-primary btn-full">Create Account</button>
+                </form>
+                <div id="register-error" class="error-message hidden"></div>
+                <p class="auth-switch">Already have an account? <a href="#" id="show-login">Sign in</a></p>
+            </div>
+        </div>
+
+        <!-- Chat View -->
+        <div id="chat-view" class="view hidden">
+            <!-- Mobile Sidebar Toggle -->
+            <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Toggle sidebar" aria-expanded="false">
+                <span class="hamburger-icon"></span>
+            </button>
+
+            <!-- Sidebar Backdrop (mobile) -->
+            <div id="sidebar-backdrop" class="sidebar-backdrop hidden"></div>
+
+            <!-- Sidebar -->
+            <aside id="sidebar" role="navigation" aria-label="Conversations">
                 <div id="sidebar-header">
-                    <button id="new-conversation-btn" aria-label="New conversation">New Chat</button>
+                    <button id="new-conversation-btn" class="btn-new-chat" aria-label="New conversation">
+                        <span class="icon-plus">+</span>
+                        <span>New Chat</span>
+                    </button>
+                </div>
+                <div id="sidebar-search">
                     <input type="text" id="search-conversations" placeholder="Search conversations..." aria-label="Search conversations">
                 </div>
                 <ul id="conversations-list" role="list" aria-label="Conversation threads"></ul>
+                <div id="sidebar-footer">
+                    <button id="settings-toggle-btn" class="sidebar-footer-btn" aria-label="Settings">
+                        <span class="icon-settings"></span>
+                        <span>Settings</span>
+                    </button>
+                    <div id="sidebar-user-info">
+                        <span id="sidebar-user-display"></span>
+                        <button id="sidebar-logout-btn" class="sidebar-footer-btn" aria-label="Logout">
+                            <span class="icon-logout"></span>
+                            <span>Log out</span>
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <div id="chat-content">
+                <!-- Topbar -->
+                <header id="topbar">
+                    <div id="topbar-left">
+                        <div id="logo">OmniAI</div>
+                    </div>
+                    <div id="topbar-center">
+                        <h1 id="chat-title" class="topbar-title" contenteditable="false" aria-label="Conversation title">New Chat</h1>
+                    </div>
+                    <div id="topbar-right">
+                        <div id="model-picker">
+                            <select id="provider-select" aria-label="Provider">
+                                <option value="">Provider</option>
+                            </select>
+                            <select id="model-select" aria-label="Model" disabled>
+                                <option value="">Model</option>
+                            </select>
+                        </div>
+                        <div id="connection-status">
+                            <span id="connection-indicator" class="status-indicator online" aria-label="Connection status"></span>
+                            <span id="connection-text">Connected</span>
+                        </div>
+                        <button id="controls-btn" class="topbar-btn" aria-label="Generation controls" title="Generation settings">
+                            <span class="icon-sliders"></span>
+                        </button>
+                        <div id="user-menu">
+                            <span id="user-display"></span>
+                            <a href="#admin" id="admin-link" class="hidden" aria-label="Admin panel">Admin</a>
+                            <button id="logout-btn" class="topbar-btn" aria-label="Logout" title="Log out">
+                                <span class="icon-logout"></span>
+                            </button>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Main Chat Area -->
+                <main id="main">
+                    <!-- Chat Header Actions -->
+                    <div id="chat-header-actions" class="hidden">
+                        <button id="rename-chat-btn" class="btn-ghost" aria-label="Rename conversation">Rename</button>
+                        <button id="delete-chat-btn" class="btn-ghost btn-danger" aria-label="Delete conversation">Delete</button>
+                    </div>
+
+                    <!-- Transcript -->
+                    <div id="transcript" role="log" aria-live="polite" aria-label="Chat transcript">
+                        <div id="empty-state" class="empty-state">
+                            <div class="empty-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                                </svg>
+                            </div>
+                            <h2>How can I help you today?</h2>
+                            <p>Start a conversation by typing a message below.</p>
+                        </div>
+                    </div>
+
+                    <!-- Jump to Latest Pill -->
+                    <button id="jump-to-latest" class="jump-pill hidden" aria-label="Jump to latest message">
+                        <span class="icon-arrow-down"></span>
+                        Jump to latest
+                    </button>
+
+                    <!-- Composer -->
+                    <div id="composer">
+                        <div id="input-wrapper">
+                            <textarea id="message-input" placeholder="Message OmniAI..." aria-label="Message input" rows="1"></textarea>
+                            <div id="composer-actions">
+                                <button id="send-btn" disabled aria-label="Send message" title="Send message">
+                                    <span class="icon-send"></span>
+                                </button>
+                                <button id="cancel-btn" class="hidden" aria-label="Stop generating" title="Stop generating">
+                                    <span class="icon-stop"></span>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="composer-hints">
+                            <span><kbd>Enter</kbd> to send</span>
+                            <span><kbd>Shift</kbd>+<kbd>Enter</kbd> for newline</span>
+                            <span><kbd>Esc</kbd> to cancel</span>
+                        </div>
+                    </div>
+
+                    <!-- Status Line -->
+                    <div id="status-line">
+                        <span id="status-text">Ready</span>
+                        <span id="elapsed-time"></span>
+                        <span id="token-usage"></span>
+                    </div>
+                </main>
             </div>
 
-            <main id="main">
-                <div id="chatHeader">
-                    <h1 id="chat-title">New Chat</h1>
-                    <div id="chat-actions">
-                        <button id="rename-chat-btn" aria-label="Rename conversation">Rename</button>
-                        <button id="delete-chat-btn" aria-label="Delete conversation">Delete</button>
-                    </div>
-                </div>
-                <div id="transcript" role="log" aria-live="polite" aria-label="Chat transcript"></div>
-                <div id="composer">
-                    <div id="input-area">
-                        <textarea id="message-input" placeholder="Type your message..." aria-label="Message input"></textarea>
-                        <button id="send-btn" disabled aria-label="Send message">Send</button>
-                        <button id="cancel-btn" class="hidden" aria-label="Cancel streaming">Cancel</button>
-                        <button id="retry-btn" class="hidden" aria-label="Retry last message">Retry</button>
-                    </div>
-                </div>
-                <div id="status-line">
-                    <span id="status-text">Ready</span>
-                    <span id="elapsed-time"></span>
-                    <span id="token-usage"></span>
-                </div>
-            </main>
-
+            <!-- Settings Drawer -->
             <div id="settingsDrawer" class="hidden" role="dialog" aria-labelledby="settings-title" aria-modal="true">
                 <div id="settings-header">
                     <h2 id="settings-title">Settings</h2>
-                    <button id="close-settings-btn" aria-label="Close settings">×</button>
+                    <button id="close-settings-btn" class="btn-close" aria-label="Close settings">
+                        <span class="icon-close"></span>
+                    </button>
                 </div>
                 <div id="settings-content">
-                    <div id="run-settings">
-                        <h3>Run Settings</h3>
+                    <!-- Generation Settings -->
+                    <section id="run-settings" class="settings-section">
+                        <h3>Generation Settings</h3>
                         <div class="setting-group">
-                            <label for="drawer-temperature">Temperature:</label>
-                            <input type="number" id="drawer-temperature" min="0" max="2" step="0.1">
+                            <label for="drawer-temperature">
+                                Temperature
+                                <span class="setting-hint">Controls randomness (0 = deterministic, 2 = creative)</span>
+                            </label>
+                            <div class="setting-input-row">
+                                <input type="range" id="drawer-temperature-range" min="0" max="2" step="0.1" value="0.7">
+                                <input type="number" id="drawer-temperature" min="0" max="2" step="0.1" value="0.7">
+                            </div>
                         </div>
                         <div class="setting-group">
-                            <label for="drawer-top-p">Top-P:</label>
-                            <input type="number" id="drawer-top-p" min="0" max="1" step="0.01">
+                            <label for="drawer-top-p">
+                                Top-P
+                                <span class="setting-hint">Nucleus sampling threshold</span>
+                            </label>
+                            <div class="setting-input-row">
+                                <input type="range" id="drawer-top-p-range" min="0" max="1" step="0.01" value="1">
+                                <input type="number" id="drawer-top-p" min="0" max="1" step="0.01" value="1">
+                            </div>
                         </div>
                         <div class="setting-group">
-                            <label for="drawer-max-tokens">Max Tokens:</label>
-                            <input type="number" id="drawer-max-tokens" min="1">
+                            <label for="drawer-max-tokens">
+                                Max Tokens
+                                <span class="setting-hint">Maximum response length</span>
+                            </label>
+                            <input type="number" id="drawer-max-tokens" min="1" max="128000" step="1" placeholder="No limit">
                         </div>
-                    </div>
-                    <div id="presets">
+                    </section>
+
+                    <!-- Presets -->
+                    <section id="presets" class="settings-section">
                         <h3>Presets</h3>
-                        <select id="preset-select">
+                        <select id="preset-select" aria-label="Select preset">
                             <option value="">Select Preset</option>
                         </select>
-                        <button id="save-preset-btn">Save as Preset</button>
-                        <button id="delete-preset-btn">Delete Preset</button>
-                    </div>
-                    <div id="prompt-dock">
+                        <div class="preset-actions">
+                            <button id="save-preset-btn" class="btn-secondary">Save Current</button>
+                            <button id="delete-preset-btn" class="btn-ghost btn-danger">Delete</button>
+                        </div>
+                    </section>
+
+                    <!-- Prompt Templates -->
+                    <section id="prompt-dock" class="settings-section">
                         <h3>Prompt Templates</h3>
                         <div id="prompt-templates" class="prompt-chips"></div>
-                        <h3>Saved Prompts</h3>
+                        <h4>Saved Prompts</h4>
                         <div id="saved-prompts">
                             <div class="saved-prompt-controls">
                                 <input type="text" id="new-prompt-name" placeholder="Prompt name" maxlength="50">
-                                <button id="save-prompt-btn">Save Current</button>
+                                <button id="save-prompt-btn" class="btn-secondary">Save Current</button>
                             </div>
                             <div id="saved-prompts-list" class="saved-prompts-list"></div>
                         </div>
+                    </section>
+
+                    <!-- Backend Configuration -->
+                    <section id="backend-settings" class="settings-section">
+                        <h3>Backend</h3>
+                        <div class="setting-group">
+                            <label for="api-base-url">API Base URL</label>
+                            <div class="setting-input-row">
+                                <input type="url" id="api-base-url" placeholder="https://...">
+                                <button id="save-url-btn" class="btn-secondary">Save</button>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- Controls Panel (Quick Settings) -->
+            <div id="controls-panel" class="hidden" role="dialog" aria-label="Quick generation settings">
+                <div class="controls-panel-content">
+                    <div class="control-group">
+                        <label>Temp: <span id="temp-display">0.7</span></label>
+                        <input type="range" id="quick-temperature" min="0" max="2" step="0.1" value="0.7">
+                    </div>
+                    <div class="control-group">
+                        <label>Top-P: <span id="top-p-display">1.0</span></label>
+                        <input type="range" id="quick-top-p" min="0" max="1" step="0.05" value="1">
+                    </div>
+                    <div class="control-group">
+                        <label>Max Tokens</label>
+                        <input type="number" id="quick-max-tokens" min="1" placeholder="No limit">
                     </div>
                 </div>
             </div>
 
+            <!-- Toast Container -->
             <div id="toastHost" aria-live="assertive" aria-atomic="true"></div>
+
+            <!-- Modal Host -->
             <div id="modalHost"></div>
 
+            <!-- Diagnostics (hidden by default) -->
             <div id="diagnostics" class="hidden">
                 <h3>Diagnostics</h3>
                 <button id="test-me">Test /auth/me</button>
@@ -142,25 +299,32 @@
             </div>
         </div>
 
+        <!-- Admin View -->
         <div id="admin-view" class="view hidden">
-            <header>
+            <header id="admin-header">
+                <div id="admin-brand">
+                    <a href="#chat" class="admin-back-link">
+                        <span class="icon-arrow-left"></span>
+                        Back to Chat
+                    </a>
+                    <span class="admin-title">Admin Panel</span>
+                </div>
                 <div id="admin-user-info">
                     <span id="admin-user-display"></span>
-                    <button id="admin-logout-btn">Logout</button>
+                    <button id="admin-logout-btn" class="btn-ghost">Logout</button>
                 </div>
-                <a href="#chat">Back to Chat</a>
             </header>
 
             <div id="admin-container">
-                <nav id="admin-nav">
-                    <button id="admin-users-tab" class="active">Users</button>
-                    <button id="admin-invites-tab">Invites</button>
-                    <button id="admin-audit-tab">Audit Log</button>
-                    <button id="admin-quotas-tab">Quotas</button>
+                <nav id="admin-nav" role="tablist">
+                    <button id="admin-users-tab" class="admin-tab active" role="tab" aria-selected="true">Users</button>
+                    <button id="admin-invites-tab" class="admin-tab" role="tab" aria-selected="false">Invites</button>
+                    <button id="admin-audit-tab" class="admin-tab" role="tab" aria-selected="false">Audit Log</button>
+                    <button id="admin-quotas-tab" class="admin-tab" role="tab" aria-selected="false">Quotas</button>
                 </nav>
 
                 <main id="admin-main">
-                    <div id="admin-users-section" class="admin-section">
+                    <div id="admin-users-section" class="admin-section" role="tabpanel">
                         <h2>Users</h2>
                         <table id="users-table">
                             <thead>
@@ -179,9 +343,9 @@
                         </table>
                     </div>
 
-                    <div id="admin-invites-section" class="admin-section hidden">
+                    <div id="admin-invites-section" class="admin-section hidden" role="tabpanel">
                         <h2>Invites</h2>
-                        <button id="create-invite-btn">Create Invite</button>
+                        <button id="create-invite-btn" class="btn-primary">Create Invite</button>
                         <table id="invites-table">
                             <thead>
                                 <tr>
@@ -198,7 +362,7 @@
                         </table>
                     </div>
 
-                    <div id="admin-audit-section" class="admin-section hidden">
+                    <div id="admin-audit-section" class="admin-section hidden" role="tabpanel">
                         <h2>Audit Log</h2>
                         <div id="audit-filters">
                             <input type="text" id="audit-q" placeholder="Search target...">
@@ -206,7 +370,7 @@
                                 <option value="">All Actions</option>
                             </select>
                             <input type="datetime-local" id="audit-since">
-                            <button id="audit-search-btn">Search</button>
+                            <button id="audit-search-btn" class="btn-primary">Search</button>
                         </div>
                         <table id="audit-table">
                             <thead>
@@ -223,7 +387,7 @@
                         </table>
                     </div>
 
-                    <div id="admin-quotas-section" class="admin-section hidden">
+                    <div id="admin-quotas-section" class="admin-section hidden" role="tabpanel">
                         <h2>User Quotas</h2>
                         <table id="quotas-table">
                             <thead>
@@ -243,13 +407,17 @@
             </div>
         </div>
 
-        <div id="error-banner" class="hidden">
+        <!-- Global Banners -->
+        <div id="error-banner" class="banner banner-error hidden">
             <span id="error-message"></span>
-            <button id="dismiss-error">×</button>
+            <button id="dismiss-error" class="btn-close" aria-label="Dismiss">
+                <span class="icon-close"></span>
+            </button>
         </div>
 
-        <div id="disconnect-banner" class="hidden">
-            <span>Disconnected from server. <button id="retry-stream">Retry</button></span>
+        <div id="disconnect-banner" class="banner banner-warning hidden">
+            <span>Disconnected from server.</span>
+            <button id="retry-stream" class="btn-secondary">Retry</button>
         </div>
     </div>
 
