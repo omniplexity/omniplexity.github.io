@@ -47,3 +47,7 @@ pytest
 cd backend
 ruff check .
 ruff format .
+```
+
+## API Documentation
+See [docs/api.md](api.md) for complete API reference with authentication, endpoints, and examples.

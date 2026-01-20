@@ -565,3 +565,35 @@ def test_admin_endpoints_require_admin_auth(authenticated_client, client, db_ses
             response = client.request(method.upper(), endpoint)
         assert response.status_code == 403
         assert response.json()["code"] == "ADMIN_REQUIRED"
+
+
+def test_openapi_includes_request_bodies():
+    """Test that OpenAPI schema includes requestBody for endpoints that should have them."""
+    from backend.app.main import app
+
+    schema = app.openapi()
+    paths = schema["paths"]
+
+    # Check that POST /conversations has requestBody
+    conversations_post = paths.get("/conversations", {}).get("post", {})
+    assert "requestBody" in conversations_post, "POST /conversations should have requestBody"
+
+    # Check that PATCH /conversations/{conversation_id} has requestBody
+    conversations_patch = paths.get("/conversations/{conversation_id}", {}).get("patch", {})
+    assert "requestBody" in conversations_patch, "PATCH /conversations/{conversation_id} should have requestBody"
+
+    # Check that POST /conversations/{conversation_id}/messages has requestBody
+    messages_post = paths.get("/conversations/{conversation_id}/messages", {}).get("post", {})
+    assert "requestBody" in messages_post, "POST /conversations/{conversation_id}/messages should have requestBody"
+
+    # Check that POST /conversations/{conversation_id}/stream has requestBody
+    stream_post = paths.get("/conversations/{conversation_id}/stream", {}).get("post", {})
+    assert "requestBody" in stream_post, "POST /conversations/{conversation_id}/stream should have requestBody"
+
+    # Check that POST /chat/retry has requestBody
+    retry_post = paths.get("/chat/retry", {}).get("post", {})
+    assert "requestBody" in retry_post, "POST /chat/retry should have requestBody"
+
+    # Check that GET /conversations/{conversation_id} exists
+    conversations_get = paths.get("/conversations/{conversation_id}", {}).get("get", {})
+    assert conversations_get, "GET /conversations/{conversation_id} should exist"

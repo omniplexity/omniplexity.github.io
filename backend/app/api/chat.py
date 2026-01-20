@@ -35,6 +35,14 @@ logger = logging.getLogger("backend")
 class AppendMessageRequest(BaseModel):
     content: str
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"content": "Hello, how can you help me today?"}
+            ]
+        }
+    }
+
 
 class StreamChatRequest(BaseModel):
     provider_id: str
@@ -42,6 +50,19 @@ class StreamChatRequest(BaseModel):
     temperature: float | None = None
     top_p: float | None = None
     max_tokens: int | None = None
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "provider_id": "lmstudio",
+                    "model": "llama-3.2-3b-instruct",
+                    "temperature": 0.7,
+                    "max_tokens": 1000
+                }
+            ]
+        }
+    }
 
 
 class RetryChatRequest(BaseModel):
@@ -51,6 +72,20 @@ class RetryChatRequest(BaseModel):
     temperature: float | None = None
     top_p: float | None = None
     max_tokens: int | None = None
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "conversation_id": 123,
+                    "provider_id": "lmstudio",
+                    "model": "llama-3.2-3b-instruct",
+                    "temperature": 0.7,
+                    "max_tokens": 1000
+                }
+            ]
+        }
+    }
 
 
 def check_rate_limits(request: Request, user: User) -> None:

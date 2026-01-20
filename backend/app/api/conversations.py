@@ -21,9 +21,26 @@ from backend.app.services.chat_service import (
 class CreateConversationRequest(BaseModel):
     title: str | None = None
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"title": "My First Conversation"},
+                {"title": None}  # Will use auto-generated title
+            ]
+        }
+    }
+
 
 class RenameConversationRequest(BaseModel):
     title: str
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"title": "Updated Conversation Title"}
+            ]
+        }
+    }
 
 
 router = APIRouter()
