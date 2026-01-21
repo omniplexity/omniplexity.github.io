@@ -1,6 +1,7 @@
 // OmniAI WebUI Configuration
 
 const LOCAL_API_BASE_URL = "http://127.0.0.1:8787"; // Local development backend
+const PRODUCTION_API_URL = "https://rossie-chargeful-plentifully.ngrok-free.dev"; // Production tunnel
 
 // Environment detection
 function isGitHubPages() {
@@ -17,9 +18,9 @@ function getApiBaseUrl() {
     const stored = localStorage.getItem('apiBaseUrl');
     if (stored) return stored;
 
-    // On GitHub Pages, require explicit backend configuration
+    // On GitHub Pages, use production tunnel URL
     if (isGitHubPages()) {
-        return null; // Signal that backend URL needs to be configured
+        return PRODUCTION_API_URL;
     }
 
     // Local development default
