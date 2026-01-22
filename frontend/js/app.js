@@ -1284,6 +1284,6 @@
     window.showSuccess = showSuccess;
     window.sendMessage = sendMessage;
     window.setRoute = setRoute;
-    window.getCurrentUser = () => getCurrentUser();
+    // Note: getCurrentUser is already globally exposed by auth.js
 
 })();
