@@ -918,7 +918,27 @@
             await startStreaming(providerId, modelId);
 
         } catch (error) {
-            showError('Failed to send message: ' + error.message);
+            // If conversation not found, create a new one and retry
+            if (error.message.includes('not found') || error.message.includes('404')) {
+                console.warn('Conversation not found, creating new one and retrying...');
+                try {
+                    await createNewConversation();
+                    // Re-add user message to UI (transcript was cleared)
+                    addMessageToTranscript('user', content);
+                    // POST to new conversation
+                    await apiRequest(`/conversations/${currentConversationId}/messages`, {
+                        method: 'POST',
+                        body: JSON.stringify({ content }),
+                    });
+                    addMessageToTranscript('assistant', '', true);
+                    await startStreaming(providerId, modelId);
+                    return;
+                } catch (retryError) {
+                    showError('Failed to send message: ' + retryError.message);
+                }
+            } else {
+                showError('Failed to send message: ' + error.message);
+            }
             state.stream.status = 'error';
             updateComposerState();
         }
