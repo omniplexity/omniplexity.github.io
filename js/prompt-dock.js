@@ -147,16 +147,22 @@ class PromptDock {
     }
 
     bindEvents() {
-        document.getElementById('save-prompt-btn').addEventListener('click', () => {
-            this.saveCurrentPrompt();
-        });
-
-        document.getElementById('new-prompt-name').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
+        const saveBtn = document.getElementById('save-prompt-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
                 this.saveCurrentPrompt();
-            }
-        });
+            });
+        }
+
+        const nameInput = document.getElementById('new-prompt-name');
+        if (nameInput) {
+            nameInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.saveCurrentPrompt();
+                }
+            });
+        }
     }
 
     insertTemplate(template, sendImmediately = false) {
@@ -246,8 +252,10 @@ class PromptDock {
     }
 
     editSavedPrompt(index) {
-        const prompt = this.savedPrompts[index];
-        const newName = prompt('Edit prompt name:', prompt.name);
+        const savedPrompt = this.savedPrompts[index];
+        if (!savedPrompt) return;
+
+        const newName = window.prompt('Edit prompt name:', savedPrompt.name);
 
         if (newName === null) return; // Cancelled
 
@@ -264,7 +272,7 @@ class PromptDock {
             return;
         }
 
-        prompt.name = trimmedName;
+        savedPrompt.name = trimmedName;
         this.saveSavedPrompts();
         this.renderSavedPrompts();
     }

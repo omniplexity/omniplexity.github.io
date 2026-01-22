@@ -1282,5 +1282,8 @@
     window.showToast = showToast;
     window.showError = showError;
     window.showSuccess = showSuccess;
+    window.sendMessage = sendMessage;
+    window.setRoute = setRoute;
+    window.getCurrentUser = () => getCurrentUser();
 
 })();

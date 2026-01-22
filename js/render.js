@@ -1,46 +1,5 @@
 // OmniAI WebUI DOM Rendering Helpers
-
-// ============================================
-// VIEW MANAGEMENT
-// ============================================
-
-function showView(viewId) {
-    document.querySelectorAll('.view').forEach(view => view.classList.add('hidden'));
-    const view = document.getElementById(viewId);
-    if (view) view.classList.remove('hidden');
-}
-
-// ============================================
-// ERROR/BANNER DISPLAY
-// ============================================
-
-function showError(message) {
-    if (window.showToast) {
-        window.showToast(message, 'error', 6000);
-    } else {
-        const banner = document.getElementById('error-banner');
-        const messageEl = document.getElementById('error-message');
-        if (banner && messageEl) {
-            messageEl.textContent = message;
-            banner.classList.remove('hidden');
-        }
-    }
-}
-
-function hideError() {
-    const banner = document.getElementById('error-banner');
-    if (banner) banner.classList.add('hidden');
-}
-
-function showDisconnectBanner() {
-    const banner = document.getElementById('disconnect-banner');
-    if (banner) banner.classList.remove('hidden');
-}
-
-function hideDisconnectBanner() {
-    const banner = document.getElementById('disconnect-banner');
-    if (banner) banner.classList.add('hidden');
-}
+// Only contains functions used by app.js for rendering UI elements
 
 // ============================================
 // CONVERSATIONS LIST
@@ -105,38 +64,8 @@ function renderConversations(conversations) {
 }
 
 // ============================================
-// TRANSCRIPT / MESSAGES
+// MESSAGE RENDERING
 // ============================================
-
-function renderTranscript(messages) {
-    const transcript = document.getElementById('transcript');
-    if (!transcript) return;
-
-    // Keep empty state if it exists
-    const emptyState = document.getElementById('empty-state');
-
-    transcript.innerHTML = '';
-
-    if (!messages || messages.length === 0) {
-        if (emptyState) {
-            transcript.appendChild(emptyState);
-            emptyState.classList.remove('hidden');
-        }
-        return;
-    }
-
-    if (emptyState) {
-        emptyState.classList.add('hidden');
-    }
-
-    messages.forEach((msg, index) => {
-        const messageCard = createMessageCard(msg, index);
-        transcript.appendChild(messageCard);
-    });
-
-    // Scroll to bottom
-    transcript.scrollTop = transcript.scrollHeight;
-}
 
 function createMessageCard(msg, index) {
     const card = document.createElement('div');
@@ -151,7 +80,6 @@ function createMessageCard(msg, index) {
     meta.className = 'message-meta';
 
     if (msg.role === 'assistant') {
-        // Add model info if available
         const modelInfo = document.createElement('span');
         modelInfo.className = 'message-model';
         modelInfo.textContent = msg.model || 'Assistant';
@@ -171,7 +99,6 @@ function createMessageCard(msg, index) {
             meta.appendChild(tokens);
         }
     } else {
-        // User message
         const roleInfo = document.createElement('span');
         roleInfo.className = 'message-model';
         roleInfo.textContent = 'You';
@@ -195,7 +122,6 @@ function createMessageCard(msg, index) {
     const actions = document.createElement('div');
     actions.className = 'message-actions';
 
-    // Copy button for all messages
     const copyBtn = document.createElement('button');
     copyBtn.className = 'action-btn copy-btn';
     copyBtn.innerHTML = '<span title="Copy">Copy</span>';
@@ -203,7 +129,6 @@ function createMessageCard(msg, index) {
     actions.appendChild(copyBtn);
 
     if (msg.role === 'assistant') {
-        // Regenerate button
         const regenBtn = document.createElement('button');
         regenBtn.className = 'action-btn regen-btn';
         regenBtn.innerHTML = '<span title="Regenerate">Retry</span>';
@@ -261,7 +186,6 @@ window.copyCodeBlock = function(codeId) {
     const codeEl = document.getElementById(codeId);
     if (codeEl) {
         copyMessageToClipboard(codeEl.textContent);
-        // Find the button and update text
         const block = codeEl.closest('.code-block');
         const btn = block?.querySelector('.code-copy-btn');
         if (btn) {
@@ -307,39 +231,6 @@ function fallbackCopy(content) {
 }
 
 // ============================================
-// INCREMENTAL MESSAGE UPDATES
-// ============================================
-
-function appendToLastMessage(content) {
-    const transcript = document.getElementById('transcript');
-    if (!transcript) return;
-
-    const lastCard = transcript.querySelector('.message-card.streaming');
-    if (lastCard) {
-        const contentEl = lastCard.querySelector('.message-content');
-        if (contentEl) {
-            // Get current text content and append
-            const currentText = contentEl.textContent || '';
-            contentEl.innerHTML = renderMessageContent(currentText + content);
-        }
-    }
-
-    // Smart scroll
-    const isNearBottom = transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight < 100;
-    if (isNearBottom) {
-        transcript.scrollTop = transcript.scrollHeight;
-    }
-}
-
-function finalizeLastMessage() {
-    const transcript = document.getElementById('transcript');
-    if (!transcript) return;
-
-    const streamingCards = transcript.querySelectorAll('.message-card.streaming');
-    streamingCards.forEach(card => card.classList.remove('streaming'));
-}
-
-// ============================================
 // PROVIDER/MODEL DROPDOWNS
 // ============================================
 
@@ -364,10 +255,8 @@ function renderProviders(providers) {
         const optionExists = select.querySelector(`option[value="${selected}"]`);
         if (optionExists) {
             select.value = selected;
-            // Trigger change to load models
             select.dispatchEvent(new Event('change'));
         } else {
-            // Clear stale provider
             setSelectedProvider('');
         }
     }
@@ -402,172 +291,34 @@ function renderModels(models) {
 }
 
 // ============================================
-// STATUS LINE
-// ============================================
-
-function updateStatusLine(status, elapsed = null, usage = null) {
-    const statusEl = document.getElementById('status-text');
-    const elapsedEl = document.getElementById('elapsed-time');
-    const usageEl = document.getElementById('token-usage');
-
-    if (statusEl) statusEl.textContent = status;
-
-    if (elapsedEl) {
-        elapsedEl.textContent = elapsed !== null ? `${elapsed}s` : '';
-    }
-
-    if (usageEl) {
-        if (usage) {
-            const parts = [];
-            if (usage.prompt_tokens !== undefined) parts.push(`P:${usage.prompt_tokens}`);
-            if (usage.completion_tokens !== undefined) parts.push(`C:${usage.completion_tokens}`);
-            if (usage.total_tokens !== undefined) parts.push(`T:${usage.total_tokens}`);
-            usageEl.textContent = parts.join(' ');
-        } else {
-            usageEl.textContent = '';
-        }
-    }
-}
-
-// ============================================
-// USER DISPLAY
-// ============================================
-
-function updateUserDisplay(user) {
-    const displays = ['user-display', 'sidebar-user-display', 'admin-user-display'];
-
-    displays.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.textContent = user ? user.username || user.email || 'User' : '';
-        }
-    });
-}
-
-// ============================================
-// SETTINGS INPUTS
-// ============================================
-
-function updateSettingsInputs() {
-    const temp = getTemperature();
-    const topP = getTopP();
-    const maxTokens = getMaxTokens();
-
-    // Drawer inputs
-    const drawerTemp = document.getElementById('drawer-temperature');
-    const drawerTempRange = document.getElementById('drawer-temperature-range');
-    const drawerTopP = document.getElementById('drawer-top-p');
-    const drawerTopPRange = document.getElementById('drawer-top-p-range');
-    const drawerMaxTokens = document.getElementById('drawer-max-tokens');
-
-    if (drawerTemp) drawerTemp.value = temp;
-    if (drawerTempRange) drawerTempRange.value = temp;
-    if (drawerTopP) drawerTopP.value = topP;
-    if (drawerTopPRange) drawerTopPRange.value = topP;
-    if (drawerMaxTokens) drawerMaxTokens.value = maxTokens || '';
-
-    // Quick controls
-    const quickTemp = document.getElementById('quick-temperature');
-    const quickTopP = document.getElementById('quick-top-p');
-    const quickMaxTokens = document.getElementById('quick-max-tokens');
-    const tempDisplay = document.getElementById('temp-display');
-    const topPDisplay = document.getElementById('top-p-display');
-
-    if (quickTemp) quickTemp.value = temp;
-    if (quickTopP) quickTopP.value = topP;
-    if (quickMaxTokens) quickMaxTokens.value = maxTokens || '';
-    if (tempDisplay) tempDisplay.textContent = temp.toFixed(1);
-    if (topPDisplay) topPDisplay.textContent = topP.toFixed(2);
-}
-
-// ============================================
-// BUTTON STATES
-// ============================================
-
-function enableSendButton() {
-    const btn = document.getElementById('send-btn');
-    if (btn) btn.disabled = false;
-}
-
-function disableSendButton() {
-    const btn = document.getElementById('send-btn');
-    if (btn) btn.disabled = true;
-}
-
-function showCancelButton() {
-    const cancelBtn = document.getElementById('cancel-btn');
-    const sendBtn = document.getElementById('send-btn');
-    if (cancelBtn) cancelBtn.classList.remove('hidden');
-    if (sendBtn) sendBtn.classList.add('hidden');
-}
-
-function showSendButton() {
-    const cancelBtn = document.getElementById('cancel-btn');
-    const sendBtn = document.getElementById('send-btn');
-    if (cancelBtn) cancelBtn.classList.add('hidden');
-    if (sendBtn) sendBtn.classList.remove('hidden');
-}
-
-function hideActionButtons() {
-    const cancelBtn = document.getElementById('cancel-btn');
-    if (cancelBtn) cancelBtn.classList.add('hidden');
-}
-
-function clearMessageInput() {
-    const input = document.getElementById('message-input');
-    if (input) {
-        input.value = '';
-        input.style.height = 'auto';
-    }
-}
-
-// ============================================
 // FILE EXTENSIONS (for code save)
 // ============================================
 
 function getFileExtension(lang) {
     const extensions = {
-        javascript: 'js',
-        js: 'js',
-        typescript: 'ts',
-        ts: 'ts',
-        python: 'py',
-        py: 'py',
+        javascript: 'js', js: 'js',
+        typescript: 'ts', ts: 'ts',
+        python: 'py', py: 'py',
         java: 'java',
-        cpp: 'cpp',
-        c: 'c',
-        csharp: 'cs',
-        cs: 'cs',
-        html: 'html',
-        css: 'css',
-        json: 'json',
-        xml: 'xml',
-        yaml: 'yaml',
-        yml: 'yml',
-        markdown: 'md',
-        md: 'md',
+        cpp: 'cpp', c: 'c',
+        csharp: 'cs', cs: 'cs',
+        html: 'html', css: 'css',
+        json: 'json', xml: 'xml',
+        yaml: 'yaml', yml: 'yml',
+        markdown: 'md', md: 'md',
         sql: 'sql',
-        bash: 'sh',
-        shell: 'sh',
-        sh: 'sh',
+        bash: 'sh', shell: 'sh', sh: 'sh',
         go: 'go',
-        rust: 'rs',
-        rs: 'rs',
+        rust: 'rs', rs: 'rs',
         php: 'php',
-        ruby: 'rb',
-        rb: 'rb',
+        ruby: 'rb', rb: 'rb',
         swift: 'swift',
-        kotlin: 'kt',
-        kt: 'kt',
-        dart: 'dart',
-        scala: 'scala',
-        perl: 'pl',
-        pl: 'pl',
-        lua: 'lua',
-        r: 'r',
+        kotlin: 'kt', kt: 'kt',
+        dart: 'dart', scala: 'scala',
+        perl: 'pl', pl: 'pl',
+        lua: 'lua', r: 'r',
         matlab: 'm',
-        julia: 'jl',
-        jl: 'jl'
+        julia: 'jl', jl: 'jl'
     };
     return extensions[lang?.toLowerCase()] || 'txt';
 }

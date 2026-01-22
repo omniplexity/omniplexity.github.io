@@ -1,366 +1,440 @@
-// OmniAI Admin Panel
+// OmniAI Admin Panel - Complete Rewrite
+// Uses apiRequest from api.js for consistency
 
-let currentAdminSection = 'users';
+(function() {
+    'use strict';
 
-// Admin data loading
-async function loadAdminData() {
-    const user = getCurrentUser();
-    document.getElementById('admin-user-display').textContent = user.username;
+    let currentSection = 'users';
+    let isInitialized = false;
 
-    // Load initial data based on current section
-    switch (currentAdminSection) {
-        case 'users':
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+
+    function $(id) {
+        return document.getElementById(id);
+    }
+
+    function showAdminError(message) {
+        if (window.showError) {
+            window.showError(message);
+        } else {
+            console.error(message);
+        }
+    }
+
+    function showAdminSuccess(message) {
+        if (window.showSuccess) {
+            window.showSuccess(message);
+        } else if (window.showToast) {
+            window.showToast(message, 'success');
+        } else {
+            console.log(message);
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return 'Never';
+        return new Date(dateStr).toLocaleString();
+    }
+
+    // ============================================
+    // API CALLS (using apiRequest from api.js)
+    // ============================================
+
+    async function adminFetch(endpoint, options = {}) {
+        const baseUrl = getApiBaseUrl();
+        const url = `${baseUrl}${endpoint}`;
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+            ...options.headers,
+        };
+
+        const csrfToken = localStorage.getItem('csrfToken');
+        if (csrfToken && ['POST', 'PATCH', 'PUT', 'DELETE'].includes((options.method || 'GET').toUpperCase())) {
+            headers['X-CSRF-Token'] = csrfToken;
+        }
+
+        const response = await fetch(url, {
+            ...options,
+            headers,
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || `HTTP ${response.status}`);
+        }
+
+        return response.json();
+    }
+
+    // ============================================
+    // DATA LOADING
+    // ============================================
+
+    async function loadUsers() {
+        try {
+            const data = await adminFetch('/admin/users');
+            renderUsers(data.users || []);
+        } catch (error) {
+            showAdminError('Failed to load users: ' + error.message);
+        }
+    }
+
+    async function loadInvites() {
+        try {
+            const data = await adminFetch('/admin/invites');
+            renderInvites(data.invites || []);
+        } catch (error) {
+            showAdminError('Failed to load invites: ' + error.message);
+        }
+    }
+
+    async function loadAuditLog(q = '', action = '', since = '') {
+        try {
+            const params = new URLSearchParams();
+            if (q) params.append('q', q);
+            if (action) params.append('action', action);
+            if (since) params.append('since', since);
+
+            const data = await adminFetch(`/admin/audit?${params}`);
+            renderAuditLog(data.entries || []);
+        } catch (error) {
+            showAdminError('Failed to load audit log: ' + error.message);
+        }
+    }
+
+    async function loadQuotas() {
+        try {
+            const usersData = await adminFetch('/admin/users');
+            const quotas = [];
+
+            for (const user of (usersData.users || [])) {
+                try {
+                    const quotaData = await adminFetch(`/admin/quotas/${user.id}`);
+                    quotas.push({ ...quotaData, username: user.username });
+                } catch (e) {
+                    quotas.push({
+                        user_id: user.id,
+                        username: user.username,
+                        messages_per_day: 100,
+                        tokens_per_day: 10000,
+                        updated_at: null
+                    });
+                }
+            }
+            renderQuotas(quotas);
+        } catch (error) {
+            showAdminError('Failed to load quotas: ' + error.message);
+        }
+    }
+
+    // ============================================
+    // RENDERING
+    // ============================================
+
+    function renderUsers(users) {
+        const tbody = $('users-tbody');
+        if (!tbody) return;
+
+        tbody.innerHTML = users.map(user => `
+            <tr data-user-id="${user.id}">
+                <td>${user.id}</td>
+                <td>${escapeHtml(user.username)}</td>
+                <td>${escapeHtml(user.display_name || '')}</td>
+                <td>
+                    <select class="user-role-select" data-user-id="${user.id}">
+                        <option value="user" ${user.role === 'user' ? 'selected' : ''}>User</option>
+                        <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+                    </select>
+                </td>
+                <td>
+                    <select class="user-status-select" data-user-id="${user.id}">
+                        <option value="active" ${user.status === 'active' ? 'selected' : ''}>Active</option>
+                        <option value="disabled" ${user.status === 'disabled' ? 'selected' : ''}>Disabled</option>
+                    </select>
+                </td>
+                <td>${formatDate(user.created_at)}</td>
+                <td>${formatDate(user.last_login)}</td>
+                <td>-</td>
+            </tr>
+        `).join('');
+    }
+
+    function renderInvites(invites) {
+        const tbody = $('invites-tbody');
+        if (!tbody) return;
+
+        tbody.innerHTML = invites.map(invite => `
+            <tr>
+                <td><code>${escapeHtml(invite.code)}</code></td>
+                <td>${invite.created_by || '-'}</td>
+                <td>${invite.used_by || 'Not used'}</td>
+                <td>${formatDate(invite.expires_at)}</td>
+                <td>${invite.revoked_at ? 'Yes' : 'No'}</td>
+                <td>${formatDate(invite.created_at)}</td>
+                <td>
+                    ${!invite.revoked_at && !invite.used_by ?
+                        `<button class="btn-ghost btn-danger revoke-invite-btn" data-code="${escapeHtml(invite.code)}">Revoke</button>` :
+                        '-'}
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function renderAuditLog(entries) {
+        const tbody = $('audit-tbody');
+        if (!tbody) return;
+
+        tbody.innerHTML = entries.map(entry => `
+            <tr>
+                <td>${entry.id}</td>
+                <td>${escapeHtml(entry.action)}</td>
+                <td>${escapeHtml(entry.target || '-')}</td>
+                <td>${entry.actor_user_id || '-'}</td>
+                <td>${escapeHtml(entry.ip || '-')}</td>
+                <td>${formatDate(entry.created_at)}</td>
+            </tr>
+        `).join('');
+    }
+
+    function renderQuotas(quotas) {
+        const tbody = $('quotas-tbody');
+        if (!tbody) return;
+
+        tbody.innerHTML = quotas.map(quota => `
+            <tr data-user-id="${quota.user_id}">
+                <td>${quota.user_id}</td>
+                <td>${escapeHtml(quota.username)}</td>
+                <td><input type="number" class="quota-messages" value="${quota.messages_per_day}" min="1" max="10000"></td>
+                <td><input type="number" class="quota-tokens" value="${quota.tokens_per_day}" min="1" max="1000000"></td>
+                <td>${quota.updated_at ? formatDate(quota.updated_at) : 'Default'}</td>
+                <td><button class="btn-secondary save-quota-btn">Save</button></td>
+            </tr>
+        `).join('');
+    }
+
+    // ============================================
+    // ACTIONS
+    // ============================================
+
+    async function updateUserRole(userId, role) {
+        try {
+            await adminFetch(`/admin/users/${userId}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ role })
+            });
+            showAdminSuccess('User role updated');
+        } catch (error) {
+            showAdminError('Failed to update role: ' + error.message);
+            await loadUsers(); // Refresh to reset select
+        }
+    }
+
+    async function updateUserStatus(userId, status) {
+        try {
+            await adminFetch(`/admin/users/${userId}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ status })
+            });
+            showAdminSuccess('User status updated');
+        } catch (error) {
+            showAdminError('Failed to update status: ' + error.message);
             await loadUsers();
-            break;
-        case 'invites':
+        }
+    }
+
+    async function createInvite() {
+        const hours = prompt('Expiration time in hours:', '24');
+        if (!hours) return;
+
+        try {
+            const data = await adminFetch('/admin/invites', {
+                method: 'POST',
+                body: JSON.stringify({ expires_in_hours: parseInt(hours) || 24 })
+            });
+            showAdminSuccess('Invite created: ' + data.invite_code);
             await loadInvites();
-            break;
-        case 'audit':
-            await loadAuditLog();
-            break;
-        case 'quotas':
-            await loadQuotas();
-            break;
+        } catch (error) {
+            showAdminError('Failed to create invite: ' + error.message);
+        }
     }
-}
 
-async function loadUsers() {
-    try {
-        const response = await fetch(`${getApiBaseUrl()}/admin/users`, {
-            method: 'GET',
-            headers: getAuthHeaders()
-        });
-        const data = await handleApiResponse(response);
-        renderUsers(data.users);
-    } catch (error) {
-        showError('Failed to load users: ' + error.message);
+    async function revokeInvite(code) {
+        if (!confirm(`Revoke invite "${code}"?`)) return;
+
+        try {
+            await adminFetch(`/admin/invites/${code}/revoke`, { method: 'POST' });
+            showAdminSuccess('Invite revoked');
+            await loadInvites();
+        } catch (error) {
+            showAdminError('Failed to revoke invite: ' + error.message);
+        }
     }
-}
 
-async function loadInvites() {
-    try {
-        const response = await fetch(`${getApiBaseUrl()}/admin/invites`, {
-            method: 'GET',
-            headers: getAuthHeaders()
-        });
-        const data = await handleApiResponse(response);
-        renderInvites(data.invites);
-    } catch (error) {
-        showError('Failed to load invites: ' + error.message);
+    async function saveQuota(userId, messages, tokens) {
+        try {
+            await adminFetch(`/admin/quotas/${userId}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    messages_per_day: parseInt(messages) || 100,
+                    tokens_per_day: parseInt(tokens) || 10000
+                })
+            });
+            showAdminSuccess('Quota saved');
+        } catch (error) {
+            showAdminError('Failed to save quota: ' + error.message);
+        }
     }
-}
 
-async function loadAuditLog(q = '', action = '', since = '') {
-    try {
-        const params = new URLSearchParams();
-        if (q) params.append('q', q);
-        if (action) params.append('action', action);
-        if (since) params.append('since', since);
+    // ============================================
+    // SECTION SWITCHING
+    // ============================================
 
-        const response = await fetch(`${getApiBaseUrl()}/admin/audit?${params}`, {
-            method: 'GET',
-            headers: getAuthHeaders()
+    function switchSection(section) {
+        currentSection = section;
+
+        // Update tabs
+        document.querySelectorAll('.admin-tab').forEach(tab => {
+            tab.classList.toggle('active', tab.id === `admin-${section}-tab`);
         });
-        const data = await handleApiResponse(response);
-        renderAuditLog(data.entries);
-    } catch (error) {
-        showError('Failed to load audit log: ' + error.message);
+
+        // Update sections
+        document.querySelectorAll('.admin-section').forEach(sec => {
+            sec.classList.toggle('hidden', sec.id !== `admin-${section}-section`);
+        });
+
+        // Load data
+        switch (section) {
+            case 'users': loadUsers(); break;
+            case 'invites': loadInvites(); break;
+            case 'audit': loadAuditLog(); break;
+            case 'quotas': loadQuotas(); break;
+        }
     }
-}
 
-async function loadQuotas() {
-    try {
-        // First load users to get user info
-        const usersResponse = await fetch(`${getApiBaseUrl()}/admin/users`, {
-            method: 'GET',
-            headers: getAuthHeaders()
-        });
-        const usersData = await handleApiResponse(usersResponse);
+    // ============================================
+    // EVENT HANDLING (Event Delegation)
+    // ============================================
 
-        // Load quotas for each user
-        const quotas = [];
-        for (const user of usersData.users) {
-            try {
-                const quotaResponse = await fetch(`${getApiBaseUrl()}/admin/quotas/${user.id}`, {
-                    method: 'GET',
-                    headers: getAuthHeaders()
-                });
-                const quotaData = await handleApiResponse(quotaResponse);
-                quotas.push({ ...quotaData, username: user.username });
-            } catch (e) {
-                // If no quota set, use defaults
-                quotas.push({
-                    user_id: user.id,
-                    username: user.username,
-                    messages_per_day: 100, // default
-                    tokens_per_day: 10000, // default
-                    updated_at: null
+    function handleAdminClick(e) {
+        const target = e.target;
+
+        // Tab switching
+        if (target.classList.contains('admin-tab')) {
+            const section = target.id.replace('admin-', '').replace('-tab', '');
+            switchSection(section);
+            return;
+        }
+
+        // Create invite
+        if (target.id === 'create-invite-btn') {
+            createInvite();
+            return;
+        }
+
+        // Revoke invite
+        if (target.classList.contains('revoke-invite-btn')) {
+            const code = target.dataset.code;
+            if (code) revokeInvite(code);
+            return;
+        }
+
+        // Save quota
+        if (target.classList.contains('save-quota-btn')) {
+            const row = target.closest('tr');
+            if (row) {
+                const userId = row.dataset.userId;
+                const messages = row.querySelector('.quota-messages')?.value;
+                const tokens = row.querySelector('.quota-tokens')?.value;
+                if (userId) saveQuota(userId, messages, tokens);
+            }
+            return;
+        }
+
+        // Audit search
+        if (target.id === 'audit-search-btn') {
+            const q = $('audit-q')?.value || '';
+            const action = $('audit-action')?.value || '';
+            const since = $('audit-since')?.value || '';
+            loadAuditLog(q, action, since);
+            return;
+        }
+
+        // Logout
+        if (target.id === 'admin-logout-btn') {
+            if (window.handleLogout) {
+                window.handleLogout().then(() => {
+                    if (window.setRoute) window.setRoute('login');
                 });
             }
+            return;
         }
-        renderQuotas(quotas);
-    } catch (error) {
-        showError('Failed to load quotas: ' + error.message);
     }
-}
 
-// Rendering functions
-function renderUsers(users) {
-    const tbody = document.getElementById('users-tbody');
-    tbody.innerHTML = '';
+    function handleAdminChange(e) {
+        const target = e.target;
 
-    users.forEach(user => {
-        const row = document.createElement('tr');
+        // User role change
+        if (target.classList.contains('user-role-select')) {
+            const userId = target.dataset.userId;
+            if (userId) updateUserRole(userId, target.value);
+            return;
+        }
 
-        row.innerHTML = `
-            <td>${user.id}</td>
-            <td>${escapeHtml(user.username)}</td>
-            <td>${escapeHtml(user.display_name || '')}</td>
-            <td>${user.role}</td>
-            <td>${user.status}</td>
-            <td>${new Date(user.created_at).toLocaleDateString()}</td>
-            <td>${user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}</td>
-            <td>
-                <select onchange="changeUserStatus(${user.id}, this.value)">
-                    <option value="active" ${user.status === 'active' ? 'selected' : ''}>Active</option>
-                    <option value="disabled" ${user.status === 'disabled' ? 'selected' : ''}>Disabled</option>
-                </select>
-                <select onchange="changeUserRole(${user.id}, this.value)">
-                    <option value="user" ${user.role === 'user' ? 'selected' : ''}>User</option>
-                    <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
-                </select>
-            </td>
-        `;
-
-        tbody.appendChild(row);
-    });
-}
-
-function renderInvites(invites) {
-    const tbody = document.getElementById('invites-tbody');
-    tbody.innerHTML = '';
-
-    invites.forEach(invite => {
-        const row = document.createElement('tr');
-
-        row.innerHTML = `
-            <td>${escapeHtml(invite.code)}</td>
-            <td>${invite.created_by}</td>
-            <td>${invite.used_by || 'Not used'}</td>
-            <td>${new Date(invite.expires_at).toLocaleString()}</td>
-            <td>${invite.revoked_at ? new Date(invite.revoked_at).toLocaleString() : 'No'}</td>
-            <td>${new Date(invite.created_at).toLocaleDateString()}</td>
-            <td>
-                ${!invite.revoked_at && !invite.used_by ? `<button onclick="revokeInvite('${invite.code}')">Revoke</button>` : ''}
-            </td>
-        `;
-
-        tbody.appendChild(row);
-    });
-}
-
-function renderAuditLog(entries) {
-    const tbody = document.getElementById('audit-tbody');
-    tbody.innerHTML = '';
-
-    entries.forEach(entry => {
-        const row = document.createElement('tr');
-
-        row.innerHTML = `
-            <td>${entry.id}</td>
-            <td>${entry.action}</td>
-            <td>${escapeHtml(entry.target)}</td>
-            <td>${entry.actor_user_id}</td>
-            <td>${entry.ip}</td>
-            <td>${new Date(entry.created_at).toLocaleString()}</td>
-        `;
-
-        tbody.appendChild(row);
-    });
-}
-
-function renderQuotas(quotas) {
-    const tbody = document.getElementById('quotas-tbody');
-    tbody.innerHTML = '';
-
-    quotas.forEach(quota => {
-        const row = document.createElement('tr');
-
-        row.innerHTML = `
-            <td>${quota.user_id}</td>
-            <td>${escapeHtml(quota.username)}</td>
-            <td><input type="number" value="${quota.messages_per_day}" onchange="updateQuota(${quota.user_id}, 'messages_per_day', this.value)"></td>
-            <td><input type="number" value="${quota.tokens_per_day}" onchange="updateQuota(${quota.user_id}, 'tokens_per_day', this.value)"></td>
-            <td>${quota.updated_at ? new Date(quota.updated_at).toLocaleString() : 'Default'}</td>
-            <td><button onclick="saveQuota(${quota.user_id})">Save</button></td>
-        `;
-
-        tbody.appendChild(row);
-    });
-}
-
-// Action handlers
-async function changeUserStatus(userId, status) {
-    try {
-        const response = await fetch(`${getApiBaseUrl()}/admin/users/${userId}`, {
-            method: 'PATCH',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ status })
-        });
-        await handleApiResponse(response);
-        showSuccess('User status updated');
-        await loadUsers();
-    } catch (error) {
-        showError('Failed to update user status: ' + error.message);
+        // User status change
+        if (target.classList.contains('user-status-select')) {
+            const userId = target.dataset.userId;
+            if (userId) updateUserStatus(userId, target.value);
+            return;
+        }
     }
-}
 
-async function changeUserRole(userId, role) {
-    try {
-        const response = await fetch(`${getApiBaseUrl()}/admin/users/${userId}`, {
-            method: 'PATCH',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ role })
-        });
-        await handleApiResponse(response);
-        showSuccess('User role updated');
-        await loadUsers();
-    } catch (error) {
-        showError('Failed to update user role: ' + error.message);
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+
+    function initializeAdmin() {
+        if (isInitialized) {
+            // Just reload current section data
+            switchSection(currentSection);
+            return;
+        }
+
+        const adminView = $('admin-view');
+        if (!adminView) return;
+
+        // Update user display
+        const userDisplay = $('admin-user-display');
+        const user = window.getCurrentUser ? window.getCurrentUser() : null;
+        if (userDisplay && user) {
+            userDisplay.textContent = user.username || 'Admin';
+        }
+
+        // Event delegation - single listener for all clicks
+        adminView.addEventListener('click', handleAdminClick);
+        adminView.addEventListener('change', handleAdminChange);
+
+        isInitialized = true;
+
+        // Load initial data
+        switchSection(currentSection);
     }
-}
 
-async function createInvite() {
-    const hours = prompt('Enter expiration time in hours:', '24');
-    if (!hours) return;
+    // ============================================
+    // EXPOSE GLOBALLY
+    // ============================================
 
-    try {
-        const response = await fetch(`${getApiBaseUrl()}/admin/invites`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ expires_in_hours: parseInt(hours) })
-        });
-        const data = await handleApiResponse(response);
-        showSuccess(`Invite created: ${data.invite_code}`);
-        await loadInvites();
-    } catch (error) {
-        showError('Failed to create invite: ' + error.message);
-    }
-}
+    window.initializeAdmin = initializeAdmin;
 
-async function revokeInvite(code) {
-    if (!confirm(`Revoke invite ${code}?`)) return;
-
-    try {
-        const response = await fetch(`${getApiBaseUrl()}/admin/invites/${code}/revoke`, {
-            method: 'POST',
-            headers: getAuthHeaders()
-        });
-        await handleApiResponse(response);
-        showSuccess('Invite revoked');
-        await loadInvites();
-    } catch (error) {
-        showError('Failed to revoke invite: ' + error.message);
-    }
-}
-
-async function updateQuota(userId, field, value) {
-    // Store the value for later saving
-    // This is a simple approach - in a real app you'd want better state management
-    const row = document.querySelector(`tr:has(td:first-child:contains('${userId}'))`);
-    if (row) {
-        row.dataset[field] = value;
-    }
-}
-
-async function saveQuota(userId) {
-    const row = document.querySelector(`tr:has(td:first-child:contains('${userId}'))`);
-    if (!row) return;
-
-    const messages = parseInt(row.dataset.messages_per_day) || 100;
-    const tokens = parseInt(row.dataset.tokens_per_day) || 10000;
-
-    try {
-        const response = await fetch(`${getApiBaseUrl()}/admin/quotas/${userId}`, {
-            method: 'PUT',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({
-                messages_per_day: messages,
-                tokens_per_day: tokens
-            })
-        });
-        await handleApiResponse(response);
-        showSuccess('Quota updated');
-        await loadQuotas();
-    } catch (error) {
-        showError('Failed to update quota: ' + error.message);
-    }
-}
-
-// Tab switching
-function switchAdminSection(section) {
-    currentAdminSection = section;
-
-    // Update tab buttons
-    document.querySelectorAll('#admin-nav button').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    document.getElementById(`admin-${section}-tab`).classList.add('active');
-
-    // Show/hide sections
-    document.querySelectorAll('.admin-section').forEach(sec => {
-        sec.classList.add('hidden');
-    });
-    document.getElementById(`admin-${section}-section`).classList.remove('hidden');
-
-    // Load data for the section
-    switch (section) {
-        case 'users':
-            loadUsers();
-            break;
-        case 'invites':
-            loadInvites();
-            break;
-        case 'audit':
-            loadAuditLog();
-            break;
-        case 'quotas':
-            loadQuotas();
-            break;
-    }
-}
-
-// Event listeners
-document.getElementById('admin-logout-btn').addEventListener('click', async () => {
-    await handleLogout();
-    setRoute('login');
-});
-
-document.getElementById('admin-users-tab').addEventListener('click', () => switchAdminSection('users'));
-document.getElementById('admin-invites-tab').addEventListener('click', () => switchAdminSection('invites'));
-document.getElementById('admin-audit-tab').addEventListener('click', () => switchAdminSection('audit'));
-document.getElementById('admin-quotas-tab').addEventListener('click', () => switchAdminSection('quotas'));
-
-document.getElementById('create-invite-btn').addEventListener('click', createInvite);
-
-document.getElementById('audit-search-btn').addEventListener('click', () => {
-    const q = document.getElementById('audit-q').value;
-    const action = document.getElementById('audit-action').value;
-    const since = document.getElementById('audit-since').value;
-    loadAuditLog(q, action, since);
-});
-
-// Initialize admin panel (called from app.js)
-window.initializeAdmin = loadAdminData;
-
-// Utility functions
-function showSuccess(message) {
-    // Simple success notification
-    alert(message);
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+})();
