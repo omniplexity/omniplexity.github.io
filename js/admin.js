@@ -350,6 +350,9 @@ document.getElementById('audit-search-btn').addEventListener('click', () => {
     loadAuditLog(q, action, since);
 });
 
+// Initialize admin panel (called from app.js)
+window.initializeAdmin = loadAdminData;
+
 // Utility functions
 function showSuccess(message) {
     // Simple success notification
