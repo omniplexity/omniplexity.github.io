@@ -11,6 +11,7 @@ services:
       context: ../..
       dockerfile: deploy/docker/Dockerfile.backend
     container_name: omniai-backend
+    init: true
     env_file:
       - .env
     environment:
@@ -25,29 +26,45 @@ services:
     networks:
       - internal
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 30s
     # NO ports published to host - access only via ngrok tunnel
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:8787/health"]
+      test: ["CMD", "python", "-c", "import urllib.request as r; r.urlopen('http://127.0.0.1:8787/health', timeout=3)"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
       start_period: 10s
 
   ngrok:
     image: ngrok/ngrok:latest
     container_name: omniai-ngrok
+    init: true
     command:
       - "http"
       - "http://backend:8787"
       - "--request-header-add=X-Origin-Secret:${ORIGIN_LOCK_SECRET}"
     environment:
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+      - NGROK_LOG=stdout
+      - NGROK_LOG_FORMAT=json
     depends_on:
       backend:
         condition: service_healthy
     networks:
       - internal
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 15s
     # Expose ngrok web interface for URL inspection (optional, localhost only)
     ports:
       - "127.0.0.1:4040:4040"

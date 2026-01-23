@@ -30,6 +30,8 @@ Internet
 - No ports published to host - backend unreachable except via tunnel
 - Origin lock rejects requests missing valid `X-Origin-Secret` header
 - ngrok automatically injects the header on all requests
+- Backend runs as non-root, drops Linux capabilities, and uses a read-only root FS
+- /tmp is mounted as tmpfs; SQLite data persists only in /app/data volume
 
 ## Prerequisites
 
@@ -119,6 +121,33 @@ curl https://xxxx-xx-xx-xx-xx.ngrok-free.app/health
 | Rebuild | `docker compose build --no-cache backend` |
 | Restart | `docker compose restart` |
 | Get tunnel URL | `docker compose logs ngrok \| grep url=` |
+
+## Runtime Knobs (Optional)
+
+You can tune the backend container with optional env vars in `.env`:
+
+```env
+RUN_MIGRATIONS=1        # set to 0/false to skip Alembic on startup
+UVICORN_WORKERS=1       # keep at 1 unless you know multi-workers are safe
+UVICORN_LOG_LEVEL=info  # debug/info/warning/error
+```
+
+## Memory (Chroma Vector Store)
+
+```env
+MEMORY_ENABLED=true
+MEMORY_CHROMA_PATH=/app/data/chroma
+MEMORY_COLLECTION=omni_memory
+MEMORY_TOP_K=6
+MEMORY_MIN_SCORE=0.2
+MEMORY_MAX_CHARS=1200
+MEMORY_AUTO_INGEST_USER_MESSAGES=true
+MEMORY_AUTO_INGEST_ASSISTANT_MESSAGES=false
+MEMORY_EMBEDDING_BACKEND=auto   # auto|hash|openai_compat
+MEMORY_EMBEDDING_MODEL=text-embedding-3-small
+MEMORY_EMBEDDING_BASE_URL=      # optional; defaults to OPENAI_COMPAT_BASE_URL
+MEMORY_EMBEDDING_API_KEY=       # optional; defaults to OPENAI_API_KEY
+```
 
 ## ngrok Web Interface
 

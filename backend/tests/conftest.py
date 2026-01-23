@@ -96,24 +96,38 @@ def db_session(engine, tmp_db_path, project_root):
 
 
 @pytest.fixture
-def client(engine, db_session):
+def client(engine, db_session, tmp_path):
     # Store original settings
     original_database_url = settings.database_url
     original_cookie_secure = settings.cookie_secure
     original_invite_only = settings.invite_only
     original_admin_bootstrap_token = settings.admin_bootstrap_token
+    original_memory_enabled = settings.memory_enabled
+    original_memory_chroma_path = settings.memory_chroma_path
+    original_memory_embedding_backend = settings.memory_embedding_backend
+    original_memory_embedding_base_url = settings.memory_embedding_base_url
+    original_memory_embedding_api_key = settings.memory_embedding_api_key
+    original_memory_collection = settings.memory_collection
 
     # Override settings for testing
     settings.database_url = str(engine.url)
     settings.cookie_secure = False
     settings.invite_only = True
     settings.admin_bootstrap_token = "test-bootstrap-token"
+    settings.memory_enabled = True
+    settings.memory_embedding_backend = "hash"
+    settings.memory_embedding_base_url = ""
+    settings.memory_embedding_api_key = ""
+    settings.memory_collection = "test_memory"
+    settings.memory_chroma_path = str(tmp_path / "chroma")
 
     # Reset engine and session for new DB URL
     from backend.app.db.engine import reset_engine_for_tests
     from backend.app.db.session import reset_sessionmaker_for_tests
     reset_engine_for_tests()
     reset_sessionmaker_for_tests()
+    from backend.app.services.memory_store import reset_memory_store_for_tests
+    reset_memory_store_for_tests()
 
     # Rebuild provider registry with new settings
     from backend.app.providers.registry import registry
@@ -125,15 +139,26 @@ def client(engine, db_session):
 
     try:
         app.dependency_overrides[get_db] = override_get_db
+        app.state.db = db_session
         with TestClient(app) as c:
             yield c
     finally:
         app.dependency_overrides.clear()
+        if hasattr(app.state, "db"):
+            delattr(app.state, "db")
         # Restore original settings
         settings.database_url = original_database_url
         settings.cookie_secure = original_cookie_secure
         settings.invite_only = original_invite_only
         settings.admin_bootstrap_token = original_admin_bootstrap_token
+        settings.memory_enabled = original_memory_enabled
+        settings.memory_chroma_path = original_memory_chroma_path
+        settings.memory_embedding_backend = original_memory_embedding_backend
+        settings.memory_embedding_base_url = original_memory_embedding_base_url
+        settings.memory_embedding_api_key = original_memory_embedding_api_key
+        settings.memory_collection = original_memory_collection
+        from backend.app.services.memory_store import reset_memory_store_for_tests
+        reset_memory_store_for_tests()
 
 
 @pytest.fixture

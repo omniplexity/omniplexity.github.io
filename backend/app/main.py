@@ -14,6 +14,7 @@ from backend.app.api.admin import router as admin_router
 from backend.app.api.chat import router as chat_router
 from backend.app.api.conversations import router as conversations_router
 from backend.app.api.health import router as health_router
+from backend.app.api.memory import router as memory_router
 from backend.app.api.messages import router as messages_router
 from backend.app.api.providers import router as providers_router
 from backend.app.auth.routes import router as auth_router
@@ -96,6 +97,7 @@ app.include_router(admin_router)
 app.include_router(providers_router)
 app.include_router(conversations_router)
 app.include_router(messages_router)
+app.include_router(memory_router)
 app.include_router(chat_router)
 
 

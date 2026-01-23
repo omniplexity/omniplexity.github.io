@@ -36,6 +36,17 @@ class Settings(BaseSettings):
             db_path = repo_root / "data" / "omniplexity.db"
             self.database_url = f"sqlite:///{db_path.as_posix()}"
 
+        if not self.memory_chroma_path:
+            repo_root = Path(__file__).resolve().parents[3]
+            chroma_path = repo_root / "data" / "chroma"
+            self.memory_chroma_path = str(chroma_path)
+
+        # Allow embeddings to piggyback on OpenAI-compatible settings
+        if not self.memory_embedding_base_url and self.openai_compat_base_url:
+            self.memory_embedding_base_url = self.openai_compat_base_url
+        if not self.memory_embedding_api_key and self.openai_api_key:
+            self.memory_embedding_api_key = self.openai_api_key
+
         # Set production cookie defaults if not in dev environment
         if self.environment != "dev":
             # Only override if not explicitly set via env
@@ -58,6 +69,20 @@ class Settings(BaseSettings):
     # SSE
     sse_heartbeat_seconds: int = 15
     sse_client_disconnect_grace_seconds: int = 2
+
+    # Memory (Chroma vector store)
+    memory_enabled: bool = True
+    memory_chroma_path: str = ""
+    memory_collection: str = "omni_memory"
+    memory_top_k: int = 6
+    memory_min_score: float = 0.2
+    memory_max_chars: int = 1200
+    memory_auto_ingest_user_messages: bool = True
+    memory_auto_ingest_assistant_messages: bool = False
+    memory_embedding_backend: str = "auto"  # auto|hash|openai_compat
+    memory_embedding_model: str = "text-embedding-3-small"
+    memory_embedding_base_url: str = ""
+    memory_embedding_api_key: str = ""
 
     # Origin lock for tunnel protection
     origin_lock_enabled: bool = False

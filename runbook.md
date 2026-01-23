@@ -181,6 +181,7 @@ For production deployments with automatic restarts, use the Docker Compose setup
 - **ngrok sidecar**: Waits for backend healthy, proxies `http://backend:8787`, injects `X-Origin-Secret` header
 - **No host ports published**: Backend only reachable via tunnel
 - **SQLite persistence**: Database mounted from `data/` directory
+- **Container hardening**: backend runs as non-root, drops Linux caps, read-only root FS, tmpfs `/tmp`
 
 ### Quick Start
 
@@ -229,6 +230,31 @@ docker compose logs ngrok     # Get tunnel URL
 docker compose ps             # Status
 docker compose restart        # Restart
 docker compose build backend  # Rebuild after code changes
+```
+
+### Optional Runtime Knobs
+
+```env
+RUN_MIGRATIONS=1        # set to 0/false to skip Alembic on startup
+UVICORN_WORKERS=1       # keep at 1 unless you know multi-workers are safe
+UVICORN_LOG_LEVEL=info  # debug/info/warning/error
+```
+
+### Memory (Chroma Vector Store)
+
+```env
+MEMORY_ENABLED=true
+MEMORY_CHROMA_PATH=/app/data/chroma
+MEMORY_COLLECTION=omni_memory
+MEMORY_TOP_K=6
+MEMORY_MIN_SCORE=0.2
+MEMORY_MAX_CHARS=1200
+MEMORY_AUTO_INGEST_USER_MESSAGES=true
+MEMORY_AUTO_INGEST_ASSISTANT_MESSAGES=false
+MEMORY_EMBEDDING_BACKEND=auto   # auto|hash|openai_compat
+MEMORY_EMBEDDING_MODEL=text-embedding-3-small
+MEMORY_EMBEDDING_BASE_URL=      # optional; defaults to OPENAI_COMPAT_BASE_URL
+MEMORY_EMBEDDING_API_KEY=       # optional; defaults to OPENAI_API_KEY
 ```
 
 ### Troubleshooting

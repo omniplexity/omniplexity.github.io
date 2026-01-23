@@ -45,6 +45,23 @@
       "required": ["id", "conversation_id", "role", "content", "created_at"]
     },
 
+    "MemoryItem": {
+      "type": "object",
+      "properties": {
+        "id": {"type": "string"},
+        "content": {"type": "string"},
+        "memory_type": {"type": "string"},
+        "source": {"type": "string"},
+        "tags": {"type": ["array", "null"], "items": {"type": "string"}},
+        "conversation_id": {"type": ["integer", "null"]},
+        "is_auto": {"type": "boolean"},
+        "created_at": {"type": "string", "format": "date-time"},
+        "updated_at": {"type": "string", "format": "date-time"},
+        "score": {"type": ["number", "null"]}
+      },
+      "required": ["id", "content", "memory_type", "source", "is_auto", "created_at", "updated_at"]
+    },
+
     "Invite": {
       "type": "object",
       "properties": {
@@ -136,6 +153,17 @@
       "type": "object",
       "properties": {
         "content": {"type": "string"}
+      },
+      "required": ["content"]
+    },
+
+    "CreateMemoryRequest": {
+      "type": "object",
+      "properties": {
+        "content": {"type": "string"},
+        "memory_type": {"type": ["string", "null"]},
+        "tags": {"type": ["array", "null"], "items": {"type": "string"}},
+        "conversation_id": {"type": ["integer", "null"]}
       },
       "required": ["content"]
     },

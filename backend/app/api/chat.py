@@ -24,6 +24,11 @@ from backend.app.services.chat_service import (
     append_user_message_service,
     list_messages_service,
 )
+from backend.app.services.memory_service import (
+    build_memory_prompt,
+    ingest_assistant_message,
+    ingest_user_message,
+)
 from backend.app.services.generation_manager import generation_manager
 from backend.app.services.quota_service import check_message_quota, increment_message_usage, add_token_usage
 from backend.app.services.rate_limit import rate_limiter
@@ -121,6 +126,11 @@ def append_message(
         raise HTTPException(status_code=404, detail={"code": "CONVERSATION_NOT_FOUND", "message": "Conversation not found"})
 
     message = append_user_message_service(db, user.id, conversation_id, req.content)
+    if settings.memory_enabled and settings.memory_auto_ingest_user_messages:
+        try:
+            ingest_user_message(db, user.id, conversation_id, req.content)
+        except Exception:
+            logger.warning("Memory ingest failed", extra={"user_id": user.id, "conversation_id": conversation_id})
     increment_message_usage(db, user.id)
     db.commit()
     return {
@@ -192,10 +202,28 @@ async def stream_chat_generator(
             for msg in messages
         ]
 
-        # Build request
+        # Build request with optional memory context
+        memory_prompt = ""
+        if settings.memory_enabled:
+            try:
+                last_user_message = None
+                for msg in reversed(messages):
+                    if msg.role == "user":
+                        last_user_message = msg.content
+                        break
+                if last_user_message:
+                    memory_prompt = build_memory_prompt(
+                        db,
+                        user.id,
+                        last_user_message,
+                        limit=settings.memory_top_k,
+                    )
+            except Exception:
+                logger.warning("Memory lookup failed", extra={"user_id": user.id, "conversation_id": conversation_id})
+
         request = {
             "model": model,
-            "messages": context,
+            "messages": ([{"role": "system", "content": memory_prompt}] + context) if memory_prompt else context,
             "stream": True,
         }
         if temperature is not None:
@@ -252,6 +280,11 @@ async def stream_chat_generator(
             message = append_assistant_message_service(
                 db, user.id, conversation_id, assistant_content, provider_meta, token_usage
             )
+            if settings.memory_auto_ingest_assistant_messages:
+                try:
+                    ingest_assistant_message(db, user.id, conversation_id, assistant_content)
+                except Exception:
+                    logger.warning("Assistant memory ingest failed", extra={"user_id": user.id, "conversation_id": conversation_id})
             # Add token usage if available (only for successful generations)
             if token_usage and "total_tokens" in token_usage:
                 add_token_usage(db, user.id, token_usage["total_tokens"])

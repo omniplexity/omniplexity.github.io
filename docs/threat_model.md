@@ -104,6 +104,15 @@ OmniAI implements a local-first AI chat interface with GitHub Pages frontend and
   - User ID filtering on all conversation queries
   - No admin bulk export without explicit authorization
 
+**T017: Memory Store Data Exposure**
+- **Description**: Vector store contains long-term memory snippets that could leak PII
+- **Impact**: Privacy violation and context leakage across sessions
+- **Likelihood**: Medium (memory persisted on disk)
+- **Mitigations**:
+  - Memory scoped by user_id at query time
+  - Origin lock and CORS protections prevent external scraping
+  - Memory deletion endpoint enables user-controlled pruning
+
 #### Denial of Service (Service Disruption)
 
 **T008: Resource Exhaustion**
@@ -186,6 +195,17 @@ OmniAI implements a local-first AI chat interface with GitHub Pages frontend and
   - Environment variable isolation
   - No credential logging
   - Provider-specific authentication
+
+#### Containerization Threats
+
+**T016: Container Escape / Privilege Escalation**
+- **Description**: Attacker attempts to escape container runtime or elevate privileges
+- **Impact**: Host compromise and full data exposure
+- **Likelihood**: Low (single-user local deployment)
+- **Mitigations**:
+  - Non-root container user
+  - Dropped Linux capabilities and no-new-privileges
+  - Read-only root filesystem with tmpfs for ephemeral writes
 
 ## Security Controls Matrix
 

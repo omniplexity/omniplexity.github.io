@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Column,
     DateTime,
     ForeignKey,
@@ -94,6 +95,22 @@ class Message(Base):
     )
 
 
+class MemoryItem(Base):
+    __tablename__ = "memory_items"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    conversation_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("conversations.id"), nullable=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    memory_type: Mapped[str] = mapped_column(String(50), nullable=False, default="note")
+    source: Mapped[str] = mapped_column(String(50), nullable=False, default="user")
+    tags: Mapped[Optional[list[str]]] = mapped_column(JSON, nullable=True, default=None)
+    is_auto: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    last_accessed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
+
+
 class AuditLog(Base):
     __tablename__ = "audit_log"
     __table_args__ = {"sqlite_autoincrement": True}
@@ -145,6 +162,9 @@ Index("idx_invites_created_by", Invite.created_by)
 Index("idx_invites_used_by", Invite.used_by)
 Index("idx_conversations_user_id", Conversation.user_id)
 Index("idx_messages_conversation_id", Message.conversation_id)
+Index("idx_memory_items_user_id", MemoryItem.user_id)
+Index("idx_memory_items_conversation_id", MemoryItem.conversation_id)
+Index("idx_memory_items_updated_at", MemoryItem.updated_at)
 Index("idx_audit_log_actor_user_id", AuditLog.actor_user_id)
 Index("idx_audit_log_created_at", AuditLog.created_at)
 Index("idx_usage_user_day", UserUsageDaily.user_id, UserUsageDaily.day)

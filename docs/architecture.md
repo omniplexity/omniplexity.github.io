@@ -93,6 +93,7 @@ LM Studio (127.0.0.1:1234)  Ollama (127.0.0.1:11434)  OpenAI-compatible endpoint
 - **Generation Manager**: Async task coordination for streaming
 - **Quota Service**: Rate limiting and usage tracking
 - **Rate Limit**: IP and user-based request throttling
+- **Memory Service**: Chroma-backed vector store for long-term memory retrieval
 
 #### Observability (`backend/app/observability/`)
 - **Logging**: Structured JSON logs with request IDs
@@ -105,6 +106,7 @@ LM Studio (127.0.0.1:1234)  Ollama (127.0.0.1:11434)  OpenAI-compatible endpoint
 
 ### External Dependencies
 - **Database**: SQLite (default) with Postgres upgrade path
+- **Vector Store**: Chroma (persistent on disk)
 - **HTTP Client**: httpx for async provider communication
 - **Password Hashing**: passlib with argon2
 - **Validation**: Pydantic for request/response models
@@ -166,6 +168,7 @@ LM Studio (127.0.0.1:1234)  Ollama (127.0.0.1:11434)  OpenAI-compatible endpoint
 - **Frontend**: GitHub Pages static hosting
 - **Backend**: Local FastAPI server behind tunnel
 - **External Access**: Cloudflare Tunnel (preferred) or ngrok
+- **Containerized Option**: Docker Compose with backend + tunnel sidecar, non-root runtime, read-only root FS
 - **Database**: SQLite in repo-root data/ directory
 - **Secrets**: .env file (not committed)
 

@@ -54,6 +54,8 @@ def create_conversation(
 ) -> dict:
     """Create a new conversation."""
     conversation = create_conversation_service(db, user.id, request.title)
+    db.commit()
+    db.refresh(conversation)
     return {
         "id": conversation.id,
         "title": conversation.title,

@@ -77,6 +77,22 @@ def test_get_conversation_by_id_owner_access(authenticated_client):
     assert "updated_at" in data
 
 
+def test_create_conversation_persists(authenticated_client):
+    """Test that creating a conversation persists and appears in list."""
+    response = authenticated_client.post(
+        "/conversations",
+        json={"title": "Persistent Conversation"},
+        headers={"X-CSRF-Token": authenticated_client.csrf_token}
+    )
+    assert response.status_code == 200
+    conv_id = response.json()["id"]
+
+    response = authenticated_client.get("/conversations")
+    assert response.status_code == 200
+    ids = {conv["id"] for conv in response.json()}
+    assert conv_id in ids
+
+
 def test_get_conversation_by_id_non_owner_access(regular_user_client, authenticated_client):
     """Test that non-owner cannot fetch another user's conversation by ID."""
     # Create conversation as admin
