@@ -5,13 +5,18 @@
 // CONVERSATIONS LIST
 // ============================================
 
-function renderConversations(conversations) {
+function renderConversations(conversations, draftId, activeId) {
     const list = document.getElementById('conversations-list');
     if (!list) return;
 
     list.innerHTML = '';
 
-    if (!conversations || conversations.length === 0) {
+    const items = [...(conversations || [])];
+    if (draftId) {
+        items.unshift({ id: draftId, title: 'Draft' });
+    }
+
+    if (items.length === 0) {
         const emptyLi = document.createElement('li');
         emptyLi.className = 'empty-conversations';
         emptyLi.innerHTML = '<span class="conversation-title" style="color: var(--muted); font-style: italic;">No conversations yet</span>';
@@ -19,9 +24,10 @@ function renderConversations(conversations) {
         return;
     }
 
-    conversations.forEach(conv => {
+    items.forEach(conv => {
         const li = document.createElement('li');
         li.dataset.id = conv.id;
+        li.classList.toggle('active', String(conv.id) === String(activeId));
 
         const title = document.createElement('span');
         title.className = 'conversation-title';
@@ -32,33 +38,36 @@ function renderConversations(conversations) {
             }
         });
 
-        const actions = document.createElement('div');
-        actions.className = 'conversation-actions';
+        if (!isDraftConversationId(conv.id)) {
+            const actions = document.createElement('div');
+            actions.className = 'conversation-actions';
 
-        const renameBtn = document.createElement('button');
-        renameBtn.textContent = 'Rename';
-        renameBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (window.renameConversation) {
-                window.renameConversation(conv.id, conv.title);
-            }
-        });
+            const renameBtn = document.createElement('button');
+            renameBtn.textContent = 'Rename';
+            renameBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (window.renameConversation) {
+                    window.renameConversation(conv.id, conv.title);
+                }
+            });
 
-        const deleteBtn = document.createElement('button');
-        deleteBtn.textContent = 'Delete';
-        deleteBtn.className = 'btn-danger';
-        deleteBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (window.deleteConversation) {
-                window.deleteConversation(conv.id);
-            }
-        });
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.className = 'btn-danger';
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (window.deleteConversation) {
+                    window.deleteConversation(conv.id);
+                }
+            });
 
-        actions.appendChild(renameBtn);
-        actions.appendChild(deleteBtn);
-
-        li.appendChild(title);
-        li.appendChild(actions);
+            actions.appendChild(renameBtn);
+            actions.appendChild(deleteBtn);
+            li.appendChild(title);
+            li.appendChild(actions);
+        } else {
+            li.appendChild(title);
+        }
         list.appendChild(li);
     });
 }
@@ -249,16 +258,27 @@ function renderProviders(providers) {
         });
     }
 
-    // Restore selected provider
-    const selected = getSelectedProvider();
-    if (selected) {
-        const optionExists = select.querySelector(`option[value="${selected}"]`);
+    // Restore selected provider or auto-select first available
+    const storedProvider = getSelectedProvider();
+    let providerToSelect = '';
+
+    if (storedProvider) {
+        const optionExists = select.querySelector(`option[value="${storedProvider}"]`);
         if (optionExists) {
-            select.value = selected;
-            select.dispatchEvent(new Event('change'));
+            providerToSelect = storedProvider;
         } else {
             setSelectedProvider('');
         }
+    }
+
+    if (!providerToSelect && providers && providers.length > 0) {
+        providerToSelect = providers[0].provider_id;
+        setSelectedProvider(providerToSelect);
+    }
+
+    if (providerToSelect) {
+        select.value = providerToSelect;
+        select.dispatchEvent(new Event('change'));
     }
 }
 
@@ -280,13 +300,27 @@ function renderModels(models) {
         select.disabled = true;
     }
 
-    // Restore selected model
-    const selected = getSelectedModel();
-    if (selected) {
-        const optionExists = select.querySelector(`option[value="${selected}"]`);
+    // Restore selected model or auto-select first available
+    const storedModel = getSelectedModel();
+    let modelToSelect = '';
+
+    if (storedModel) {
+        const optionExists = select.querySelector(`option[value="${storedModel}"]`);
         if (optionExists) {
-            select.value = selected;
+            modelToSelect = storedModel;
+        } else {
+            setSelectedModel('');
         }
+    }
+
+    if (!modelToSelect && models && models.length > 0) {
+        modelToSelect = models[0].id;
+        setSelectedModel(modelToSelect);
+    }
+
+    if (modelToSelect) {
+        select.value = modelToSelect;
+        select.dispatchEvent(new Event('change'));
     }
 }
 

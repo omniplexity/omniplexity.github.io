@@ -6,7 +6,7 @@ OmniAI implements a local-first AI chat interface with GitHub Pages frontend and
 
 ## System Overview
 
-- **Frontend**: Static SPA on GitHub Pages (no secrets, read-only)
+- **Frontend**: Static SPA on GitHub Pages (Vite + React build, no secrets, read-only)
 - **Backend**: Local FastAPI server with SQLite database
 - **Authentication**: Invite-only registration, session cookies, CSRF protection
 - **Data Flow**: Frontend ↔ Local Backend ↔ LLM Providers (LM Studio/Ollama/OpenAI-compat)
@@ -63,6 +63,7 @@ OmniAI implements a local-first AI chat interface with GitHub Pages frontend and
 - **Mitigations**:
   - User-scoped database queries
   - Pydantic input validation
+  - Deterministic provider/model validation with safe error responses
   - Admin role checks for privileged operations
 
 **T004: Database Injection**

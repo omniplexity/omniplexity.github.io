@@ -10,6 +10,8 @@ const STORAGE_KEYS = {
     API_BASE_URL: 'apiBaseUrl',
 };
 
+const DRAFT_PREFIX = 'draft:';
+
 // Provider/Model settings
 function getSelectedProvider() {
     return localStorage.getItem(STORAGE_KEYS.PROVIDER) || '';
@@ -70,6 +72,27 @@ function setCurrentConversationId(conversationId) {
     } else {
         localStorage.removeItem(STORAGE_KEYS.CONVERSATION_ID);
     }
+}
+
+function isDraftConversationId(conversationId) {
+    return typeof conversationId === 'string' && conversationId.startsWith(DRAFT_PREFIX);
+}
+
+function createDraftConversationId() {
+    if (crypto?.randomUUID) {
+        return `${DRAFT_PREFIX}${crypto.randomUUID()}`;
+    }
+    return `${DRAFT_PREFIX}${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+}
+
+function ensureDraftConversationId() {
+    const existing = getCurrentConversationId();
+    if (existing) {
+        return existing;
+    }
+    const draftId = createDraftConversationId();
+    setCurrentConversationId(draftId);
+    return draftId;
 }
 
 // Get all generation settings as object

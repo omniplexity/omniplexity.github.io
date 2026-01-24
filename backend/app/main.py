@@ -10,18 +10,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from backend.app.api.admin import router as admin_router
-from backend.app.api.chat import router as chat_router
+from backend.app.api.routes_admin import router as admin_router
+from backend.app.api.routes_chat import router as chat_router
 from backend.app.api.conversations import router as conversations_router
 from backend.app.api.health import router as health_router
-from backend.app.api.memory import router as memory_router
+from backend.app.api.routes_memory import router as memory_router
 from backend.app.api.messages import router as messages_router
 from backend.app.api.providers import router as providers_router
-from backend.app.auth.routes import router as auth_router
-from backend.app.config.settings import settings
-from backend.app.observability.logging import request_id_var, setup_logging
+from backend.app.api.routes_auth import router as auth_router
+from backend.app.core.config import settings
+from backend.app.core.logging import request_id_var, setup_logging
 from backend.app.providers.registry import registry
-from backend.app.security.cors import cors_kwargs
+from backend.app.core.security import cors_kwargs
 
 setup_logging(level=settings.log_level)
 logger = logging.getLogger("backend")
@@ -34,7 +34,10 @@ def startup_event():
     """Build provider registry on startup."""
     registry.build_registry()
 
-app.add_middleware(CORSMiddleware, **cors_kwargs(settings.cors_origins))
+app.add_middleware(
+    CORSMiddleware,
+    **cors_kwargs(settings.cors_origins, allow_credentials=settings.auth_mode != "bearer"),
+)
 
 
 class OriginLockMiddleware(BaseHTTPMiddleware):

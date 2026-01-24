@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field, AliasChoices, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -13,10 +14,26 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8787
     log_level: str = "INFO"
-    environment: str = "dev"  # New setting for test hooks
+    environment: str = Field(default="dev", validation_alias=AliasChoices("ENV", "ENVIRONMENT"))
 
     # Comma-separated support can be layered later; for now keep list[str]
     cors_origins: list[str] = ["https://omniplexity.github.io"]
+
+    # Model selection defaults/priorities
+    provider_priority: list[str] = ["lm_studio", "ollama", "openai_compat"]
+    model_priority: list[str] = ["qwen", "deepseek", "llama", "gpt"]
+    default_provider: str = ""
+    default_model: str = ""
+
+    # Auth configuration
+    auth_mode: str = "bearer"
+    jwt_secret: str = "dev-jwt-secret-change-in-prod"
+    jwt_access_ttl_seconds: int = 900
+
+    # Data directories
+    data_dir: str = ""
+    upload_dir: str = ""
+    api_public_origin: str = ""
 
     # Database - compute repo-root path deterministically
     database_url: str = ""
@@ -29,16 +46,52 @@ class Settings(BaseSettings):
     cookie_secure: bool = False  # Dev-safe default; set True in production .env
     cookie_samesite: str = "lax"  # Dev-safe default; set "None" in production .env
 
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value):
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return []
+            if raw.startswith("["):
+                try:
+                    return json.loads(raw)
+                except json.JSONDecodeError:
+                    return [item.strip() for item in raw.strip("[]").split(",") if item.strip()]
+            return [item.strip() for item in raw.split(",") if item.strip()]
+        return value
+
+    @field_validator("provider_priority", "model_priority", mode="before")
+    @classmethod
+    def parse_priority_lists(cls, value):
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return []
+            if raw.startswith("["):
+                try:
+                    return json.loads(raw)
+                except json.JSONDecodeError:
+                    return [item.strip() for item in raw.strip("[]").split(",") if item.strip()]
+            return [item.strip() for item in raw.split(",") if item.strip()]
+        return value
+
     def __init__(self, **data):
         super().__init__(**data)
+        repo_root = Path(__file__).resolve().parents[3]
+
+        if not self.data_dir:
+            self.data_dir = str(repo_root / "data")
+
+        if not self.upload_dir:
+            self.upload_dir = str(repo_root / "uploads")
+
         if not self.database_url:  # Only set default if not overridden by env
-            repo_root = Path(__file__).resolve().parents[3]
-            db_path = repo_root / "data" / "omniplexity.db"
+            db_path = Path(self.data_dir) / "omniplexity.db"
             self.database_url = f"sqlite:///{db_path.as_posix()}"
 
         if not self.memory_chroma_path:
-            repo_root = Path(__file__).resolve().parents[3]
-            chroma_path = repo_root / "data" / "chroma"
+            chroma_path = Path(self.data_dir) / "chroma"
             self.memory_chroma_path = str(chroma_path)
 
         # Allow embeddings to piggyback on OpenAI-compatible settings

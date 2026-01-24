@@ -2,7 +2,7 @@
 
 ## Overview
 
-OmniAI is a secure, invite-only AI chat web interface that proxies requests to local or remote LLM providers. It consists of a static frontend deployed on GitHub Pages and a local FastAPI backend that handles authentication, chat orchestration, and provider integration.
+OmniAI is a secure, invite-only AI chat web interface that proxies requests to local or remote LLM providers. It consists of a static frontend deployed on GitHub Pages (built via Vite + React + Tailwind) and a local FastAPI backend that handles authentication, chat orchestration, and provider integration.
 
 ## High-Level Dataflow
 
@@ -36,7 +36,7 @@ LM Studio (127.0.0.1:1234)  Ollama (127.0.0.1:11434)  OpenAI-compatible endpoint
 ## Component Architecture
 
 ### Frontend (Static SPA)
-- **Technology**: Vanilla JavaScript, HTML, CSS
+- **Technology**: Vite + React + TypeScript, Tailwind CSS
 - **Deployment**: GitHub Pages (static hosting only)
 - **Responsibilities**:
   - User interface for login, chat, admin panels
@@ -44,17 +44,21 @@ LM Studio (127.0.0.1:1234)  Ollama (127.0.0.1:11434)  OpenAI-compatible endpoint
   - LocalStorage for UI state
   - CSRF token management
   - No provider URLs or secrets
+  - Feature modules live under `frontend/src/features/*`
 
 ### Backend (FastAPI Application)
 - **Technology**: Python 3.12+, FastAPI, Uvicorn, SQLAlchemy, SQLite
 - **Architecture**: Modular with clean boundaries
 - **Key Modules**:
+  - `backend/app/core`: shared config, logging, security, error helpers
+  - `backend/app/domain`: domain services/providers/tools (scaffolded in Phase 0)
 
 #### API Layer (`backend/app/api/`)
 - **Routers**: REST endpoints organized by domain
   - `auth.py`: Authentication (login, register, logout)
   - `conversations.py`: Conversation management
   - `chat.py`: Chat streaming and message handling
+    - `POST /chat/stream`: meta-first SSE stream, auto-ensures conversation
   - `messages.py`: Message CRUD operations
   - `admin.py`: Administrative functions
   - `providers.py`: Provider listing and health
@@ -94,6 +98,7 @@ LM Studio (127.0.0.1:1234)  Ollama (127.0.0.1:11434)  OpenAI-compatible endpoint
 - **Quota Service**: Rate limiting and usage tracking
 - **Rate Limit**: IP and user-based request throttling
 - **Memory Service**: Chroma-backed vector store for long-term memory retrieval
+ - **Model Selection**: Deterministic provider/model resolution with fallbacks
 
 #### Observability (`backend/app/observability/`)
 - **Logging**: Structured JSON logs with request IDs

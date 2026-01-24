@@ -7,9 +7,22 @@ from sqlalchemy.orm import Session
 from backend.app.db.models import Conversation
 
 
-def create_conversation(session: Session, user_id: int, title: str) -> Conversation:
+def create_conversation(
+    session: Session,
+    user_id: int,
+    title: str,
+    project_id: int | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+) -> Conversation:
     """Create a new conversation."""
-    conversation = Conversation(user_id=user_id, title=title)
+    conversation = Conversation(
+        user_id=user_id,
+        title=title,
+        project_id=project_id,
+        provider=provider,
+        model=model,
+    )
     session.add(conversation)
     session.flush()
     return conversation

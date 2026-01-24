@@ -4,13 +4,13 @@ from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from backend.app.auth.sessions import get_session
+from backend.app.core.security import decode_access_token
 from backend.app.config.settings import settings
 from backend.app.db.models import User
 from backend.app.db.session import get_db
 
 
-def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
-    """Get current user from session cookie."""
+def _get_user_from_session(request: Request, db: Session) -> User:
     session_id = request.cookies.get(settings.session_cookie_name)
     if not session_id:
         raise HTTPException(status_code=401, detail={"code": "AUTH_REQUIRED", "message": "Authentication required"})
@@ -24,6 +24,41 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
         raise HTTPException(status_code=401, detail={"code": "USER_INACTIVE", "message": "User account is inactive"})
 
     return user
+
+
+def _get_user_from_bearer(request: Request, db: Session) -> User:
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail={"code": "AUTH_REQUIRED", "message": "Authentication required"})
+
+    token = auth_header.replace("Bearer ", "", 1).strip()
+    if not token:
+        raise HTTPException(status_code=401, detail={"code": "AUTH_REQUIRED", "message": "Authentication required"})
+
+    try:
+        payload = decode_access_token(token)
+    except ValueError as exc:
+        code = "AUTH_INVALID"
+        if str(exc) == "TOKEN_EXPIRED":
+            code = "AUTH_EXPIRED"
+        raise HTTPException(status_code=401, detail={"code": code, "message": "Invalid or expired token"}) from exc
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail={"code": "AUTH_INVALID", "message": "Invalid token payload"})
+
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if not user or user.status != "active":
+        raise HTTPException(status_code=401, detail={"code": "USER_INACTIVE", "message": "User account is inactive"})
+
+    return user
+
+
+def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
+    """Get current user from session cookie or bearer token."""
+    if settings.auth_mode == "bearer":
+        return _get_user_from_bearer(request, db)
+    return _get_user_from_session(request, db)
 
 
 def require_active_user(user: User = Depends(get_current_user)) -> User:

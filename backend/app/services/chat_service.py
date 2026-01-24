@@ -14,11 +14,18 @@ from backend.app.db.repo.conversations_repo import (
 from backend.app.db.repo.messages_repo import append_message, list_messages_for_conversation
 
 
-def create_conversation_service(db: Session, user_id: int, title: str | None = None) -> Conversation:
+def create_conversation_service(
+    db: Session,
+    user_id: int,
+    title: str | None = None,
+    project_id: int | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+) -> Conversation:
     """Create a new conversation with optional title."""
     if not title:
         title = "New Conversation"
-    return create_conversation(db, user_id, title)
+    return create_conversation(db, user_id, title, project_id=project_id, provider=provider, model=model)
 
 
 def list_conversations_service(db: Session, user_id: int, q: str | None = None) -> List[Conversation]:

@@ -35,6 +35,8 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default=None)
+    default_provider: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, default=None)
+    default_model: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default=None)
     role: Mapped[str] = mapped_column(String(50), nullable=False, default="user")
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(
@@ -65,12 +67,31 @@ class Invite(Base):
     )
 
 
+class Project(Base):
+    __tablename__ = "projects"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    default_provider: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, default=None)
+    default_model: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default=None)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=func.now(), onupdate=func.now()
+    )
+
+
 class Conversation(Base):
     __tablename__ = "conversations"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    project_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("projects.id"), nullable=True, default=None)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
+    provider: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, default=None)
+    model: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=func.now()
     )
@@ -160,7 +181,9 @@ Index("idx_sessions_user_id", Session.user_id)
 Index("idx_sessions_expires_at", Session.expires_at)
 Index("idx_invites_created_by", Invite.created_by)
 Index("idx_invites_used_by", Invite.used_by)
+Index("idx_projects_user_id", Project.user_id)
 Index("idx_conversations_user_id", Conversation.user_id)
+Index("idx_conversations_project_id", Conversation.project_id)
 Index("idx_messages_conversation_id", Message.conversation_id)
 Index("idx_memory_items_user_id", MemoryItem.user_id)
 Index("idx_memory_items_conversation_id", MemoryItem.conversation_id)

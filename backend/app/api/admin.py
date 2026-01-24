@@ -12,6 +12,7 @@ from backend.app.auth.csrf import require_csrf
 from backend.app.auth.deps import require_admin
 from backend.app.auth.password import hash_password
 from backend.app.auth.sessions import create_session
+from backend.app.domain.services.auth_service import issue_tokens
 from backend.app.config.settings import settings
 from backend.app.db.models import AuditLog, Invite, User, UserQuota
 from backend.app.db.repo.invites_repo import create_invite
@@ -55,6 +56,17 @@ def bootstrap_admin(request: Request, body: BootstrapRequest, db: Session = Depe
         raise HTTPException(status_code=409, detail={"code": "USERNAME_EXISTS", "message": "Username already exists"})
 
     admin = create_user(db, username=body.username, password_hash=hash_password(body.password), role="admin", status="active")
+    if settings.auth_mode == "bearer":
+        tokens = issue_tokens(db, admin, device_meta=request.headers.get("User-Agent"))
+        write_audit(db, admin.id, "ADMIN_BOOTSTRAP", f"user:{admin.id}", request)
+        db.commit()
+        return JSONResponse(
+            content={
+                "user": {"id": admin.id, "username": admin.username, "role": admin.role, "status": admin.status},
+                **tokens,
+            }
+        )
+
     session_id, csrf_token = create_session(db, admin.id, device_meta=request.headers.get("User-Agent"))
     write_audit(db, admin.id, "ADMIN_BOOTSTRAP", f"user:{admin.id}", request)
     db.commit()

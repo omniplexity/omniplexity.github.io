@@ -7,7 +7,7 @@ import time
 import uuid
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from backend.app.auth.csrf import require_csrf
 from backend.app.auth.deps import require_active_user
 from backend.app.config.settings import settings
-from backend.app.db.models import Conversation, User
+from backend.app.db.models import Conversation, Project, User
 from backend.app.db.session import get_db
 from backend.app.providers.registry import registry
 from backend.app.providers.types import StreamEvent
@@ -24,6 +24,8 @@ from backend.app.services.chat_service import (
     append_user_message_service,
     list_messages_service,
 )
+from backend.app.domain.services.conversation_service import ensure_conversation
+from backend.app.domain.services.model_selection import ModelSelectionError, select_provider_model
 from backend.app.services.memory_service import (
     build_memory_prompt,
     ingest_assistant_message,
@@ -32,9 +34,14 @@ from backend.app.services.memory_service import (
 from backend.app.services.generation_manager import generation_manager
 from backend.app.services.quota_service import check_message_quota, increment_message_usage, add_token_usage
 from backend.app.services.rate_limit import rate_limiter
-from fastapi import Request
-
 logger = logging.getLogger("backend")
+
+SSE_HEADERS = {
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "Content-Type": "text/event-stream",
+    "X-Accel-Buffering": "no",
+}
 
 
 class AppendMessageRequest(BaseModel):
@@ -47,6 +54,11 @@ class AppendMessageRequest(BaseModel):
             ]
         }
     }
+
+
+class ChatMessage(BaseModel):
+    role: str = "user"
+    content: str
 
 
 class StreamChatRequest(BaseModel):
@@ -69,6 +81,16 @@ class StreamChatRequest(BaseModel):
         }
     }
 
+
+class StreamChatRequestV2(BaseModel):
+    conversation_id: int | None = None
+    project_id: int | None = None
+    message: ChatMessage
+    provider: str | None = None
+    model: str | None = None
+    temperature: float | None = None
+    top_p: float | None = None
+    max_tokens: int | None = None
 
 class RetryChatRequest(BaseModel):
     conversation_id: int
@@ -100,7 +122,132 @@ def check_rate_limits(request: Request, user: User) -> None:
     rate_limiter.check_user_rate(user.id)
 
 
+def _sse_event(event_type: str, data: dict) -> str:
+    return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+
+
+def _meta_payload(
+    conversation_id: int,
+    project_id: int | None,
+    provider_id: str | None,
+    model: str | None,
+    generation_id: str,
+) -> dict:
+    return {
+        "conversation_id": conversation_id,
+        "project_id": project_id,
+        "provider": provider_id,
+        "model": model,
+        "generation_id": generation_id,
+    }
+
+
+def _resolve_project(db: Session, user_id: int, conversation: Conversation, project_id: int | None) -> Project | None:
+    target_id = project_id or conversation.project_id
+    if not target_id:
+        return None
+    return db.query(Project).filter(Project.id == target_id, Project.user_id == user_id).first()
+
+
+async def _error_stream(meta: dict, code: str, message: str) -> AsyncGenerator[str, None]:
+    yield _sse_event("meta", meta)
+    yield _sse_event("error", {"code": code, "message": message, "generation_id": meta.get("generation_id")})
+    yield _sse_event("done", {"status": "error", "generation_id": meta.get("generation_id")})
+
+
 router = APIRouter()
+
+
+@router.post("/chat/stream", dependencies=[Depends(require_csrf)])
+async def stream_chat_v2(
+    req: StreamChatRequestV2,
+    request: Request,
+    user: User = Depends(require_active_user),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    """Stream chat response with backend-enforced conversation/model selection."""
+    check_rate_limits(request, user)
+    check_message_quota(db, user.id)
+
+    conversation = ensure_conversation(
+        db,
+        user.id,
+        conversation_id=req.conversation_id,
+        project_id=req.project_id,
+    )
+    project = _resolve_project(db, user.id, conversation, req.project_id)
+
+    generation_id = str(uuid.uuid4())
+    project_id = project.id if project else conversation.project_id
+    meta_provider = req.provider or conversation.provider
+    meta_model = req.model or conversation.model
+    meta = _meta_payload(conversation.id, project_id, meta_provider, meta_model, generation_id)
+
+    if req.message.role != "user":
+        db.commit()
+        return StreamingResponse(
+            _error_stream(meta, "invalid_message", "Only user messages can be streamed"),
+            media_type="text/event-stream",
+            headers=SSE_HEADERS,
+        )
+
+    message_content = (req.message.content or "").strip()
+    if not message_content:
+        db.commit()
+        return StreamingResponse(
+            _error_stream(meta, "invalid_message", "Message content is required"),
+            media_type="text/event-stream",
+            headers=SSE_HEADERS,
+        )
+
+    try:
+        provider_id, model = await select_provider_model(
+            user,
+            project,
+            conversation,
+            requested_provider=req.provider,
+            requested_model=req.model,
+        )
+    except ModelSelectionError as exc:
+        db.commit()
+        return StreamingResponse(
+            _error_stream(meta, exc.code, exc.message),
+            media_type="text/event-stream",
+            headers=SSE_HEADERS,
+        )
+
+    # Pin defaults on first use
+    if not conversation.provider or not conversation.model:
+        conversation.provider = provider_id
+        conversation.model = model
+    if req.project_id and conversation.project_id is None and project:
+        conversation.project_id = project.id
+
+    append_user_message_service(db, user.id, conversation.id, message_content)
+    if settings.memory_enabled and settings.memory_auto_ingest_user_messages:
+        try:
+            ingest_user_message(db, user.id, conversation.id, message_content)
+        except Exception:
+            logger.warning("Memory ingest failed", extra={"user_id": user.id, "conversation_id": conversation.id})
+    increment_message_usage(db, user.id)
+    db.commit()
+
+    return StreamingResponse(
+        stream_chat_generator(
+            conversation.id,
+            project_id,
+            provider_id,
+            model,
+            req.temperature,
+            req.top_p,
+            req.max_tokens,
+            user,
+            db,
+            generation_id,
+        ),
+        media_type="text/event-stream",
+        headers=SSE_HEADERS,
+    )
 
 
 @router.post("/conversations/{conversation_id}/messages", dependencies=[Depends(require_csrf)])
@@ -140,7 +287,7 @@ def append_message(
 
 
 @router.post("/conversations/{conversation_id}/stream", dependencies=[Depends(require_csrf)])
-def stream_chat(
+async def stream_chat(
     conversation_id: int,
     req: StreamChatRequest,
     request: Request = None,
@@ -152,33 +299,57 @@ def stream_chat(
     check_rate_limits(request, user)
     check_message_quota(db, user.id)
 
-    # Check ownership
-    conversation = db.query(Conversation).filter(
-        Conversation.id == conversation_id, Conversation.user_id == user.id
-    ).first()
-    if not conversation:
-        raise HTTPException(status_code=404, detail={"code": "CONVERSATION_NOT_FOUND", "message": "Conversation not found"})
+    conversation = ensure_conversation(db, user.id, conversation_id=conversation_id)
+    project = _resolve_project(db, user.id, conversation, None)
 
-    # Get provider
-    provider = registry.get(req.provider_id)
+    generation_id = str(uuid.uuid4())
+    project_id = project.id if project else conversation.project_id
+    meta_provider = req.provider_id or conversation.provider
+    meta_model = req.model or conversation.model
+    meta = _meta_payload(conversation.id, project_id, meta_provider, meta_model, generation_id)
 
-    # Check if model is available
-    if not any(m.id == req.model for m in provider.list_models()):
-        raise HTTPException(status_code=400, detail={"code": "MODEL_NOT_FOUND", "message": f"Model {req.model} not found for provider {req.provider_id}"})
+    try:
+        provider_id, model = await select_provider_model(
+            user,
+            project,
+            conversation,
+            requested_provider=req.provider_id,
+            requested_model=req.model,
+        )
+    except ModelSelectionError as exc:
+        db.commit()
+        return StreamingResponse(
+            _error_stream(meta, exc.code, exc.message),
+            media_type="text/event-stream",
+            headers=SSE_HEADERS,
+        )
+
+    if not conversation.provider or not conversation.model:
+        conversation.provider = provider_id
+        conversation.model = model
+    db.commit()
 
     return StreamingResponse(
-        stream_chat_generator(conversation_id, req.provider_id, req.model, req.temperature, req.top_p, req.max_tokens, user, db),
+        stream_chat_generator(
+            conversation.id,
+            project_id,
+            provider_id,
+            model,
+            req.temperature,
+            req.top_p,
+            req.max_tokens,
+            user,
+            db,
+            generation_id,
+        ),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "Content-Type": "text/event-stream",
-        },
+        headers=SSE_HEADERS,
     )
 
 
 async def stream_chat_generator(
     conversation_id: int,
+    project_id: int | None,
     provider_id: str,
     model: str,
     temperature: float | None,
@@ -186,15 +357,22 @@ async def stream_chat_generator(
     max_tokens: int | None,
     user: User,
     db: Session,
+    generation_id: str,
 ) -> AsyncGenerator[str, None]:
     """Generate SSE events for chat streaming."""
-    generation_id = str(uuid.uuid4())
     last_heartbeat = time.time()
+    start_time = time.time()
     assistant_content = ""
     provider_meta = None
     token_usage = None
 
     try:
+        # Send meta first
+        yield _sse_event(
+            "meta",
+            _meta_payload(conversation_id, project_id, provider_id, model, generation_id),
+        )
+
         # Get conversation messages
         messages = list_messages_service(db, user.id, conversation_id)
         context = [
@@ -244,7 +422,7 @@ async def stream_chat_generator(
         logger.info("Chat generation started", extra={"generation_id": generation_id, "user_id": user.id, "conversation_id": conversation_id, "provider_id": provider_id, "model": model})
 
         # Send initial ping
-        yield f"event: ping\ndata: {json.dumps({'ts': time.time()})}\n\n"
+        yield _sse_event("ping", {"ts": time.time()})
         last_heartbeat = time.time()
 
         # Stream from provider
@@ -252,16 +430,35 @@ async def stream_chat_generator(
         async for event in provider.chat_stream(request):
             # Check for cancellation
             if generation_manager.is_canceled(generation_id):
-                yield f"event: done\ndata: {json.dumps({'generation_id': generation_id, 'status': 'canceled'})}\n\n"
+                elapsed_ms = int((time.time() - start_time) * 1000)
+                yield _sse_event(
+                    "done",
+                    {
+                        "generation_id": generation_id,
+                        "status": "canceled",
+                        "elapsed_ms": elapsed_ms,
+                        "usage": token_usage,
+                    },
+                )
                 return
 
             if event.type == "delta":
                 assistant_content += event.delta or ""
-                yield f"event: delta\ndata: {json.dumps({'generation_id': generation_id, 'delta': event.delta})}\n\n"
+                yield _sse_event(
+                    "delta",
+                    {
+                        "generation_id": generation_id,
+                        "delta": event.delta,
+                        "text": event.delta,
+                    },
+                )
 
             elif event.type == "usage":
                 token_usage = event.usage
-                yield f"event: usage\ndata: {json.dumps({'generation_id': generation_id, 'usage': event.usage})}\n\n"
+                yield _sse_event(
+                    "usage",
+                    {"generation_id": generation_id, "usage": event.usage},
+                )
 
             elif event.type == "done":
                 break
@@ -269,11 +466,20 @@ async def stream_chat_generator(
             # Send heartbeat if needed
             now = time.time()
             if now - last_heartbeat >= settings.sse_heartbeat_seconds:
-                yield f"event: ping\ndata: {json.dumps({'ts': now})}\n\n"
+                yield _sse_event("ping", {"ts": now})
                 last_heartbeat = now
 
         # Send done event
-        yield f"event: done\ndata: {json.dumps({'generation_id': generation_id, 'status': 'ok'})}\n\n"
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        yield _sse_event(
+            "done",
+            {
+                "generation_id": generation_id,
+                "status": "ok",
+                "usage": token_usage,
+                "elapsed_ms": elapsed_ms,
+            },
+        )
 
         # Persist assistant message
         if assistant_content:
@@ -290,10 +496,30 @@ async def stream_chat_generator(
                 add_token_usage(db, user.id, token_usage["total_tokens"])
             db.commit()
 
-    except Exception as e:
-        # Send error event
-        yield f"event: error\ndata: {json.dumps({'generation_id': generation_id, 'code': 'STREAM_ERROR', 'message': str(e)})}\n\n"
-        yield f"event: done\ndata: {json.dumps({'generation_id': generation_id, 'status': 'error'})}\n\n"
+    except Exception as exc:
+        code = "provider_error"
+        message = "Provider error"
+        if isinstance(exc, HTTPException) and isinstance(exc.detail, dict):
+            code = exc.detail.get("code", code)
+            message = exc.detail.get("message", message)
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        yield _sse_event(
+            "error",
+            {
+                "generation_id": generation_id,
+                "code": code,
+                "message": message,
+            },
+        )
+        yield _sse_event(
+            "done",
+            {
+                "generation_id": generation_id,
+                "status": "error",
+                "usage": token_usage,
+                "elapsed_ms": elapsed_ms,
+            },
+        )
 
     finally:
         # Cleanup

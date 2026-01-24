@@ -121,10 +121,14 @@ async function getConversation(conversationId) {
     return await apiRequest(`/conversations/${conversationId}`);
 }
 
-async function updateConversation(conversationId, title) {
+async function updateConversation(conversationId, title, provider, model) {
+    const payload = {};
+    if (title !== undefined && title !== null) payload.title = title;
+    if (provider) payload.provider = provider;
+    if (model) payload.model = model;
     return await apiRequest(`/conversations/${conversationId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ title }),
+        body: JSON.stringify(payload),
     });
 }
 

@@ -11,6 +11,8 @@ from backend.app.db.session import get_db
 
 def require_csrf(request: Request, db: Session = Depends(get_db)) -> None:
     """Validate X-CSRF-Token matches derived token for current session cookie."""
+    if settings.auth_mode == "bearer":
+        return
     session_id = request.cookies.get(settings.session_cookie_name)
     if not session_id:
         raise HTTPException(

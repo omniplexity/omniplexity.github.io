@@ -35,6 +35,7 @@ OmniAI is a **secure, invite-only AI chat interface** that looks and feels like 
 - ✅ **Retry** last user message
 - ✅ Sidebar: **search / rename / delete** conversations
 - ✅ Model + provider selection with persistence
+- ✅ Send from blank state (backend auto-creates conversations)
 - ✅ Markdown rendering + code copy
 
 ### Backend (Production-first)

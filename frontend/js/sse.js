@@ -107,18 +107,31 @@ class SSEParser {
 }
 
 // Helper function to stream chat
-async function streamChat(conversationId, providerId, modelId, settings = {}, onEvent, onError, onDisconnect) {
+async function streamChat(conversationId, message, providerId, modelId, settings = {}, onEvent, onError, onDisconnect) {
     const baseUrl = getApiBaseUrl();
-    const url = `${baseUrl}/conversations/${conversationId}/stream`;
+    const url = `${baseUrl}/chat/stream`;
 
-    // Backend expects flat structure with "model" (not "model_id")
-    const body = JSON.stringify({
-        provider_id: providerId,
-        model: modelId,
+    const payload = {
+        message: {
+            role: 'user',
+            content: message,
+        },
         temperature: settings.temperature,
         top_p: settings.top_p,
         max_tokens: settings.max_tokens,
-    });
+    };
+
+    if (conversationId && !isDraftConversationId(conversationId)) {
+        payload.conversation_id = Number(conversationId);
+    }
+    if (providerId) {
+        payload.provider = providerId;
+    }
+    if (modelId) {
+        payload.model = modelId;
+    }
+
+    const body = JSON.stringify(payload);
 
     const parser = new SSEParser(url, {
         method: 'POST',

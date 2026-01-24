@@ -32,12 +32,15 @@ class CreateConversationRequest(BaseModel):
 
 
 class RenameConversationRequest(BaseModel):
-    title: str
+    title: str | None = None
+    provider: str | None = None
+    model: str | None = None
 
     model_config = {
         "json_schema_extra": {
             "examples": [
-                {"title": "Updated Conversation Title"}
+                {"title": "Updated Conversation Title"},
+                {"provider": "lmstudio", "model": "llama-3.2-3b-instruct"},
             ]
         }
     }
@@ -59,6 +62,9 @@ def create_conversation(
     return {
         "id": conversation.id,
         "title": conversation.title,
+        "provider": conversation.provider,
+        "model": conversation.model,
+        "project_id": conversation.project_id,
         "created_at": conversation.created_at.isoformat(),
         "updated_at": conversation.updated_at.isoformat(),
     }
@@ -76,6 +82,9 @@ def list_conversations(
         {
             "id": conv.id,
             "title": conv.title,
+            "provider": conv.provider,
+            "model": conv.model,
+            "project_id": conv.project_id,
             "created_at": conv.created_at.isoformat(),
             "updated_at": conv.updated_at.isoformat(),
         }
@@ -99,6 +108,9 @@ def get_conversation(
     return {
         "id": conversation.id,
         "title": conversation.title,
+        "provider": conversation.provider,
+        "model": conversation.model,
+        "project_id": conversation.project_id,
         "created_at": conversation.created_at.isoformat(),
         "updated_at": conversation.updated_at.isoformat(),
     }
@@ -119,7 +131,13 @@ def rename_conversation(
     if not conversation:
         raise HTTPException(status_code=404, detail={"code": "CONVERSATION_NOT_FOUND", "message": "Conversation not found"})
 
-    rename_conversation_service(db, user.id, conversation_id, request.title)
+    if request.title is not None:
+        rename_conversation_service(db, user.id, conversation_id, request.title)
+    if request.provider is not None:
+        conversation.provider = request.provider or None
+    if request.model is not None:
+        conversation.model = request.model or None
+    db.add(conversation)
     db.commit()
     return {"message": "Conversation renamed"}
 

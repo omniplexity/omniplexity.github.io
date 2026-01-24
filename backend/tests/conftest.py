@@ -9,14 +9,17 @@ from alembic.config import Config
 from alembic import command
 from fastapi.testclient import TestClient
 
+# Set test environment before importing app/settings
+os.environ["ENV"] = "test"
+os.environ["AUTH_MODE"] = "session"
+os.environ["JWT_SECRET"] = "test-jwt-secret"
+os.environ["JWT_ACCESS_TTL_SECONDS"] = "60"
+
 from backend.app.main import app
 from backend.app.db.session import get_db
 from backend.app.config.settings import settings
 from backend.app.providers.base import Provider
 from backend.app.providers.types import ModelInfo, ProviderCapabilities, ProviderHealth, StreamEvent
-
-# Set test environment
-os.environ['ENV'] = 'test'
 
 
 class FakeProvider(Provider):
@@ -108,6 +111,9 @@ def client(engine, db_session, tmp_path):
     original_memory_embedding_base_url = settings.memory_embedding_base_url
     original_memory_embedding_api_key = settings.memory_embedding_api_key
     original_memory_collection = settings.memory_collection
+    original_auth_mode = settings.auth_mode
+    original_jwt_secret = settings.jwt_secret
+    original_jwt_access_ttl_seconds = settings.jwt_access_ttl_seconds
 
     # Override settings for testing
     settings.database_url = str(engine.url)
@@ -120,6 +126,9 @@ def client(engine, db_session, tmp_path):
     settings.memory_embedding_api_key = ""
     settings.memory_collection = "test_memory"
     settings.memory_chroma_path = str(tmp_path / "chroma")
+    settings.auth_mode = "session"
+    settings.jwt_secret = "test-jwt-secret"
+    settings.jwt_access_ttl_seconds = 60
 
     # Reset engine and session for new DB URL
     from backend.app.db.engine import reset_engine_for_tests
@@ -157,6 +166,9 @@ def client(engine, db_session, tmp_path):
         settings.memory_embedding_base_url = original_memory_embedding_base_url
         settings.memory_embedding_api_key = original_memory_embedding_api_key
         settings.memory_collection = original_memory_collection
+        settings.auth_mode = original_auth_mode
+        settings.jwt_secret = original_jwt_secret
+        settings.jwt_access_ttl_seconds = original_jwt_access_ttl_seconds
         from backend.app.services.memory_store import reset_memory_store_for_tests
         reset_memory_store_for_tests()
 

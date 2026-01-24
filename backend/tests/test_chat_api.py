@@ -2,7 +2,7 @@ import asyncio
 import json
 import pytest
 
-from app.main import app
+from backend.app.main import app
 from backend.app.config.settings import settings
 from backend.app.providers.base import Provider
 from backend.app.providers.types import ModelInfo, ProviderCapabilities, ProviderHealth, StreamEvent
@@ -181,10 +181,18 @@ def test_conversation_ownership(authenticated_client, client):
     admin_conv_id = response.json()["id"]
 
     # Try to access as unauthenticated user
+    session_cookie = None
+    for cookie in authenticated_client.cookies.jar:
+        if cookie.name == settings.session_cookie_name:
+            session_cookie = cookie.value
+            break
+    client.cookies.clear()
     response = client.get("/conversations")
     assert response.status_code == 401
 
     # Admin can see their conversation
+    if session_cookie:
+        authenticated_client.cookies.set(settings.session_cookie_name, session_cookie)
     response = authenticated_client.get("/conversations")
     assert response.status_code == 200
     conversations = response.json()
@@ -288,12 +296,16 @@ def test_stream_chat(authenticated_client):
     lines = list(response.iter_lines())
     i = 0
     while i < len(lines):
-        line = lines[i].decode("utf-8")
+        line = lines[i]
+        if isinstance(line, bytes):
+            line = line.decode("utf-8")
         if line.startswith("event:"):
             event_type = line.split(":", 1)[1].strip()
             i += 1
             if i < len(lines):
-                data_line = lines[i].decode("utf-8")
+                data_line = lines[i]
+                if isinstance(data_line, bytes):
+                    data_line = data_line.decode("utf-8")
                 if data_line.startswith("data:"):
                     data_str = data_line.split(":", 1)[1].strip()
                     try:
@@ -306,9 +318,9 @@ def test_stream_chat(authenticated_client):
             i += 1
 
     # Verify events
-    assert len(events) >= 4  # ping, delta, delta, usage, done
-    assert events[0]["event"] == "ping"
-    assert "ts" in events[0]["data"]
+    assert len(events) >= 5  # meta, ping, delta, delta, usage, done
+    assert events[0]["event"] == "meta"
+    assert "conversation_id" in events[0]["data"]
 
     # Find delta events
     delta_events = [e for e in events if e["event"] == "delta"]
@@ -455,19 +467,20 @@ def test_csrf_required_for_state_changing_endpoints(authenticated_client):
     conv_id = response.json()["id"]
 
     endpoints = [
-        ("/conversations", {"title": "Test"}),
-        (f"/conversations/{conv_id}", {"title": "New"}),
-        (f"/conversations/{conv_id}", None),  # DELETE
-        (f"/conversations/{conv_id}/messages", {"content": "Test"}),
-        (f"/conversations/{conv_id}/stream", {"provider_id": "fake", "model": "fake-model"}),
-        ("/chat/cancel/123", None),
-        ("/chat/retry", {"conversation_id": conv_id, "provider_id": "fake", "model": "fake-model"}),
+        ("/conversations", "post", {"title": "Test"}),
+        (f"/conversations/{conv_id}", "patch", {"title": "New"}),
+        (f"/conversations/{conv_id}", "delete", None),
+        (f"/conversations/{conv_id}/messages", "post", {"content": "Test"}),
+        (f"/conversations/{conv_id}/stream", "post", {"provider_id": "fake", "model": "fake-model"}),
+        ("/chat/cancel/123", "post", None),
+        ("/chat/retry", "post", {"conversation_id": conv_id, "provider_id": "fake", "model": "fake-model"}),
     ]
 
-    for endpoint, data in endpoints:
-        method = "delete" if data is None else "post"
-        if data is None:
+    for endpoint, method, data in endpoints:
+        if method == "delete":
             response = authenticated_client.delete(endpoint)
+        elif method == "patch":
+            response = authenticated_client.patch(endpoint, json=data)
         else:
             response = authenticated_client.post(endpoint, json=data)
         assert response.status_code == 403, f"Endpoint {endpoint} should require CSRF"
@@ -568,7 +581,7 @@ def test_admin_endpoints_require_admin_auth(authenticated_client, client, db_ses
 
 def test_openapi_includes_request_bodies():
     """Test that OpenAPI schema includes requestBody for endpoints that should have them."""
-    from app.main import app
+    from backend.app.main import app
 
     schema = app.openapi()
     paths = schema["paths"]

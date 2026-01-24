@@ -13,7 +13,7 @@
         threads: [],
         activeThreadId: null,
         run: { model: null, temperature: 0.7, top_p: 1, max_tokens: 1024 },
-        stream: { status: 'idle', elapsedMs: 0, usage: null, lastError: null }
+        stream: { status: 'idle', elapsedMs: 0, usage: null, lastError: null, provider: null, model: null }
     };
 
     // Streaming state
@@ -344,7 +344,12 @@
         const elapsedTime = $('elapsed-time');
         const tokenUsage = $('token-usage');
 
-        if (statusText) statusText.textContent = text;
+        if (statusText) {
+            const provider = state.stream.provider;
+            const model = state.stream.model;
+            const suffix = provider && model ? ` • ${provider}/${model}` : '';
+            statusText.textContent = `${text}${suffix}`;
+        }
 
         if (elapsedTime) {
             elapsedTime.textContent = elapsed !== null ? `${elapsed.toFixed(1)}s` : '';
@@ -368,18 +373,15 @@
     // ============================================
 
     function updateComposerState() {
-        const providerId = getSelectedProvider();
-        const modelId = getSelectedModel();
         const sendBtn = $('send-btn');
         const cancelBtn = $('cancel-btn');
         const messageInput = $('message-input');
 
         const isStreaming = state.stream.status === 'streaming';
         const hasInput = messageInput && messageInput.value.trim().length > 0;
-        const hasProviderModel = providerId && modelId;
 
         if (sendBtn) {
-            sendBtn.disabled = isStreaming || !hasInput || !hasProviderModel;
+            sendBtn.disabled = isStreaming || !hasInput;
             sendBtn.classList.toggle('hidden', isStreaming);
         }
 
@@ -721,23 +723,44 @@
         try {
             updateConnectionStatus('connecting');
             await loadProviders();
-            await loadConversations();
+            const conversations = await loadConversations();
             syncDrawerSettings();
             updateApiBaseUrlInput();
             updateComposerState();
             updateConnectionStatus('online');
 
             const savedConversationId = getCurrentConversationId();
-            if (savedConversationId) {
-                try {
-                    await selectConversation(savedConversationId);
-                } catch (error) {
-                    console.warn('Saved conversation not found, creating new one');
-                    await createNewConversation();
-                }
-            } else {
-                await createNewConversation();
+            if (savedConversationId && isDraftConversationId(savedConversationId)) {
+                currentConversationId = savedConversationId;
+                state.activeThreadId = savedConversationId;
+                renderTranscriptMessages([]);
+                updateChatTitle('Draft');
+                highlightActiveConversation(savedConversationId);
+                return;
             }
+            const hasSavedConversation = savedConversationId
+                && conversations.some(conv => String(conv.id) === String(savedConversationId));
+
+            if (hasSavedConversation) {
+                await selectConversation(savedConversationId);
+                return;
+            }
+
+            if (savedConversationId && !hasSavedConversation) {
+                setCurrentConversationId(null);
+            }
+
+            if (conversations.length > 0) {
+                await selectConversation(conversations[0].id);
+                return;
+            }
+
+            const draftId = ensureDraftConversationId();
+            currentConversationId = draftId;
+            state.activeThreadId = draftId;
+            renderTranscriptMessages([]);
+            updateChatTitle('Draft');
+            highlightActiveConversation(draftId);
         } catch (error) {
             updateConnectionStatus('offline');
             showError('Failed to initialize chat: ' + error.message);
@@ -758,9 +781,13 @@
     }
 
     async function handleProviderChange(e) {
+        const previousProvider = getSelectedProvider();
         const providerId = e.target.value;
+        const providerChanged = previousProvider !== providerId;
         setSelectedProvider(providerId);
-        setSelectedModel('');
+        if (providerChanged) {
+            setSelectedModel('');
+        }
         updateComposerState();
 
         if (providerId) {
@@ -777,8 +804,15 @@
     }
 
     function handleModelChange(e) {
-        setSelectedModel(e.target.value);
+        const modelId = e.target.value;
+        setSelectedModel(modelId);
         updateComposerState();
+        const providerId = getSelectedProvider();
+        if (currentConversationId && !isDraftConversationId(currentConversationId) && providerId && modelId) {
+            updateConversation(currentConversationId, null, providerId, modelId).catch(error => {
+                console.warn('Failed to pin model selection:', error);
+            });
+        }
     }
 
     // ============================================
@@ -789,20 +823,26 @@
         try {
             const conversations = await getConversations(query);
             state.threads = conversations;
-            renderConversations(conversations);
+            const activeId = getCurrentConversationId();
+            const draftId = isDraftConversationId(activeId) ? activeId : null;
+            renderConversations(conversations, draftId, activeId);
+            return conversations;
         } catch (error) {
             console.error('Failed to load conversations:', error);
+            return [];
         }
     }
 
     async function createNewConversation() {
         try {
-            const conversation = await createConversation();
-            currentConversationId = conversation.id;
-            setCurrentConversationId(conversation.id);
-            state.activeThreadId = conversation.id;
+            const draftId = createDraftConversationId();
+            currentConversationId = draftId;
+            setCurrentConversationId(draftId);
+            state.activeThreadId = draftId;
             renderTranscriptMessages([]);
-            updateChatTitle('New Chat');
+            updateChatTitle('Draft');
+            state.stream.provider = null;
+            state.stream.model = null;
             updateStatusLine('Ready');
             await loadConversations();
         } catch (error) {
@@ -812,6 +852,21 @@
 
     async function selectConversation(conversationId) {
         try {
+            if (isDraftConversationId(conversationId)) {
+                currentConversationId = conversationId;
+                state.activeThreadId = conversationId;
+                setCurrentConversationId(conversationId);
+                renderTranscriptMessages([]);
+                updateChatTitle('Draft');
+                state.stream.provider = null;
+                state.stream.model = null;
+                updateStatusLine('Ready');
+                highlightActiveConversation(conversationId);
+                if (window.innerWidth <= 768) {
+                    closeSidebar();
+                }
+                return;
+            }
             const messages = await getConversationMessages(conversationId);
             currentConversationId = conversationId;
             state.activeThreadId = conversationId;
@@ -821,6 +876,8 @@
             // Find and set title
             const conversation = state.threads.find(t => t.id === conversationId);
             updateChatTitle(conversation?.title || 'Chat');
+            state.stream.provider = conversation?.provider || null;
+            state.stream.model = conversation?.model || null;
             updateStatusLine('Ready');
 
             // Update sidebar selection
@@ -831,8 +888,21 @@
                 closeSidebar();
             }
         } catch (error) {
-            showError('Failed to load conversation: ' + error.message);
-            throw error;
+            const message = String(error?.message || error);
+            if (message.toLowerCase().includes('not found') || message.includes('404')) {
+                const draftId = createDraftConversationId();
+                currentConversationId = draftId;
+                state.activeThreadId = draftId;
+                setCurrentConversationId(draftId);
+                renderTranscriptMessages([]);
+                updateChatTitle('Draft');
+                state.stream.provider = null;
+                state.stream.model = null;
+                updateStatusLine('Ready');
+                highlightActiveConversation(draftId);
+                return;
+            }
+            showError('Failed to load conversation: ' + message);
         }
     }
 
@@ -846,7 +916,7 @@
     }
 
     async function renameCurrentConversation() {
-        if (!currentConversationId) return;
+        if (!currentConversationId || isDraftConversationId(currentConversationId)) return;
 
         const conversation = state.threads.find(t => t.id === currentConversationId);
         const currentTitle = conversation?.title || '';
@@ -865,6 +935,10 @@
 
     async function deleteCurrentConversation() {
         if (!currentConversationId) return;
+        if (isDraftConversationId(currentConversationId)) {
+            await createNewConversation();
+            return;
+        }
 
         if (confirm('Are you sure you want to delete this conversation?')) {
             try {
@@ -882,7 +956,9 @@
     // ============================================
 
     async function sendMessage() {
-        if (!currentConversationId) return;
+        if (!currentConversationId) {
+            currentConversationId = ensureDraftConversationId();
+        }
 
         const messageInput = $('message-input');
         const content = messageInput?.value.trim();
@@ -890,11 +966,6 @@
 
         const providerId = getSelectedProvider();
         const modelId = getSelectedModel();
-
-        if (!providerId || !modelId) {
-            showError('Please select a provider and model first.');
-            return;
-        }
 
         try {
             // Update UI state
@@ -905,46 +976,20 @@
             // Add user message to UI
             addMessageToTranscript('user', content);
 
-            // POST user message to backend first
-            await apiRequest(`/conversations/${currentConversationId}/messages`, {
-                method: 'POST',
-                body: JSON.stringify({ content }),
-            });
-
             // Add placeholder for assistant message
             addMessageToTranscript('assistant', '', true);
 
-            // Start streaming (backend will read messages from conversation)
-            await startStreaming(providerId, modelId);
+            // Start streaming (backend will ensure conversation + model selection)
+            await startStreaming(content, providerId, modelId);
 
         } catch (error) {
-            // If conversation not found, create a new one and retry
-            if (error.message.includes('not found') || error.message.includes('404')) {
-                console.warn('Conversation not found, creating new one and retrying...');
-                try {
-                    await createNewConversation();
-                    // Re-add user message to UI (transcript was cleared)
-                    addMessageToTranscript('user', content);
-                    // POST to new conversation
-                    await apiRequest(`/conversations/${currentConversationId}/messages`, {
-                        method: 'POST',
-                        body: JSON.stringify({ content }),
-                    });
-                    addMessageToTranscript('assistant', '', true);
-                    await startStreaming(providerId, modelId);
-                    return;
-                } catch (retryError) {
-                    showError('Failed to send message: ' + retryError.message);
-                }
-            } else {
-                showError('Failed to send message: ' + error.message);
-            }
+            showError('Failed to send message: ' + error.message);
             state.stream.status = 'error';
             updateComposerState();
         }
     }
 
-    async function startStreaming(providerId, modelId) {
+    async function startStreaming(message, providerId, modelId) {
         if (currentStreamingParser) {
             currentStreamingParser.stop();
         }
@@ -956,6 +1001,7 @@
         try {
             currentStreamingParser = await streamChat(
                 currentConversationId,
+                message,
                 providerId,
                 modelId,
                 settings,
@@ -970,12 +1016,39 @@
 
     function handleStreamEvent(event) {
         switch (event.type) {
+            case 'meta': {
+                const newConversationId = event.conversation_id ? String(event.conversation_id) : null;
+                if (newConversationId && (isDraftConversationId(currentConversationId) || !currentConversationId || String(currentConversationId) !== newConversationId)) {
+                    currentConversationId = newConversationId;
+                    state.activeThreadId = newConversationId;
+                    setCurrentConversationId(newConversationId);
+                    loadConversations();
+                    highlightActiveConversation(newConversationId);
+                }
+                if (event.provider) {
+                    state.stream.provider = event.provider;
+                }
+                if (event.model) {
+                    state.stream.model = event.model;
+                }
+                if (event.generation_id) {
+                    currentGenerationId = event.generation_id;
+                }
+                updateStatusLine('Streaming...');
+                break;
+            }
             case 'delta':
-                appendToLastMessage(event.delta);
+                appendToLastMessage(event.delta || event.text || '');
                 break;
             case 'usage':
                 const elapsed = streamingStartTime ? (Date.now() - streamingStartTime) / 1000 : null;
                 updateStatusLine('Streaming...', elapsed, event.usage);
+                break;
+            case 'error':
+                showError(event.message || 'Streaming error');
+                state.stream.status = 'error';
+                state.stream.lastError = event;
+                finalizeStreaming();
                 break;
             case 'done':
                 finalizeStreaming();

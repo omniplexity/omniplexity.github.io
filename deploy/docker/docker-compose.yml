@@ -1,74 +1,56 @@
-# OmniAI Docker Compose - Production Deployment
-# Runs FastAPI backend + ngrok tunnel sidecar
-#
+# OmniAI Docker Compose - Backend only (Phase 1)
 # Usage:
-#   1. cp .env.example .env && edit .env (add NGROK_AUTHTOKEN)
-#   2. docker compose up -d
+#   1) cp .env.example .env
+#   2) docker compose up -d --build
 
 services:
-  backend:
+  api:
     build:
-      context: ../..
-      dockerfile: deploy/docker/Dockerfile.backend
-    container_name: omniai-backend
-    init: true
+      context: ../../backend
+    container_name: omniai-api
     env_file:
       - .env
-    environment:
-      # Database path inside container (volume-mounted)
-      - DATABASE_URL=sqlite:////app/data/omniplexity.db
+    ports:
+      - "8000:8000"
     volumes:
-      # Persist SQLite database
-      - ../../data:/app/data
-    # Linux compatibility: enables host.docker.internal for LLM providers on host
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    networks:
-      - internal
+      - data:/data
+      - uploads:/uploads
+    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    depends_on:
+      - api
     restart: unless-stopped
-    read_only: true
-    tmpfs:
-      - /tmp
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    stop_grace_period: 30s
-    # NO ports published to host - access only via ngrok tunnel
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request as r; r.urlopen('http://127.0.0.1:8787/health', timeout=3)"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    command: ["tunnel","--no-autoupdate","run","--token","${CLOUDFLARE_TUNNEL_TOKEN}"]
+    profiles: ["tunnel"]
 
   ngrok:
-    image: ngrok/ngrok:latest
-    container_name: omniai-ngrok
-    init: true
-    command:
-      - "http"
-      - "http://backend:8787"
-      - "--request-header-add=X-Origin-Secret:${ORIGIN_LOCK_SECRET}"
-    environment:
-      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-      - NGROK_LOG=stdout
-      - NGROK_LOG_FORMAT=json
+    image: ngrok/ngrok:alpine
     depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - internal
+      - api
     restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    stop_grace_period: 15s
-    # Expose ngrok web interface for URL inspection (optional, localhost only)
-    ports:
-      - "127.0.0.1:4040:4040"
+    volumes:
+      - ./ngrok.yml:/etc/ngrok.yml:ro
+    environment:
+      - NGROK_CONFIG=/etc/ngrok.yml
+    command: ["start","--all","--config","/etc/ngrok.yml"]
+    profiles: ["ngrok"]
 
-networks:
-  internal:
-    driver: bridge
+  # postgres:
+  #   image: postgres:16
+  #   environment:
+  #     POSTGRES_DB: omniai
+  #     POSTGRES_USER: omniai
+  #     POSTGRES_PASSWORD: change_me
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+volumes:
+  data:
+  uploads:
+  # postgres_data:

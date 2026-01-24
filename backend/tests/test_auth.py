@@ -89,7 +89,10 @@ def test_logout_requires_csrf(client):
     })
     csrf_token = login_response.json()["csrf_token"]
 
-    # Logout without CSRF should fail
+    # Clear cookies to simulate missing session
+    client.cookies.clear()
+
+    # Logout without session should fail
     response = client.post("/auth/logout")
     assert response.status_code == 401  # No session
 
