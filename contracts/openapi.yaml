@@ -2,6 +2,8 @@ openapi: 3.0.3
 info:
   title: OmniAI API
   version: 0.0.0
+  description: >
+    Auth supports bearer tokens and session cookies (AUTH_MODE=auto).
 paths:
   /health:
     get:

@@ -12,7 +12,7 @@ OmniAI is a secure, invite-only AI chat web interface that proxies requests to l
 │ https://omniplexity.github.io │
 │ - HTML/CSS/JS chat interface │
 │ - SSE streaming for responses │
-│ - Session cookie auth │
+│ - Auth: Bearer tokens or session cookies (auto) │
 └───────────────▲────────────────────────────────────────────────────┘
 │ HTTPS (credentials included) + CORS allowlist
 │
@@ -42,7 +42,8 @@ LM Studio (127.0.0.1:1234)  Ollama (127.0.0.1:11434)  OpenAI-compatible endpoint
   - User interface for login, chat, admin panels
   - SSE event handling for streaming responses
   - LocalStorage for UI state
-  - CSRF token management
+  - CSRF token management (session mode)
+  - Bearer token handling (bearer/auto mode)
   - No provider URLs or secrets
   - Feature modules live under `frontend/src/features/*`
 
@@ -65,6 +66,7 @@ LM Studio (127.0.0.1:1234)  Ollama (127.0.0.1:11434)  OpenAI-compatible endpoint
   - `health.py`: Health checks
 
 #### Authentication & Security (`backend/app/auth/`)
+- **Auth Mode**: `auto` (bearer-first, session fallback), `bearer`, or `session`
 - **Sessions**: HttpOnly cookies with configurable SameSite
 - **CSRF Protection**: HMAC-based tokens derived from session ID
 - **Password Hashing**: Argon2id (bcrypt fallback)
@@ -129,7 +131,7 @@ LM Studio (127.0.0.1:1234)  Ollama (127.0.0.1:11434)  OpenAI-compatible endpoint
 - **Origin Lock**: External access requires tunnel header
 
 #### CSRF Attacks
-- **CSRF Tokens**: HMAC-derived tokens for state-changing requests
+- **CSRF Tokens**: HMAC-derived tokens for state-changing session requests
 - **SameSite Cookies**: Lax/None based on deployment
 - **Request Validation**: All POST/PATCH/DELETE require CSRF
 
@@ -152,7 +154,7 @@ LM Studio (127.0.0.1:1234)  Ollama (127.0.0.1:11434)  OpenAI-compatible endpoint
 
 ### Data Flow Security
 
-1. **Frontend Request**: JavaScript sends credentials-included request
+1. **Frontend Request**: JavaScript sends bearer token or credentials-included request
 2. **CORS Validation**: Backend checks origin against allowlist
 3. **Origin Lock**: Tunnel header validated for external access
 4. **Session Validation**: Cookie checked for valid session

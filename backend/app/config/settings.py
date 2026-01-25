@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+from typing import Literal
 
 from pydantic import ConfigDict, Field, AliasChoices, field_validator
 from pydantic_settings import BaseSettings
@@ -26,7 +27,7 @@ class Settings(BaseSettings):
     default_model: str = ""
 
     # Auth configuration
-    auth_mode: str = "bearer"
+    auth_mode: Literal["auto", "bearer", "session"] = "auto"
     jwt_secret: str = "dev-jwt-secret-change-in-prod"
     jwt_access_ttl_seconds: int = 900
 

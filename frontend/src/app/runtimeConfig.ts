@@ -1,4 +1,4 @@
-export type RuntimeConfig = { apiBaseUrl: string; source: "runtime-config" | "env" | "fallback" };
+export type RuntimeConfig = { apiBaseUrl: string; source: "runtime-config" | "fallback" };
 
 function normalizeBase(url: string): string {
   const trimmed = url.trim();
@@ -9,7 +9,34 @@ function normalizeBase(url: string): string {
   return parsed.toString().replace(/\/+$/, "");
 }
 
-export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
+type RawRuntimeConfig = Partial<{ apiBaseUrl: string }>;
+
+declare global {
+  interface Window {
+    __RUNTIME_CONFIG__?: RawRuntimeConfig | null;
+    __RUNTIME_CONFIG_PROMISE__?: Promise<RawRuntimeConfig | null>;
+  }
+}
+
+async function resolveRuntimeConfig(): Promise<RawRuntimeConfig | null> {
+  if (typeof window !== "undefined") {
+    const direct = window.__RUNTIME_CONFIG__;
+    if (direct && typeof direct.apiBaseUrl === "string") {
+      return direct;
+    }
+    const promise = window.__RUNTIME_CONFIG_PROMISE__;
+    if (promise) {
+      try {
+        const resolved = await promise;
+        if (resolved && typeof resolved.apiBaseUrl === "string") {
+          return resolved;
+        }
+      } catch {
+        // fall through to fetch
+      }
+    }
+  }
+
   const baseUrl = import.meta.env.BASE_URL ?? "/";
   const baseWithSlash = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
   const cfgUrl = `${baseWithSlash}runtime-config.json?v=${Date.now()}`;
@@ -17,18 +44,19 @@ export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
   try {
     const res = await fetch(cfgUrl, { cache: "no-store" });
     if (!res.ok) {
-      throw new Error(`runtime-config fetch failed: ${res.status}`);
+      return null;
     }
-    const json = (await res.json()) as Partial<{ apiBaseUrl: string }>;
-    if (!json.apiBaseUrl) {
-      throw new Error("runtime-config missing apiBaseUrl");
-    }
-    return { apiBaseUrl: normalizeBase(json.apiBaseUrl), source: "runtime-config" };
+    return (await res.json()) as RawRuntimeConfig;
   } catch {
-    const envFallback = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
-    if (envFallback) {
-      return { apiBaseUrl: normalizeBase(envFallback), source: "env" };
-    }
-    return { apiBaseUrl: "http://localhost:8000", source: "fallback" };
+    return null;
   }
+}
+
+export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
+  const resolved = await resolveRuntimeConfig();
+  if (resolved?.apiBaseUrl) {
+    return { apiBaseUrl: normalizeBase(resolved.apiBaseUrl), source: "runtime-config" };
+  }
+
+  return { apiBaseUrl: window.location.origin, source: "fallback" };
 }

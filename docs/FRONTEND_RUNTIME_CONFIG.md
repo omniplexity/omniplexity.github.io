@@ -19,9 +19,12 @@ Update `runtime-config.json` in the repo to the desired API hostname and redeplo
 
 ```json
 {
-  "apiBaseUrl": "https://api.omniplexity.YOURDOMAIN"
+  "apiBaseUrl": "http://localhost:8787"
 }
 ```
+
+The runtime config is loaded in `frontend/index.html` before the app boots and exposed via `window.__RUNTIME_CONFIG__`.
+If the file is missing, the app falls back to same-origin (useful when co-hosting frontend + backend).
 
 ## BASE_URL and GitHub Pages paths
 

@@ -1,6 +1,10 @@
-# Auth (Bearer-First)
+# Auth (Auto: Bearer + Session)
 
-OmniAI uses **Bearer JWT** access tokens by default for GitHub Pages deployments to avoid third‑party cookie issues.
+OmniAI supports both **Bearer JWT** access tokens and **session cookies**. The default mode is `AUTH_MODE=auto`, which:
+
+- Uses Bearer tokens when the `Authorization: Bearer ...` header is present.
+- Falls back to session cookies when no bearer token is provided.
+- Enforces CSRF only for session-authenticated, state-changing requests.
 
 ## Why bearer for GitHub Pages
 
@@ -11,7 +15,7 @@ GitHub Pages runs on `https://omniplexity.github.io` while your API is hosted on
 Set in `.env` (backend container):
 
 ```
-AUTH_MODE=bearer
+AUTH_MODE=auto
 JWT_SECRET=change_me
 JWT_ACCESS_TTL_SECONDS=900
 ```
@@ -28,7 +32,7 @@ Rotate `JWT_SECRET` periodically. Short access token TTLs are recommended.
 
 Only use bearer tokens over HTTPS. Never embed secrets in frontend code.
 
-## Session mode (local dev)
+## Session-only mode (optional)
 
 If you want to keep cookie sessions for local development:
 
@@ -37,3 +41,11 @@ AUTH_MODE=session
 ```
 
 This will enable cookie + CSRF protections (and CORS `allow_credentials`).
+
+## Bearer-only mode (optional)
+
+If you want to require bearer tokens only:
+
+```
+AUTH_MODE=bearer
+```

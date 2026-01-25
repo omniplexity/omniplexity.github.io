@@ -198,7 +198,7 @@ def refresh_access_token(
 
 @router.post("/logout", dependencies=[Depends(require_csrf)])
 def logout(request: Request, body: LogoutRequest | None = Body(default=None), db: Session = Depends(get_db)) -> JSONResponse:
-    user = get_current_user(request, db)
+    user = get_current_user(request=request, db=db)
     # Check rate limits
     check_ip_rate_limit(request)
     rate_limiter.check_user_rate(user.id)

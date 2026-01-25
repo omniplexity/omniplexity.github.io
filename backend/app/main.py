@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from urllib.parse import unquote
@@ -25,6 +26,95 @@ from backend.app.core.security import cors_kwargs
 
 setup_logging(level=settings.log_level)
 logger = logging.getLogger("backend")
+
+_SENSITIVE_KEYS = {
+    "password",
+    "pass",
+    "pwd",
+    "token",
+    "access_token",
+    "refresh_token",
+    "secret",
+    "api_key",
+    "csrf",
+    "authorization",
+}
+
+
+def _redact_value(value):
+    if isinstance(value, dict):
+        redacted = {}
+        for key, item in value.items():
+            if str(key).lower() in _SENSITIVE_KEYS:
+                redacted[key] = "***"
+            else:
+                redacted[key] = _redact_value(item)
+        return redacted
+    if isinstance(value, list):
+        return [_redact_value(item) for item in value]
+    return value
+
+
+def _safe_headers(request: Request) -> dict:
+    allowlist = {
+        "user-agent",
+        "origin",
+        "referer",
+        "content-type",
+        "x-forwarded-for",
+        "x-real-ip",
+        "x-request-id",
+    }
+    headers = {}
+    for key, value in request.headers.items():
+        if key.lower() in allowlist:
+            headers[key] = value
+    return headers
+
+
+async def _safe_body_preview(request: Request, max_bytes: int = 4096) -> str | None:
+    try:
+        body = await request.body()
+    except Exception:
+        return None
+
+    if not body:
+        return None
+
+    truncated = False
+    if len(body) > max_bytes:
+        body = body[:max_bytes]
+        truncated = True
+
+    content_type = request.headers.get("content-type", "")
+    text = None
+    if "application/json" in content_type.lower():
+        try:
+            payload = json.loads(body.decode("utf-8", errors="replace"))
+            payload = _redact_value(payload)
+            text = json.dumps(payload, ensure_ascii=False)
+        except Exception:
+            text = body.decode("utf-8", errors="replace")
+    elif content_type.lower().startswith("text/"):
+        text = body.decode("utf-8", errors="replace")
+
+    if text and truncated:
+        return f"{text}…(truncated)"
+    return text
+
+
+async def _request_context(request: Request) -> dict:
+    context = {
+        "method": request.method,
+        "path": request.url.path,
+        "query": request.url.query,
+        "client_ip": request.client.host if request.client else None,
+        "headers": _safe_headers(request),
+    }
+    body_preview = await _safe_body_preview(request)
+    if body_preview:
+        context["body_preview"] = body_preview
+    return context
 
 app = FastAPI(title="OmniPlexity Backend", version="0.1.0")
 
@@ -156,6 +246,17 @@ app.add_middleware(RequestLoggingMiddleware)
 async def http_exception_handler(request: Request, exc: HTTPException):
     request_id = getattr(request.state, "request_id", "unknown")
     detail = exc.detail if isinstance(exc.detail, dict) else {"code": "HTTP_ERROR", "message": str(exc.detail)}
+    context = await _request_context(request)
+    logger.warning(
+        "HTTPException",
+        extra={
+            "request_id": request_id,
+            "status_code": exc.status_code,
+            "error_code": detail.get("code"),
+            "error_message": detail.get("message"),
+            **context,
+        },
+    )
     return JSONResponse(
         status_code=exc.status_code,
         content={"code": detail.get("code", "HTTP_ERROR"), "message": detail.get("message", "Request failed"), "request_id": request_id},
@@ -164,6 +265,15 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     request_id = getattr(request.state, "request_id", "unknown")
+    context = await _request_context(request)
+    logger.warning(
+        "RequestValidationError",
+        extra={
+            "request_id": request_id,
+            "error_detail": exc.errors(),
+            **context,
+        },
+    )
     return JSONResponse(
         status_code=400,
         content={"code": "VALIDATION_ERROR", "message": "Invalid request", "detail": exc.errors(), "request_id": request_id},
@@ -172,7 +282,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     request_id = getattr(request.state, "request_id", "unknown")
-    logger.error("Unhandled exception", extra={"request_id": request_id}, exc_info=True)
+    context = await _request_context(request)
+    logger.error("Unhandled exception", extra={"request_id": request_id, **context}, exc_info=True)
     return JSONResponse(
         status_code=500,
         content={

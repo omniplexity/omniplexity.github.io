@@ -33,7 +33,7 @@ export function startBackendHealthProbe(getBaseUrl: () => string): ProbeControll
     lastError: null,
     nextRetryMs: null,
   };
-  let listeners = new Set<Listener>();
+  const listeners = new Set<Listener>();
   let timer: ReturnType<typeof setTimeout> | null = null;
   let attempt = 0;
   let inFlight = false;
