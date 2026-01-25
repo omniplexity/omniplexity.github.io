@@ -89,18 +89,10 @@ Copy code
 
 ## Repo Layout
 
-frontend/ # Static SPA (GitHub Pages)
+frontend/ # Static SPA (Vite + React)
 index.html
-404.html # SPA fallback
-assets/css/style.css
-js/
-config.js # API base URL
-api.js # fetch wrapper + CSRF
-auth.js # auth flows
-sse.js # SSE parser
-store.js # localStorage persistence
-render.js # DOM helpers
-app.js # controller
+public/ # runtime-config.json, favicons, 404.html
+src/ # React app + styles
 
 backend/ # Local FastAPI server
 app/
@@ -147,7 +139,8 @@ SQLite DB at data/omniplexity.db (repo-root)
 bash
 Copy code
 cd frontend
-python -m http.server 5173
+npm install
+npm run dev
 # open http://localhost:5173
 Deployment (GitHub Pages + Tunnel)
 1) GitHub Pages
@@ -155,11 +148,7 @@ In GitHub repo settings:
 
 Settings → Pages
 
-Source: Deploy from a branch
-
-Branch: main
-
-Folder: /frontend
+Source: GitHub Actions
 
 Your site becomes:
 
@@ -211,9 +200,9 @@ cd deploy/cloudflared
 .\run.ps1
 # macOS/Linux
 chmod +x run.sh && ./run.sh
-Update frontend DEFAULT_API_BASE_URL to the tunnel URL if you want a fixed default:
+Update frontend runtime-config to the tunnel URL if you want a fixed default:
 
-frontend/js/config.js
+frontend/public/runtime-config.json
 
 Security Model
 Frontend is static: no secrets, no direct provider calls.

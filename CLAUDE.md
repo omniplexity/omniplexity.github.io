@@ -28,7 +28,9 @@ python backend/devserver.py
 python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8787
 
 # Frontend local test
-cd frontend && python -m http.server 5173
+cd frontend
+npm install
+npm run dev
 
 # Tests
 pytest
@@ -62,10 +64,9 @@ LM Studio / Ollama / OpenAI-compatible
 - `config/settings.py` - Pydantic settings (loads .env)
 
 ### Frontend (`frontend/`)
-- `js/api.js` - fetch wrapper with CSRF handling
-- `js/sse.js` - SSE parser for streaming
-- `js/app.js` - Main controller/state
-- `js/render.js` - DOM helpers (defensive selectors)
+- Vite + React + TypeScript (entry: `src/main.tsx`)
+- Runtime config loaded from `public/runtime-config.json`
+- UI shell and streaming logic live in `src/app/`
 
 ## Critical Constraints
 
