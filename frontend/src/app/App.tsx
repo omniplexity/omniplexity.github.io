@@ -631,18 +631,18 @@ const App = () => {
                   </button>
                   <p className="mt-3 text-xs text-slate-500">
                     OmniAI reads the backend URL from <code>frontend/public/runtime-config.json</code> when the app boots.
-                    Update that file and redeploy if your tunnel URL changes.
+                    Update that file and redeploy if your ngrok URL changes.
                   </p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="text-xs uppercase tracking-wide text-slate-400">Providers & Models</div>
+                  <div className="text-xs uppercase tracking-wide text-slate-400">Providers & Models (LM Studio only)</div>
                   <div className="mt-3 space-y-2 text-sm text-slate-600">
                     <div>
                       <span className="font-semibold text-slate-700">Providers loaded:</span> {providers.length || 0}
                     </div>
                     <div className="text-xs text-slate-500">
-                      Choose a provider + model before sending a message. The list is fetched from the backend provider registry.
+                      Choose a model before sending a message. The list is fetched from the backend provider registry.
                     </div>
                     <ul className="mt-2 space-y-1 text-xs text-slate-500">
                       {providers.map((provider) => (
@@ -661,7 +661,7 @@ const App = () => {
                     {providersLoading ? "Refreshing…" : "Refresh providers"}
                   </button>
                   <p className="mt-3 text-xs text-slate-500">
-                    If a provider is missing, verify it is running locally and the backend `*.env` base URLs are correct.
+                    If models are missing, verify LM Studio is running locally and the backend <code>.env</code> base URL is correct.
                   </p>
                 </div>
 

@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>A production-grade, invite-only, ChatGPT-style WebUI hosted on GitHub Pages — backed by your local AI stack.</b><br/>
-  <sub>Static frontend on <code>omniplexity.github.io</code> • Secure local backend via tunnel • Pluggable providers (LM Studio / Ollama / OpenAI-compat)</sub>
+  <sub>Static frontend on <code>omniplexity.github.io/main</code> • Secure local backend via tunnel • LM Studio only</sub>
 </p>
 
 <p align="center">
@@ -22,7 +22,7 @@
 
 ## Why OmniAI?
 
-OmniAI is a **secure, invite-only AI chat interface** that looks and feels like modern AI apps, while keeping **all secrets and model traffic on your machine**. The frontend is a static SPA deployed via **GitHub Pages**, and the backend is a **local FastAPI gateway** that proxies to your providers (LM Studio, Ollama, OpenAI-compatible endpoints) with **streaming**, **cancel**, **retry**, **history**, and **audit logs**.
+OmniAI is a **secure, invite-only AI chat interface** that looks and feels like modern AI apps, while keeping **all secrets and model traffic on your machine**. The frontend is a static SPA deployed via **GitHub Pages**, and the backend is a **local FastAPI gateway** that proxies to **LM Studio** with **streaming**, **cancel**, **retry**, **history**, and **audit logs**.
 
 ---
 
@@ -34,7 +34,7 @@ OmniAI is a **secure, invite-only AI chat interface** that looks and feels like 
 - ✅ **Cancel** generation (best-effort)
 - ✅ **Retry** last user message
 - ✅ Sidebar: **search / rename / delete** conversations
-- ✅ Model + provider selection with persistence
+- ✅ Model selection with persistence
 - ✅ Send from blank state (backend auto-creates conversations)
 - ✅ Markdown rendering + code copy
 
@@ -48,10 +48,8 @@ OmniAI is a **secure, invite-only AI chat interface** that looks and feels like 
 - ✅ **Strict CORS allowlist** for GitHub Pages
 - ✅ **Rate limiting** + quota enforcement (daily limits)
 
-### Providers
+### Provider
 - ✅ LM Studio (OpenAI-compatible)
-- ✅ Ollama (native API)
-- ✅ Generic OpenAI-compatible endpoints
 - ✅ Clean provider interface:
   - `list_models()`, `chat_stream()`, `chat_once()`, `healthcheck()`, `capabilities()`
 
@@ -61,7 +59,7 @@ OmniAI is a **secure, invite-only AI chat interface** that looks and feels like 
 
 ┌────────────────────────────────────────────────────────────────────┐
 │ GitHub Pages (Static SPA) │
-│ https://omniplexity.github.io │
+│ https://omniplexity.github.io/main/ │
 │ - login / sessions (cookie-based) │
 │ - chat UI (SSE streaming) │
 │ - settings: provider, model, temperature, etc. │
@@ -80,7 +78,7 @@ OmniAI is a **secure, invite-only AI chat interface** that looks and feels like 
 │
 │ Provider calls (local / remote, secrets stay local)
 ▼
-LM Studio (OpenAI-compat) Ollama (native) OpenAI-compat endpoints
+LM Studio (OpenAI-compat)
 
 yaml
 Copy code
@@ -107,7 +105,7 @@ alembic.ini
 docs/
 docs/runbook.md # ops + deployment + troubleshooting
 deploy/
-cloudflared/ # tunnel configs + scripts
+docker/ # docker + ngrok sidecar
 
 yaml
 Copy code
@@ -141,7 +139,7 @@ Copy code
 cd frontend
 npm install
 npm run dev
-# open http://localhost:5173
+# open http://localhost:5173/main/
 Deployment (GitHub Pages + Tunnel)
 1) GitHub Pages
 In GitHub repo settings:
@@ -152,9 +150,9 @@ Source: GitHub Actions
 
 Your site becomes:
 
-https://omniplexity.github.io
+https://omniplexity.github.io/main/
 
-2) Expose backend securely (Cloudflare Tunnel recommended)
+2) Expose backend securely (ngrok)
 Generate secrets:
 
 bash
@@ -181,11 +179,8 @@ ORIGIN_LOCK_SECRET=your_generated_secret
 SECRET_KEY=...
 CSRF_SECRET=...
 
-# Providers
+# Provider (LM Studio)
 LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1
-OLLAMA_BASE_URL=http://127.0.0.1:11434
-OPENAI_COMPAT_BASE_URL=
-OPENAI_API_KEY=
 Run backend (bind localhost only):
 
 bash
@@ -195,11 +190,7 @@ Run tunnel:
 
 bash
 Copy code
-cd deploy/cloudflared
-# Windows
-.\run.ps1
-# macOS/Linux
-chmod +x run.sh && ./run.sh
+ngrok http http://127.0.0.1:8787
 Update frontend runtime-config to the tunnel URL if you want a fixed default:
 
 frontend/public/runtime-config.json

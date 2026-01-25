@@ -5,12 +5,9 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from backend.app.config.settings import settings
 from backend.app.providers.base import Provider
 from backend.app.providers.lmstudio import LMStudioProvider
-from backend.app.providers.ollama import OllamaProvider
-from backend.app.providers.openai_compat import OpenAICompatProvider
-from backend.app.providers.types import ModelInfo, ProviderCapabilities, ProviderHealth
+from backend.app.providers.types import ModelInfo, ProviderHealth
 
 
 class ProviderRegistry:
@@ -18,19 +15,8 @@ class ProviderRegistry:
         self._providers: dict[str, Provider] = {}
 
     def build_registry(self) -> None:
-        # Always register LM Studio and Ollama
+        # LM Studio is the sole provider in this deployment.
         self._providers["lmstudio"] = LMStudioProvider()
-        self._providers["ollama"] = OllamaProvider()
-
-        # Register OpenAI-compatible only if base_url is set
-        if settings.openai_compat_base_url:
-            self._providers["openai"] = OpenAICompatProvider(
-                provider_id="openai",
-                display_name="OpenAI Compatible",
-                base_url=settings.openai_compat_base_url,
-                api_key=settings.openai_api_key or None,
-                timeout_seconds=settings.openai_timeout_seconds,
-            )
 
     def list_providers(self) -> list[dict[str, Any]]:
         providers = []

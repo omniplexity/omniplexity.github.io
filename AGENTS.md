@@ -83,7 +83,7 @@ backend/                  # FastAPI server
     utils/
   tests/
 contracts/                # OpenAPI + JSON schemas (versioned)
-deploy/                   # cloudflared/ngrok configs, run scripts
+deploy/                   # ngrok configs, run scripts
 docs/                     # threat model, runbook, architecture notes
 
 
@@ -302,9 +302,7 @@ Visible focus states
 
 Supported modes:
 
-Cloudflare Tunnel (preferred)
-
-ngrok (acceptable)
+ngrok (required)
 
 Backend rules:
 

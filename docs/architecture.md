@@ -9,7 +9,7 @@ OmniAI is a secure, invite-only AI chat web interface that proxies requests to l
 ```
 ┌────────────────────────────────────────────────────────────────────┐
 │ GitHub Pages (Static SPA) │
-│ https://omniplexity.github.io │
+│ https://omniplexity.github.io/main/ │
 │ - HTML/CSS/JS chat interface │
 │ - SSE streaming for responses │
 │ - Auth: Bearer tokens or session cookies (auto) │
@@ -30,7 +30,7 @@ OmniAI is a secure, invite-only AI chat web interface that proxies requests to l
 │
 │ Provider API calls (HTTP/HTTPS)
 ▼
-LM Studio (127.0.0.1:1234)  Ollama (127.0.0.1:11434)  OpenAI-compatible endpoints
+LM Studio (127.0.0.1:1234)
 ```
 
 ## Component Architecture
@@ -90,8 +90,6 @@ LM Studio (127.0.0.1:1234)  Ollama (127.0.0.1:11434)  OpenAI-compatible endpoint
 - **Interface**: Common `Provider` base class with required methods
 - **Implementations**:
   - `LMStudioProvider`: Local LM Studio integration
-  - `OllamaProvider`: Local Ollama integration
-  - `OpenAICompatProvider`: Generic OpenAI-compatible API
 - **Registry**: Singleton provider registry with lazy loading
 
 #### Services Layer (`backend/app/services/`)
@@ -118,7 +116,7 @@ LM Studio (127.0.0.1:1234)  Ollama (127.0.0.1:11434)  OpenAI-compatible endpoint
 - **Password Hashing**: passlib with argon2
 - **Validation**: Pydantic for request/response models
 - **CORS**: FastAPI CORSMiddleware with allowlist
-- **Deployment**: Cloudflare Tunnel or ngrok for external access
+- **Deployment**: ngrok for external access
 
 ## Security Architecture
 
@@ -169,12 +167,12 @@ LM Studio (127.0.0.1:1234)  Ollama (127.0.0.1:11434)  OpenAI-compatible endpoint
 ### Local Development
 - **Backend**: Direct Uvicorn on 127.0.0.1:8787
 - **Frontend**: Local HTTP server on port 5173
-- **Providers**: Local LM Studio/Ollama instances
+- **Providers**: Local LM Studio instance
 
 ### Production Deployment
 - **Frontend**: GitHub Pages static hosting
 - **Backend**: Local FastAPI server behind tunnel
-- **External Access**: Cloudflare Tunnel (preferred) or ngrok
+- **External Access**: ngrok tunnel
 - **Containerized Option**: Docker Compose with backend + tunnel sidecar, non-root runtime, read-only root FS
 - **Database**: SQLite in repo-root data/ directory
 - **Secrets**: .env file (not committed)

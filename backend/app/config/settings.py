@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["https://omniplexity.github.io"]
 
     # Model selection defaults/priorities
-    provider_priority: list[str] = ["lm_studio", "ollama", "openai_compat"]
+    provider_priority: list[str] = ["lmstudio"]
     model_priority: list[str] = ["qwen", "deepseek", "llama", "gpt"]
     default_provider: str = ""
     default_model: str = ""

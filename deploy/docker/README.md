@@ -199,7 +199,6 @@ Free ngrok URLs change on restart. Options:
 For services on Docker host:
 ```env
 LMSTUDIO_BASE_URL=http://host.docker.internal:1234/v1
-OLLAMA_BASE_URL=http://host.docker.internal:11434
 ```
 
 ## Security Checklist

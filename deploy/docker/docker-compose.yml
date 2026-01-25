@@ -15,16 +15,6 @@ services:
       - data:/app/data
       - uploads:/app/uploads
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    depends_on:
-      - api
-    restart: unless-stopped
-    environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
-    command: ["tunnel","--no-autoupdate","run","--token","${CLOUDFLARE_TUNNEL_TOKEN}"]
-    profiles: ["tunnel"]
-
   ngrok:
     image: ngrok/ngrok:alpine
     depends_on:

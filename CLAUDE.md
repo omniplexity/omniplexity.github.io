@@ -97,7 +97,7 @@ Create migrations: `alembic -c backend/alembic.ini revision --autogenerate -m "d
 
 ## Deployment
 
-- **Cloudflare Tunnel** (preferred): See `deploy/cloudflared/`
+- **ngrok tunnel**: See `deploy/docker/` and `deploy/docker/ngrok.yml.example`
 - **Docker + ngrok**: See `deploy/docker/`
 - Backend .env must set: `COOKIE_SECURE=true`, `COOKIE_SAMESITE=None`, `ORIGIN_LOCK_SECRET`
 

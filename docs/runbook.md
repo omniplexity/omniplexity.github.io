@@ -10,16 +10,16 @@
 5. Run backend: `python backend/devserver.py`
 
 ### Frontend Setup
-1. Serve frontend locally: `cd frontend && python -m http.server 5173`
-2. Open http://localhost:5173 in browser
+1. Serve frontend locally: `cd frontend && npm install && npm run dev`
+2. Open http://localhost:5173/main/ in browser
 3. Set backend URL in UI to `http://127.0.0.1:8787` (or your tunnel URL)
 
 ## Production Deployment
 
 ### Prerequisites
-- Cloudflare account with domain
+- ngrok account (for tunnel access)
 - GitHub repository with Pages enabled
-- Backend server (can be local with tunnel)
+- Backend server (local machine)
 
 ### Backend Deployment
 1. **Environment Setup**:
@@ -49,34 +49,26 @@
    python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8787
    ```
 
-### Cloudflare Tunnel Setup (Recommended)
-1. **Install cloudflared**: Follow https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/tunnel-guide/
+### Provider (LM Studio only)
+- Ensure LM Studio is running at `LMSTUDIO_BASE_URL`
+- The backend registers only the LM Studio provider in this deployment
 
-2. **Login and Create Tunnel**:
+### ngrok Tunnel Setup (Required)
+1. **Install ngrok**: Follow https://dashboard.ngrok.com/get-started
+
+2. **Authenticate**:
    ```bash
-   cloudflared tunnel login
-   cloudflared tunnel create omniplexity-backend
+   ngrok config add-authtoken <your-authtoken>
    ```
 
-3. **Configure Tunnel**:
-   - Copy `deploy/cloudflared/config.yml.example` to `deploy/cloudflared/config.yml`
-   - Update:
-     - `tunnel`: Your tunnel ID from step 2
-     - `credentials-file`: Path to credentials file
-     - `hostname`: Your subdomain (e.g., api.omniplexity.dev)
-     - `X-Origin-Secret`: Must match `ORIGIN_LOCK_SECRET` in .env
-
-4. **DNS Setup**:
-   - In Cloudflare dashboard, add CNAME record: `api.omniplexity.dev -> tunnel-id.cfargotunnel.com`
-
-5. **Run Tunnel**:
+3. **Run Tunnel**:
    ```bash
-   cd deploy/cloudflared
-   # Windows
-   .\run.ps1
-   # Linux/Mac
-   chmod +x run.sh && ./run.sh
+   ngrok http http://127.0.0.1:8787
    ```
+
+4. **Copy the HTTPS forwarding URL** and add it to:
+   - Backend `CORS_ORIGINS`
+   - Frontend `frontend/public/runtime-config.json`
 
 ### Frontend (GitHub Pages)
 1. **Deploy**:
@@ -84,7 +76,7 @@
    - Go to GitHub repo Settings > Pages
    - Set source to **GitHub Actions**
    - The `pages` workflow builds `frontend/` and publishes `frontend/dist`
-   - Site URL: https://omniplexity.github.io (or custom domain)
+   - Site URL: https://omniplexity.github.io/main/ (or custom domain)
 
 2. **Custom Domain** (optional):
    - Add CNAME file to frontend/: `your-domain.com`
@@ -109,17 +101,14 @@
 
 2. **Update .env** with new values
 
-3. **Update tunnel config** (`deploy/cloudflared/config.yml`) with new ORIGIN_LOCK_SECRET:
-   ```yaml
-   originRequest:
-     setRequestHeader:
-       - X-Origin-Secret: "new-shared-secret-here"
-   ```
+3. **Update ngrok config**:
+   - If using Docker, update `deploy/docker/.env` with the new `ORIGIN_LOCK_SECRET`.
+   - If running ngrok manually, set the shared secret in your backend `.env` and restart ngrok + backend together.
 
 4. **Restart backend and tunnel safely**:
    - Stop backend (Ctrl+C if running)
-   - Stop tunnel (kill cloudflared process)
-   - Start tunnel first: `cd deploy/cloudflared && ./run.ps1` (or run.sh)
+   - Stop tunnel (kill ngrok process)
+   - Start tunnel first: `ngrok http http://127.0.0.1:8787`
    - Start backend: `cd backend && python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8787`
 
 5. **Clear browser cookies** (users will need to re-login)

@@ -1,7 +1,6 @@
 import pytest
 import httpx
 
-from backend.app.main import app
 from backend.app.config.settings import settings
 
 
@@ -36,11 +35,10 @@ def test_providers_returns_provider_list(authenticated_client):
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
-    assert len(data) >= 2  # lmstudio and ollama
+    assert len(data) >= 1  # lmstudio only
 
     provider_ids = [p["provider_id"] for p in data]
     assert "lmstudio" in provider_ids
-    assert "ollama" in provider_ids
 
     for provider in data:
         assert "provider_id" in provider
@@ -130,48 +128,3 @@ def test_provider_unreachable_error(monkeypatch, authenticated_client):
     assert response.status_code == 200
     data = response.json()
     assert data["ok"] == False
-
-
-# Test with mocked OpenAI-compatible responses
-def test_openai_compat_provider_with_mock(monkeypatch, authenticated_client):
-    """Test OpenAI-compatible provider with mocked responses."""
-
-    # Mock responses for list_models and healthcheck
-    def mock_get(request):
-        if "/models" in str(request.url):
-            return httpx.Response(200, json={"data": [{"id": "gpt-4"}, {"id": "gpt-3.5-turbo"}]})
-        return httpx.Response(404)
-
-    def mock_post(request):
-        return httpx.Response(200, json={"choices": [{"message": {"content": "Hello"}}]})
-
-    # Create a registry with mocked OpenAI provider
-    from backend.app.providers.registry import ProviderRegistry
-    from backend.app.providers.openai_compat import OpenAICompatProvider
-
-    mock_client = httpx.AsyncClient(transport=httpx.MockTransport(mock_get if mock_get else mock_post))
-
-    test_registry = ProviderRegistry()
-    test_registry._providers["test_openai"] = OpenAICompatProvider(
-        provider_id="test_openai",
-        display_name="Test OpenAI",
-        base_url="http://mock.example.com",
-        api_key="test-key",
-        client=mock_client,
-    )
-
-    # Monkeypatch the global registry temporarily
-    original_registry = authenticated_client.app.state.registry if hasattr(authenticated_client.app.state, 'registry') else None
-    monkeypatch.setattr("backend.app.api.providers.registry", test_registry)
-
-    try:
-        response = authenticated_client.get("/providers/test_openai/models")
-        assert response.status_code == 200
-        data = response.json()
-        assert "models" in data
-        assert len(data["models"]) == 2
-        assert data["models"][0]["id"] == "gpt-4"
-    finally:
-        # Restore if needed
-        if original_registry:
-            monkeypatch.setattr("backend.app.api.providers.registry", original_registry)
