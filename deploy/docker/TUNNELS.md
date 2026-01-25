@@ -10,7 +10,7 @@ Use a **named Cloudflare Tunnel** created in Zero Trust. Quick Tunnels (trycloud
 
 1) Create a named tunnel in Cloudflare Zero Trust.
 2) Add a public hostname (example: `api.omniplexity.yourdomain`).
-3) Set the service/ingress URL to `http://api:8000`.
+3) Set the service/ingress URL to `http://api:8787`.
 4) Copy the tunnel token.
 5) In `deploy/docker/.env`, set:
 
@@ -41,7 +41,8 @@ Use ngrok if Cloudflare is not available. This is a fallback and requires a paid
 cp deploy/docker/ngrok.yml.example deploy/docker/ngrok.yml
 ```
 
-2) Edit `deploy/docker/ngrok.yml` and set your authtoken.
+2) Edit `deploy/docker/ngrok.yml` and set your authtoken + `X-Origin-Secret` header
+   (must match `ORIGIN_LOCK_SECRET` in `.env`).
 3) Start the ngrok profile:
 
 ```

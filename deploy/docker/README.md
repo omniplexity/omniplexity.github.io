@@ -15,7 +15,7 @@ Internet
                 │
     ┌───────────▼───────────┐
     │    ngrok sidecar      │◄── Injects X-Origin-Secret header
-    │    (tunnel client)    │    (via --request-header-add)
+    │    (tunnel client)    │    (via ngrok.yml traffic_policy add-headers)
     └───────────┬───────────┘
                 │ Docker internal network
     ┌───────────▼───────────┐
@@ -72,7 +72,7 @@ Fill in:
 ### 3. Start Services
 
 ```bash
-docker compose up -d
+docker compose --profile ngrok up -d --build
 ```
 
 ### 4. Get Your Tunnel URL
@@ -80,9 +80,6 @@ docker compose up -d
 ```bash
 # Check ngrok logs for the URL
 docker compose logs ngrok
-
-# Or visit the ngrok web interface
-# http://localhost:4040
 ```
 
 Look for a line like:
@@ -99,7 +96,7 @@ CORS_ORIGINS=["https://omniplexity.github.io","https://xxxx-xx-xx-xx-xx.ngrok-fr
 
 Then restart:
 ```bash
-docker compose restart backend
+docker compose restart api
 ```
 
 ### 6. Test
@@ -113,12 +110,12 @@ curl https://xxxx-xx-xx-xx-xx.ngrok-free.app/health
 
 | Action | Command |
 |--------|---------|
-| Start | `docker compose up -d` |
+| Start | `docker compose --profile ngrok up -d --build` |
 | Stop | `docker compose down` |
 | Logs (all) | `docker compose logs -f` |
-| Logs (backend) | `docker compose logs -f backend` |
+| Logs (backend) | `docker compose logs -f api` |
 | Logs (ngrok) | `docker compose logs -f ngrok` |
-| Rebuild | `docker compose build --no-cache backend` |
+| Rebuild | `docker compose build --no-cache api` |
 | Restart | `docker compose restart` |
 | Get tunnel URL | `docker compose logs ngrok \| grep url=` |
 
@@ -151,12 +148,8 @@ MEMORY_EMBEDDING_API_KEY=       # optional; defaults to OPENAI_API_KEY
 
 ## ngrok Web Interface
 
-The ngrok web interface is available at http://localhost:4040 when running.
-
-It shows:
-- Current tunnel URL
-- Request/response inspector
-- Replay requests for debugging
+To inspect ngrok traffic, use `docker compose logs -f ngrok` or temporarily publish
+the ngrok admin port if you need the web UI.
 
 ## Troubleshooting
 
@@ -212,11 +205,5 @@ cp ../../data/omniplexity.db ../../data/backup-$(date +%Y%m%d).db
 For a stable URL, upgrade to ngrok paid plan and reserve a domain:
 
 1. Reserve domain in ngrok dashboard
-2. Update docker-compose.yml ngrok command:
-```yaml
-command:
-  - "http"
-  - "http://backend:8787"
-  - "--domain=your-reserved-domain.ngrok.app"
-  - "--request-header-add=X-Origin-Secret:${ORIGIN_LOCK_SECRET}"
-```
+2. Update `deploy/docker/ngrok.yml` to set the reserved domain and keep
+   `request_header.add` for `X-Origin-Secret`.

@@ -1,21 +1,19 @@
 # OmniAI Docker Compose - Backend only (Phase 1)
 # Usage:
 #   1) cp .env.example .env
-#   2) docker compose up -d --build
+#   2) docker compose --profile ngrok up -d --build
 
 services:
   api:
     build:
-      context: ../../backend
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.backend
     container_name: omniai-api
     env_file:
       - .env
-    ports:
-      - "8000:8000"
     volumes:
       - data:/data
       - uploads:/uploads
-    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 
   cloudflared:
     image: cloudflare/cloudflared:latest

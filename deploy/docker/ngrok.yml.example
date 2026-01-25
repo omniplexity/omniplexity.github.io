@@ -1,7 +1,16 @@
 version: "3"
 agent:
   authtoken: "YOUR_NGROK_AUTHTOKEN"
-tunnels:
-  api:
-    proto: http
-    addr: api:8000
+endpoints:
+  - name: omniai-api
+    # Leave url empty to get a random HTTPS address (ngrok-free.app)
+    # url: http://  # uncomment to force an HTTP endpoint
+    upstream:
+      url: http://api:8787
+    traffic_policy:
+      on_http_request:
+        - actions:
+            - type: add-headers
+              config:
+                headers:
+                  x-origin-secret: "YOUR_ORIGIN_LOCK_SECRET"
