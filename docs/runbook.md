@@ -11,7 +11,7 @@
 
 ### Frontend Setup
 1. Serve frontend locally: `cd frontend && npm install && npm run dev`
-2. Open http://localhost:5173/main/ in browser
+2. Open http://localhost:5173 in browser
 3. Set backend URL in UI to `http://127.0.0.1:8787` (or your tunnel URL)
 
 ## Production Deployment
@@ -76,7 +76,7 @@
    - Go to GitHub repo Settings > Pages
    - Set source to **GitHub Actions**
    - The `pages` workflow builds `frontend/` and publishes `frontend/dist`
-   - Site URL: https://omniplexity.github.io/main/ (or custom domain)
+   - Site URL: https://omniplexity.github.io/ (or custom domain)
 
 2. **Custom Domain** (optional):
    - Add CNAME file to frontend/: `your-domain.com`

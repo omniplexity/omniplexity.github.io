@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>A production-grade, invite-only, ChatGPT-style WebUI hosted on GitHub Pages — backed by your local AI stack.</b><br/>
-  <sub>Static frontend on <code>omniplexity.github.io/main</code> • Secure local backend via tunnel • LM Studio only</sub>
+  <sub>Static frontend on <code>omniplexity.github.io</code> • Secure local backend via tunnel • LM Studio only</sub>
 </p>
 
 <p align="center">
@@ -59,7 +59,7 @@ OmniAI is a **secure, invite-only AI chat interface** that looks and feels like 
 
 ┌────────────────────────────────────────────────────────────────────┐
 │ GitHub Pages (Static SPA) │
-│ https://omniplexity.github.io/main/ │
+│ https://omniplexity.github.io/ │
 │ - login / sessions (cookie-based) │
 │ - chat UI (SSE streaming) │
 │ - settings: provider, model, temperature, etc. │
@@ -139,7 +139,7 @@ Copy code
 cd frontend
 npm install
 npm run dev
-# open http://localhost:5173/main/
+# open http://localhost:5173
 Deployment (GitHub Pages + Tunnel)
 1) GitHub Pages
 In GitHub repo settings:
@@ -150,7 +150,7 @@ Source: GitHub Actions
 
 Your site becomes:
 
-https://omniplexity.github.io/main/
+https://omniplexity.github.io/
 
 2) Expose backend securely (ngrok)
 Generate secrets:

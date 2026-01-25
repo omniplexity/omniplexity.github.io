@@ -9,7 +9,7 @@ OmniAI is a secure, invite-only AI chat web interface that proxies requests to l
 ```
 ┌────────────────────────────────────────────────────────────────────┐
 │ GitHub Pages (Static SPA) │
-│ https://omniplexity.github.io/main/ │
+│ https://omniplexity.github.io/ │
 │ - HTML/CSS/JS chat interface │
 │ - SSE streaming for responses │
 │ - Auth: Bearer tokens or session cookies (auto) │
