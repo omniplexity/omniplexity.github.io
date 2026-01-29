@@ -12,6 +12,7 @@
     "composite": true,
     "emitDeclarationOnly": true,
     "declaration": true,
+    "outDir": "./dist-node",
 
     "strict": true,
     "noUnusedLocals": true,

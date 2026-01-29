@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(npm install)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout /t 5 /nobreak)",
+      "Bash(curl:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: TypeScript errors, remove LangChain deps, update paths\n\n- Fix TypeScript strict mode errors \\(unused vars, array access\\)\n- Remove LangChain dependencies \\(using custom ReAct implementation\\)\n- Update base path to ''/'' for root GitHub Pages deployment\n- Fix asset paths in index.html, manifest.json, 404.html\n- Add package-lock.json for reproducible builds\n- Update tsconfig for ES2023 \\(findLastIndex support\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(ping:*)",
+      "Bash(git commit:*)",
+      "Bash(npx tsc:*)",
+      "Skill(commit-commands:commit)",
+      "Skill(commit-commands:commit:*)"
+    ]
+  }
+}
