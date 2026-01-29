@@ -6,7 +6,9 @@ export async function loadConfig() {
   if (runtime.data) {
     return runtime.data;
   }
-  const res = await fetch("./runtime-config.json", { cache: "no-store" });
+  const base = document.querySelector("base")?.getAttribute("href")?.replace(/\/$/, "") || "";
+  const configPath = base ? `${base}/runtime-config.json` : "./runtime-config.json";
+  const res = await fetch(configPath, { cache: "no-store" });
   if (!res.ok) {
     throw new Error("Unable to load runtime config");
   }
