@@ -17,10 +17,13 @@ export const MessageList = memo(function MessageList({
   const bottomRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  // Extract last message content for dependency tracking
+  const lastMessageContent = messages[messages.length - 1]?.content
+
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages.length, messages[messages.length - 1]?.content])
+  }, [messages.length, lastMessageContent])
 
   if (messages.length === 0) {
     return <EmptyState />

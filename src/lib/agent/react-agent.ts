@@ -49,25 +49,25 @@ function parseAgentResponse(response: string): {
 
   // Extract thought
   const thoughtMatch = response.match(/Thought:\s*(.+?)(?=\n|Action:|Final Answer:|$)/is)
-  if (thoughtMatch) {
+  if (thoughtMatch?.[1]) {
     result.thought = thoughtMatch[1].trim()
   }
 
   // Extract action
   const actionMatch = response.match(/Action:\s*(\w+)/i)
-  if (actionMatch) {
+  if (actionMatch?.[1]) {
     result.action = actionMatch[1].toLowerCase()
   }
 
   // Extract action input
   const inputMatch = response.match(/Action Input:\s*(.+?)(?=\n|Observation:|$)/is)
-  if (inputMatch) {
+  if (inputMatch?.[1]) {
     result.actionInput = inputMatch[1].trim()
   }
 
   // Extract final answer
   const answerMatch = response.match(/Final Answer:\s*(.+)/is)
-  if (answerMatch) {
+  if (answerMatch?.[1]) {
     result.finalAnswer = answerMatch[1].trim()
   }
 

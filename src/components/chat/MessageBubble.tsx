@@ -63,12 +63,15 @@ export const MessageBubble = memo(function MessageBubble({
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  code({ inline, className, children, ...props }) {
+                  code({ className, children, ...props }) {
                     const match = /language-(\w+)/.exec(className || '')
                     const language = match ? match[1] : ''
                     const codeString = String(children).replace(/\n$/, '')
 
-                    if (!inline && language) {
+                    // Check if this is a code block (has language) vs inline code
+                    const isCodeBlock = Boolean(language) || codeString.includes('\n')
+
+                    if (isCodeBlock && language) {
                       return (
                         <CodeBlock language={language} code={codeString} />
                       )

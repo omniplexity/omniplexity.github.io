@@ -7,7 +7,6 @@ import {
   createConversation,
   createMessage,
   getMessages,
-  updateMessage as updateDbMessage,
 } from '../lib/db'
 import type { Message } from '../types/message'
 import type { ChatMessage } from '../lib/lmstudio/types'
@@ -224,6 +223,7 @@ export function useChat() {
 
     // Actions
     setInputValue,
+    setMessages,
     sendMessage,
     cancelStream,
     loadConversation,

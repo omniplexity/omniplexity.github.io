@@ -2,13 +2,13 @@
   "name": "OmniAI",
   "short_name": "OmniAI",
   "description": "Privacy-first AI chat interface for LM Studio",
-  "start_url": "/omniai/",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#0f0f0f",
   "theme_color": "#10a37f",
   "icons": [
     {
-      "src": "/omniai/favicon.svg",
+      "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml"
     }

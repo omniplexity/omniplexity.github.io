@@ -2,8 +2,8 @@ import Dexie, { type Table } from 'dexie'
 import type { Message } from '../../types/message'
 import type { Conversation } from '../../types/conversation'
 
-export interface DBConversation extends Conversation {}
-export interface DBMessage extends Message {}
+export type DBConversation = Conversation
+export type DBMessage = Message
 
 export class OmniAIDatabase extends Dexie {
   conversations!: Table<DBConversation, string>

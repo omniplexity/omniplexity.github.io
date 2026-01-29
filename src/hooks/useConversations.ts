@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, getAllConversations, deleteConversation, searchConversations } from '../lib/db'
+import { getAllConversations, deleteConversation, searchConversations } from '../lib/db'
 import type { Conversation } from '../types/conversation'
 
 export function useConversations() {

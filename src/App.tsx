@@ -18,9 +18,8 @@ export function App() {
   useLMStudio()
 
   // Chat store actions for shortcuts
-  const { toggleSidebar, setInputValue } = useChatStore((s) => ({
+  const { toggleSidebar } = useChatStore((s) => ({
     toggleSidebar: s.toggleSidebar,
-    setInputValue: s.setInputValue,
   }))
 
   // Global keyboard shortcuts

@@ -6,7 +6,7 @@
     <script>
       // GitHub Pages SPA redirect
       // This script redirects all 404s back to index.html for client-side routing
-      const segment = 1; // Number of path segments to keep (change if using custom domain)
+      const segment = 0; // Root deployment (username.github.io)
       const loc = window.location;
       const path = loc.pathname.split('/').slice(0, segment + 1).join('/');
       const remaining = loc.pathname.slice(path.length);

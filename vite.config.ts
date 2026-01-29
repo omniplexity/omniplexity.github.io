@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/omniai/', // GitHub Pages repo name - change to '/' for custom domain
+  base: '/', // Root of omniplexity.github.io
   build: {
     target: 'esnext',
     minify: 'esbuild',
@@ -12,7 +12,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom'],
-          'langchain': ['@langchain/core', '@langchain/community'],
           'markdown': ['react-markdown', 'react-syntax-highlighter', 'remark-gfm'],
           'db': ['dexie', 'dexie-react-hooks'],
         },

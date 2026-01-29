@@ -1,6 +1,6 @@
-import { memo, useState, useCallback, type ReactNode } from 'react'
+import { memo, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
-import { useSettingsStore, type Theme } from '../../stores'
+import { useSettingsStore } from '../../stores'
 import { IconButton, XIcon, SunIcon, MoonIcon } from '../ui'
 
 interface SettingsModalProps {
@@ -113,21 +113,18 @@ function AppearanceTab() {
       <SettingSection title="Theme" description="Choose your preferred color scheme">
         <div className="flex gap-2">
           <ThemeOption
-            theme="light"
             label="Light"
             icon={<SunIcon className="w-5 h-5" />}
             active={theme === 'light'}
             onClick={() => setTheme('light')}
           />
           <ThemeOption
-            theme="dark"
             label="Dark"
             icon={<MoonIcon className="w-5 h-5" />}
             active={theme === 'dark'}
             onClick={() => setTheme('dark')}
           />
           <ThemeOption
-            theme="system"
             label="System"
             icon={
               <div className="w-5 h-5 rounded-full bg-gradient-to-br from-yellow-400 to-blue-600" />
@@ -162,13 +159,11 @@ function AppearanceTab() {
 }
 
 function ThemeOption({
-  theme,
   label,
   icon,
   active,
   onClick,
 }: {
-  theme: Theme
   label: string
   icon: ReactNode
   active: boolean
