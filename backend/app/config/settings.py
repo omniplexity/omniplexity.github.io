@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     port: int = Field(default=8000, ge=1, le=65535, description="Server port")
     debug: bool = Field(default=False, description="Debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
+    log_file: str = Field(default="", description="Optional log file path")
 
     # Security
     secret_key: str = Field(

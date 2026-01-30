@@ -7,6 +7,7 @@ Provides consistent, machine-readable logs with request IDs for tracing.
 import json
 import logging
 import sys
+from pathlib import Path
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from typing import Any
@@ -81,7 +82,9 @@ class ContextLogger(logging.LoggerAdapter):
         return msg, kwargs
 
 
-def setup_logging(level: str = "INFO", json_output: bool = True) -> None:
+def setup_logging(
+    level: str = "INFO", json_output: bool = True, log_file: str | None = None
+) -> None:
     """
     Configure application logging.
 
@@ -111,6 +114,22 @@ def setup_logging(level: str = "INFO", json_output: bool = True) -> None:
         )
 
     root_logger.addHandler(handler)
+
+    if log_file:
+        log_path = Path(log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.FileHandler(log_path, encoding="utf-8")
+        file_handler.setLevel(getattr(logging, level.upper()))
+        if json_output:
+            file_handler.setFormatter(JSONFormatter())
+        else:
+            file_handler.setFormatter(
+                logging.Formatter(
+                    "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+                    datefmt="%Y-%m-%d %H:%M:%S",
+                )
+            )
+        root_logger.addHandler(file_handler)
 
     # Reduce noise from third-party libraries
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)

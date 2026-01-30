@@ -14,6 +14,7 @@ from app.config import get_settings
 router = APIRouter(tags=["health"])
 
 
+@router.get("/health")
 @router.get("/healthz")
 async def healthcheck() -> dict[str, Any]:
     """

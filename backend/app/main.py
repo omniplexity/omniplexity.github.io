@@ -33,7 +33,11 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
 
     # Startup
-    setup_logging(level=settings.log_level, json_output=not settings.debug)
+    setup_logging(
+        level=settings.log_level,
+        json_output=not settings.debug,
+        log_file=settings.log_file or None,
+    )
     logger.info(
         "Starting OmniAI backend",
         data={

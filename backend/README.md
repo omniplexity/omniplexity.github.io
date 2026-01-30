@@ -93,6 +93,51 @@ curl http://127.0.0.1:8000/healthz
 # {"status":"ok","version":"0.1.0","timestamp":"...","debug":false}
 ```
 
+## Docker (Always-Up)
+
+From the repo root:
+
+### Windows (PowerShell)
+
+```powershell
+# Copy env template for Docker
+Copy-Item backend\.env.example backend\.env
+
+# Start backend in Docker (always-up)
+docker compose up -d
+
+# View logs
+docker compose logs -f backend
+```
+
+### macOS / Linux
+
+```bash
+# Copy env template for Docker
+cp backend/.env.example backend/.env
+
+# Start backend in Docker (always-up)
+docker compose up -d
+
+# View logs
+docker compose logs -f backend
+```
+
+Notes:
+- Backend binds to 0.0.0.0 in the container and is published only to localhost.
+- Health endpoint is available at http://127.0.0.1:8000/health
+- Use Docker profiles for tunnels (cloudflared/ngrok) if desired.
+
+Tunnel examples:
+
+```bash
+# Cloudflare Tunnel (requires CLOUDFLARE_TUNNEL_TOKEN)
+docker compose --profile cloudflared up -d
+
+# ngrok (requires NGROK_AUTHTOKEN)
+docker compose --profile ngrok up -d
+```
+
 ## Development
 
 ### Run Tests
@@ -124,6 +169,7 @@ All configuration is via environment variables. See `.env.example` for available
 | `PORT` | `8000` | Server port |
 | `DEBUG` | `false` | Enable debug mode (shows docs) |
 | `LOG_LEVEL` | `INFO` | Logging level |
+| `LOG_FILE` | - | Optional log file path |
 | `SECRET_KEY` | - | **Required for production** |
 | `CORS_ORIGINS` | `https://omniplexity.github.io` | Allowed CORS origins (comma-separated) |
 | `MAX_REQUEST_BYTES` | `1048576` | Max request body size (1MB default) |
