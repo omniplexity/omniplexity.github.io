@@ -1,18 +1,31 @@
 import { apiBaseUrl, ngrokHeaders } from "./config.js";
 import { getCsrfToken } from "./auth.js";
 
-async function normalizeResponse(res) {
-  if (res.ok) {
-    return res.json().catch(() => null);
+async function safeJson(res) {
+  try {
+    return await res.json();
+  } catch (_err) {
+    return null;
   }
-  const payload = await res.json().catch(() => null);
+}
+
+async function normalizeResponse(res) {
+  const payload = await safeJson(res);
+  if (res.ok) {
+    return payload;
+  }
   if (payload?.error) {
     const error = new Error(payload.error.message);
     error.code = payload.error.code;
     error.requestId = payload.error.request_id;
     throw error;
   }
-  throw new Error("Unexpected error");
+  const error = new Error(res.statusText || "Unexpected error");
+  error.status = res.status;
+  if (res.status === 401) {
+    error.code = "E2000";
+  }
+  throw error;
 }
 
 function buildUrl(path, params) {
