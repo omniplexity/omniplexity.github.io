@@ -16,8 +16,6 @@ services:
       - omniai_logs:/app/logs
     expose:
       - "8000"
-    ports:
-      - "127.0.0.1:8000:8000"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health || exit 1"]
       interval: 10s
@@ -48,7 +46,7 @@ services:
     image: ngrok/ngrok:latest
     container_name: omniai-ngrok
     restart: unless-stopped
-    command: http --log=stdout http://backend:8000
+    command: http --log=stdout --pooling-enabled --domain=${NGROK_DOMAIN} http://backend:8000
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
     depends_on:
@@ -57,8 +55,6 @@ services:
     networks:
       - omniai_internal
       - omniai_egress
-    profiles:
-      - ngrok
 
 volumes:
   omniai_data:
