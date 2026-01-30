@@ -1,4 +1,4 @@
-import { apiBaseUrl } from "./config.js";
+import { apiBaseUrl, ngrokHeaders } from "./config.js";
 
 const authState = {
   csrfToken: null,
@@ -7,6 +7,9 @@ const authState = {
 async function fetchCsrfToken() {
   const res = await fetch(`${apiBaseUrl()}/auth/csrf`, {
     credentials: "include",
+    headers: {
+      ...ngrokHeaders(),
+    },
   });
   if (!res.ok) {
     throw new Error("Unable to refresh CSRF token");
@@ -29,6 +32,7 @@ export async function login(credentials) {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...ngrokHeaders(),
     },
     body: JSON.stringify(credentials),
   });
@@ -51,7 +55,7 @@ export async function logout() {
   await fetch(`${apiBaseUrl()}/auth/logout`, {
     credentials: "include",
     method: "POST",
-    headers: { "X-CSRF-Token": token },
+    headers: { "X-CSRF-Token": token, ...ngrokHeaders() },
   });
   authState.csrfToken = null;
 }

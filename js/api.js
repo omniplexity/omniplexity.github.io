@@ -1,4 +1,4 @@
-import { apiBaseUrl } from "./config.js";
+import { apiBaseUrl, ngrokHeaders } from "./config.js";
 import { getCsrfToken } from "./auth.js";
 
 async function normalizeResponse(res) {
@@ -30,6 +30,9 @@ function buildUrl(path, params) {
 export async function get(path, params) {
   const res = await fetch(buildUrl(path, params), {
     credentials: "include",
+    headers: {
+      ...ngrokHeaders(),
+    },
   });
   return normalizeResponse(res);
 }
@@ -47,7 +50,7 @@ export async function del(path) {
 }
 
 async function sendWithBody(method, path, body, csrf) {
-  const headers = { "Content-Type": "application/json" };
+  const headers = { "Content-Type": "application/json", ...ngrokHeaders() };
   if (csrf) {
     headers["X-CSRF-Token"] = await getCsrfToken();
   }

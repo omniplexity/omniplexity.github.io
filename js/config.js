@@ -39,3 +39,11 @@ export function apiBaseUrl() {
   }
   return runtime.data.API_BASE_URL.replace(/\/+$/, "");
 }
+
+export function ngrokHeaders() {
+  const base = apiBaseUrl();
+  if (base.includes("ngrok-free.dev") || base.includes("ngrok.app") || base.includes("ngrok.io")) {
+    return { "ngrok-skip-browser-warning": "true" };
+  }
+  return {};
+}

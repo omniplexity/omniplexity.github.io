@@ -1,4 +1,4 @@
-import { apiBaseUrl } from "./config.js";
+import { apiBaseUrl, ngrokHeaders } from "./config.js";
 import { getCsrfToken } from "./auth.js";
 import {
   isStreaming,
@@ -27,6 +27,7 @@ async function fetchWithKeepAlive({ path, body, signal }) {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...ngrokHeaders(),
       "X-CSRF-Token": token,
     },
     body: JSON.stringify(body),
