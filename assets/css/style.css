@@ -2352,7 +2352,7 @@ label.toggle {
   content: attr(data-tooltip);
   position: absolute;
   bottom: calc(100% + 0.45rem);
-  right: 0;
+  left: 0;
   width: max-content;
   max-width: 240px;
   padding: 0.4rem 0.6rem;
