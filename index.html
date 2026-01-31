@@ -5,26 +5,36 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <base href="./" />
   <title>OmniAI Chat</title>
-  <meta name="theme-color" content="#f6f3ee" />
+  <meta name="theme-color" content="#0b0f14" />
   <link rel="icon" href="./favicon.ico" />
   <link rel="stylesheet" href="./assets/css/fonts.css" />
   <link rel="stylesheet" href="./assets/css/style.css" />
 </head>
-<body class="page" data-page="app">
+<body class="page app" data-page="app">
   <main class="app-shell">
-    <header class="app-header">
-      <div class="brand">
-        <img src="./icons/chat.svg" alt="" width="36" height="36" aria-hidden="true" />
-        <div>
-          <span class="brand-name">OmniAI</span>
-          <span class="brand-tagline">Local-first intelligence</span>
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="brand">
+          <img src="./icons/chat.svg" alt="" width="32" height="32" aria-hidden="true" />
+          <div>
+            <span class="brand-name">OmniAI</span>
+            <span class="brand-tagline">Local-first intelligence</span>
+          </div>
         </div>
       </div>
-      <div class="header-status">
-        <span id="backendBadge" class="status-chip">Backend: —</span>
-        <span id="planBadge" class="status-chip">Plan: —</span>
+      <div class="topbar-center" aria-label="System context">
+        <div class="context-chip">
+          <span class="context-label">Model</span>
+          <span id="modelLabel" class="context-value">Model: —</span>
+        </div>
+        <div class="context-chip">
+          <span class="context-label">Providers</span>
+          <div id="providersPanel" class="providers-panel"></div>
+        </div>
       </div>
-      <div class="header-actions">
+      <div class="topbar-right">
+        <span id="backendBadge" class="connection-badge" title="">Online</span>
+        <span id="planBadge" class="plan-badge">Plan: —</span>
         <div class="user-pill">
           <span id="userName" class="user-name">—</span>
           <span id="userRoleBadge" class="role-badge" data-role="member">Member</span>
@@ -32,32 +42,25 @@
         <button id="logoutBtn" class="ghost-btn" type="button">Log out</button>
       </div>
     </header>
-    <div class="layout" role="main">
+
+    <div id="errorBanner" class="error-banner hidden" role="alert"></div>
+
+    <div class="app-grid" role="main">
       <aside class="sidebar" aria-label="Conversations">
         <div class="sidebar-header">
           <strong>Conversations</strong>
           <div class="sidebar-actions">
             <button id="adminToggleBtn" class="link-btn hidden" type="button">Admin</button>
-            <button id="newConvoBtn" aria-label="Start new conversation">New</button>
+            <button id="newConvoBtn" class="primary-btn" type="button" aria-label="Start new conversation">New chat</button>
           </div>
         </div>
         <div class="conversation-list" id="conversationList" tabindex="0"></div>
         <div class="sidebar-footer">
-          <div class="providers-panel" id="providersPanel"></div>
           <p class="sidebar-note">Invite codes unlock VIP features soon.</p>
         </div>
       </aside>
-      <section class="messages-panel" aria-live="polite">
-        <div class="status-line" id="statusLine">
-          <div class="status-primary">
-            <span id="modelLabel">Model: —</span>
-            <span id="streamBadge" class="stream-badge hidden" aria-live="polite"></span>
-          </div>
-          <div class="status-secondary">
-            <span id="tokenUsage">Tokens: —</span>
-            <span id="elapsedTime" class="elapsed-time hidden" aria-live="polite"></span>
-          </div>
-        </div>
+
+      <section class="transcript" aria-live="polite">
         <div class="message-stream" id="messageStream"></div>
         <div class="message-toolbar">
           <button id="jumpBottomBtn" class="jump-btn hidden" type="button">Jump to bottom</button>
@@ -66,15 +69,22 @@
             <button id="resumeRetryBtn" class="link-btn" type="button">Retry</button>
           </div>
         </div>
-        <div class="composer" aria-label="Composer">
-          <textarea id="composerInput" placeholder="Ask something..." rows="3"></textarea>
-          <div class="composer-actions">
-            <button id="sendBtn" class="primary-btn">Send</button>
-            <button id="cancelBtn" class="ghost-btn" type="button">Cancel</button>
-            <button id="retryBtn" class="ghost-btn" type="button">Retry last</button>
+        <div class="prompt-bar" aria-label="Composer">
+          <label class="prompt-label" for="composerInput">Prompt</label>
+          <div class="prompt-body">
+            <textarea id="composerInput" placeholder="Ask something..." rows="3"></textarea>
+          </div>
+          <div class="prompt-actions">
+            <span id="streamBadge" class="stream-badge hidden" aria-live="polite"></span>
+            <span id="elapsedTime" class="elapsed-time hidden" aria-live="polite"></span>
+            <span id="tokenUsage" class="token-usage">Tokens: —</span>
+            <button id="sendBtn" class="primary-btn" type="button">Send</button>
+            <button id="cancelBtn" class="ghost-btn" type="button">Stop</button>
+            <button id="retryBtn" class="ghost-btn" type="button">Retry</button>
           </div>
         </div>
       </section>
+
       <section id="adminPanel" class="admin-panel hidden" aria-live="polite">
         <div class="admin-panel-inner">
           <header class="admin-panel-header">
@@ -160,7 +170,7 @@
         </div>
       </section>
     </div>
-    <div id="errorBanner" class="card error-banner hidden" role="alert"></div>
+
     <div class="card providers-panel hidden" id="settingsPanel"></div>
   </main>
   <script type="module" src="./js/app.js"></script>

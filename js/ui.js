@@ -371,6 +371,13 @@ function formatErrorMessage(message, code) {
   return message;
 }
 
+function setConnectionStatus(status) {
+  if (!dom.backendBadge) return;
+  const label = status || "Online";
+  dom.backendBadge.textContent = label;
+  dom.backendBadge.dataset.status = label.toLowerCase().replace(/\s+/g, "-");
+}
+
 export function showError(message, requestIdOrCode) {
   if (!dom.errorBanner) return;
   const code = isErrorCode(requestIdOrCode) ? requestIdOrCode : null;
@@ -379,6 +386,9 @@ export function showError(message, requestIdOrCode) {
   dom.errorBanner.textContent = requestId ? `${text} (request: ${requestId})` : text;
   dom.errorBanner.classList.remove("hidden");
   setTimeout(() => dom.errorBanner?.classList.add("hidden"), 6000);
+  if (code === "E_NETWORK") {
+    setConnectionStatus("Offline");
+  }
 }
 
 export function renderConversations(conversations, onSelect, { onRename, onDelete }) {
@@ -465,8 +475,10 @@ export function setBackendBadge(baseUrl) {
   } catch {
     label = baseUrl;
   }
-  dom.backendBadge.textContent = `Backend: ${label}`;
+  dom.backendBadge.textContent = "Online";
   dom.backendBadge.title = baseUrl;
+  dom.backendBadge.dataset.host = label;
+  dom.backendBadge.dataset.status = "online";
 }
 
 export function setUserSummary(user) {
@@ -560,10 +572,20 @@ export function updateStreamBadge(status) {
   if (!status) {
     dom.streamBadge.classList.add("hidden");
     dom.streamBadge.textContent = "";
+    setConnectionStatus("Online");
     return;
   }
   dom.streamBadge.classList.remove("hidden");
   dom.streamBadge.textContent = status;
+  if (status.toLowerCase().includes("polling")) {
+    setConnectionStatus("Polling");
+  } else if (status.toLowerCase().includes("reconnect")) {
+    setConnectionStatus("Reconnecting");
+  } else if (status.toLowerCase().includes("disconnect")) {
+    setConnectionStatus("Offline");
+  } else {
+    setConnectionStatus("Online");
+  }
 }
 
 export function updateElapsedTime(seconds) {
