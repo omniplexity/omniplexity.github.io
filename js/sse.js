@@ -107,7 +107,7 @@ async function fetchWithKeepAlive({ path, body, signal }) {
   });
 }
 
-async function createStream({ path, body, onEvent }) {
+function createStream({ path, body, onEvent }) {
   if (isStreaming() && path === "/chat/stream") {
     throw new Error("Another stream is already active");
   }
