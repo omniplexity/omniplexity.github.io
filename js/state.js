@@ -24,6 +24,7 @@ const defaultSettings = {
 
 const defaultUiState = {
   sidebarCollapsed: false,
+  inspectorCollapsed: false,
 };
 
 function loadResumeHints() {
@@ -104,6 +105,7 @@ function loadUiState() {
     return {
       ...defaultUiState,
       sidebarCollapsed: Boolean(parsed?.sidebarCollapsed),
+      inspectorCollapsed: Boolean(parsed?.inspectorCollapsed),
     };
   } catch (e) {
     console.warn("Unable to load UI state", e);
@@ -235,6 +237,15 @@ export function setSidebarCollapsed(collapsed) {
 
 export function isSidebarCollapsed() {
   return Boolean(state.ui.sidebarCollapsed);
+}
+
+export function setInspectorCollapsed(collapsed) {
+  state.ui.inspectorCollapsed = Boolean(collapsed);
+  persistUiState();
+}
+
+export function isInspectorCollapsed() {
+  return Boolean(state.ui.inspectorCollapsed);
 }
 
 export function resetUiState() {

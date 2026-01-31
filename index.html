@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <base href="./" />
   <title>OmniAI Workspace</title>
-  <meta name="theme-color" content="#0b0f14" />
+  <meta name="theme-color" content="#0E0F12" />
   <link rel="icon" href="./favicon.ico" />
   <link rel="stylesheet" href="./assets/css/fonts.css" />
   <link rel="stylesheet" href="./assets/css/style.css" />
@@ -70,18 +70,49 @@
     <div id="errorBanner" class="error-banner hidden" role="alert"></div>
 
     <div class="workspace" role="main">
-      <aside class="sidebar" aria-label="Conversations">
+      <aside class="sidebar navigator" aria-label="Navigator">
         <div class="sidebar-header">
           <div class="sidebar-title">
-            <strong>Conversations</strong>
-            <span class="sidebar-subtitle">Your AI workspace history</span>
+            <strong>Navigator</strong>
+            <span class="sidebar-subtitle">Conversations, agents, artifacts</span>
           </div>
           <div class="sidebar-actions">
             <button id="adminToggleBtn" class="link-btn hidden" type="button" title="Open admin panel">Admin</button>
             <button id="newConvoBtn" class="primary-btn" type="button" aria-label="Start new conversation" title="Start a new chat">New chat</button>
           </div>
         </div>
-        <div class="conversation-list" id="conversationList" tabindex="0"></div>
+        <div class="navigator-search">
+          <label class="sr-only" for="navigatorSearch">Search</label>
+          <input id="navigatorSearch" type="search" placeholder="Search conversations, agents, prompts..." />
+        </div>
+        <div class="navigator-section navigator-conversations">
+          <div class="navigator-section-header">
+            <span>Conversations</span>
+            <span class="navigator-section-meta">Recent</span>
+          </div>
+          <div class="conversation-list" id="conversationList" tabindex="0"></div>
+        </div>
+        <div class="navigator-section">
+          <div class="navigator-section-header">
+            <span>Agents</span>
+            <span class="navigator-section-meta">Active</span>
+          </div>
+          <div class="navigator-empty">Agents will surface here.</div>
+        </div>
+        <div class="navigator-section">
+          <div class="navigator-section-header">
+            <span>Saved prompts</span>
+            <span class="navigator-section-meta">Pinned</span>
+          </div>
+          <div class="navigator-empty">Pin common prompts for quick reuse.</div>
+        </div>
+        <div class="navigator-section">
+          <div class="navigator-section-header">
+            <span>Artifacts</span>
+            <span class="navigator-section-meta">Workspace</span>
+          </div>
+          <div class="navigator-empty">Artifacts will appear here.</div>
+        </div>
         <div class="sidebar-footer">
           <p class="sidebar-note">Tip: Rename chats to keep context organized.</p>
         </div>
@@ -97,6 +128,80 @@
           </div>
         </div>
       </section>
+
+      <aside class="inspector" aria-label="Inspector">
+        <div class="inspector-header">
+          <div class="inspector-title">
+            <strong>Inspector</strong>
+            <span class="inspector-subtitle">Run metadata, controls, diagnostics</span>
+          </div>
+          <button id="inspectorToggleBtn" class="icon-btn inspector-toggle" type="button" aria-label="Toggle inspector" title="Toggle inspector">
+            <span aria-hidden="true"><<</span>
+          </button>
+        </div>
+        <div class="inspector-rail" aria-hidden="true">Inspector</div>
+        <div class="inspector-content">
+          <div class="inspector-section">
+            <h3>Run Context</h3>
+            <div class="inspector-grid">
+              <div class="inspector-item">
+                <span>Provider</span>
+                <strong id="inspectorProvider">-</strong>
+              </div>
+              <div class="inspector-item">
+                <span>Model</span>
+                <strong id="inspectorModel">-</strong>
+              </div>
+              <div class="inspector-item">
+                <span>Variant</span>
+                <strong id="inspectorVariant">-</strong>
+              </div>
+              <div class="inspector-item">
+                <span>Capabilities</span>
+                <strong id="inspectorCapabilities">-</strong>
+              </div>
+            </div>
+          </div>
+          <div class="inspector-section">
+            <h3>Generation</h3>
+            <div class="inspector-grid">
+              <div class="inspector-item">
+                <span>Tokens</span>
+                <strong id="inspectorTokens">-</strong>
+              </div>
+              <div class="inspector-item">
+                <span>Latency</span>
+                <strong id="inspectorLatency">-</strong>
+              </div>
+              <div class="inspector-item">
+                <span>Duration</span>
+                <strong id="inspectorDuration">-</strong>
+              </div>
+              <div class="inspector-item">
+                <span>Temperature</span>
+                <strong id="inspectorTemperature">-</strong>
+              </div>
+              <div class="inspector-item">
+                <span>Top-p</span>
+                <strong id="inspectorTopP">-</strong>
+              </div>
+              <div class="inspector-item">
+                <span>Max tokens</span>
+                <strong id="inspectorMaxTokens">-</strong>
+              </div>
+            </div>
+          </div>
+          <div class="inspector-section">
+            <h3>Diagnostics</h3>
+            <div class="inspector-grid">
+              <div class="inspector-item wide">
+                <span>Status</span>
+                <strong id="inspectorStatus">Awaiting response.</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
     </div>
 
     <section class="action-bar" aria-label="Composer">

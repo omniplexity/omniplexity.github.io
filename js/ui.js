@@ -30,6 +30,17 @@ const dom = {
   userName: document.getElementById("userName"),
   userRoleBadge: document.getElementById("userRoleBadge"),
   providersPanel: document.getElementById("providersPanel"),
+  inspectorProvider: document.getElementById("inspectorProvider"),
+  inspectorModel: document.getElementById("inspectorModel"),
+  inspectorVariant: document.getElementById("inspectorVariant"),
+  inspectorCapabilities: document.getElementById("inspectorCapabilities"),
+  inspectorTokens: document.getElementById("inspectorTokens"),
+  inspectorLatency: document.getElementById("inspectorLatency"),
+  inspectorDuration: document.getElementById("inspectorDuration"),
+  inspectorTemperature: document.getElementById("inspectorTemperature"),
+  inspectorTopP: document.getElementById("inspectorTopP"),
+  inspectorMaxTokens: document.getElementById("inspectorMaxTokens"),
+  inspectorStatus: document.getElementById("inspectorStatus"),
   settingsModal: document.getElementById("settingsModal"),
   settingsOpenBtn: document.getElementById("settingsOpenBtn"),
   settingsCloseBtn: document.getElementById("settingsCloseBtn"),
@@ -76,6 +87,7 @@ const dom = {
 };
 
 let copyTimeouts = new Map();
+let lastAssistantHeight = 160;
 const virtualizationState = {
   lastRange: { start: -1, end: -1 },
 };
@@ -316,6 +328,28 @@ function createTypingPlaceholder() {
   return placeholder;
 }
 
+function getTypingReserveHeight() {
+  const average = Math.max(getAverageMessageHeight(), 120);
+  const reserve = Math.max(average, lastAssistantHeight || 0);
+  return Math.min(reserve, 320);
+}
+
+function appendTypingCursor(container) {
+  if (!container) return;
+  let target = container.lastElementChild;
+  if (target && target.tagName && /^(UL|OL)$/.test(target.tagName)) {
+    target = target.lastElementChild || target;
+  }
+  if (target && target.classList.contains("message-placeholder")) {
+    target = null;
+  }
+  const cursor = document.createElement("span");
+  cursor.className = "typing-cursor";
+  cursor.setAttribute("aria-hidden", "true");
+  cursor.textContent = "▍";
+  (target || container).appendChild(cursor);
+}
+
 function createMessageElement(message) {
   const el = document.createElement("article");
   el.className = `message ${message.role}`;
@@ -353,6 +387,12 @@ function createMessageElement(message) {
   } else {
     contentNode.appendChild(renderMessageContent(message.content || ""));
   }
+  if (message.role === "assistant" && message.isTyping) {
+    const reserveHeight = getTypingReserveHeight();
+    el.style.minHeight = `${reserveHeight}px`;
+    el.dataset.reservedHeight = `${reserveHeight}`;
+    appendTypingCursor(contentNode);
+  }
   el.appendChild(contentNode);
   const metaInfo = collectMetadata(message);
   if (metaInfo.entries.length) {
@@ -370,12 +410,6 @@ function createMessageElement(message) {
     err.className = "message-error";
     err.textContent = message.errorMessage;
     el.appendChild(err);
-  }
-  if (message.role === "assistant" && message.isTyping) {
-    const cursor = document.createElement("span");
-    cursor.className = "typing-cursor";
-    cursor.setAttribute("aria-hidden", "true");
-    el.appendChild(cursor);
   }
   return el;
 }
@@ -406,8 +440,12 @@ function measureRenderedHeights() {
     const id = node.getAttribute("data-message-id");
     if (!id) return;
     const rect = node.getBoundingClientRect();
-    if (rect.height > 0) {
+    const isTyping = node.classList.contains("typing");
+    if (rect.height > 0 && !isTyping) {
       recordMessageHeight(id, rect.height);
+      if (node.classList.contains("assistant")) {
+        lastAssistantHeight = rect.height;
+      }
     }
   });
 }
@@ -504,14 +542,18 @@ function updateMessageElement(message) {
   }
   if (message.role === "assistant" && message.isTyping) {
     existing.classList.add("typing");
-    if (!existing.querySelector(".typing-cursor")) {
-      const cursor = document.createElement("span");
-      cursor.className = "typing-cursor";
-      cursor.setAttribute("aria-hidden", "true");
-      existing.appendChild(cursor);
+    const reserved = existing.dataset.reservedHeight
+      ? Number(existing.dataset.reservedHeight)
+      : getTypingReserveHeight();
+    existing.style.minHeight = `${reserved}px`;
+    existing.dataset.reservedHeight = `${reserved}`;
+    if (!contentNode.querySelector(".typing-cursor")) {
+      appendTypingCursor(contentNode);
     }
   } else {
     existing.classList.remove("typing");
+    existing.style.minHeight = "";
+    delete existing.dataset.reservedHeight;
     existing.querySelectorAll(".typing-cursor").forEach((node) => node.remove());
   }
   captureMessageHeight(message.id);
@@ -521,9 +563,13 @@ function captureMessageHeight(messageId) {
   if (!messageId || !dom.messageStream) return;
   const el = dom.messageStream.querySelector(`[data-message-id="${messageId}"]`);
   if (!el) return;
+  if (el.classList.contains("typing")) return;
   const rect = el.getBoundingClientRect();
   if (rect.height > 0) {
     recordMessageHeight(messageId, rect.height);
+    if (el.classList.contains("assistant")) {
+      lastAssistantHeight = rect.height;
+    }
   }
 }
 
@@ -630,6 +676,91 @@ export function updateMessage(message) {
   updateMessageElement(message);
 }
 
+const INSPECTOR_EMPTY = "-";
+
+function setInspectorValue(node, value) {
+  if (!node) return;
+  node.textContent = value && value !== "0" ? value : value === 0 || value === "0" ? "0" : INSPECTOR_EMPTY;
+}
+
+function formatNumberValue(value, precision = 2) {
+  if (value == null || value === "") return INSPECTOR_EMPTY;
+  const num = Number(value);
+  if (!Number.isFinite(num)) return INSPECTOR_EMPTY;
+  const fixed = num.toFixed(precision);
+  return fixed.replace(/\.?0+$/, "");
+}
+
+function formatIntegerValue(value) {
+  if (value == null || value === "") return INSPECTOR_EMPTY;
+  const num = Number(value);
+  if (!Number.isFinite(num)) return INSPECTOR_EMPTY;
+  return String(Math.round(num));
+}
+
+function formatTokenUsage(tokenUsage) {
+  if (!tokenUsage || typeof tokenUsage !== "object") return INSPECTOR_EMPTY;
+  const prompt = tokenUsage.prompt_tokens;
+  const completion = tokenUsage.completion_tokens;
+  const total = tokenUsage.total_tokens;
+  const parts = [];
+  if (prompt != null) parts.push(`P ${prompt}`);
+  if (completion != null) parts.push(`C ${completion}`);
+  if (total != null) parts.push(`T ${total}`);
+  return parts.length ? parts.join(" / ") : INSPECTOR_EMPTY;
+}
+
+function formatDurationMs(ms) {
+  if (ms == null || !Number.isFinite(ms)) return INSPECTOR_EMPTY;
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  const seconds = ms / 1000;
+  if (seconds < 60) {
+    return `${seconds.toFixed(2).replace(/\.?0+$/, "")}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remaining = Math.round(seconds % 60);
+  return `${minutes}m ${remaining}s`;
+}
+
+export function updateInspector({
+  provider,
+  model,
+  variant,
+  capabilities,
+  tokens,
+  latencyMs,
+  durationMs,
+  temperature,
+  topP,
+  maxTokens,
+  status,
+} = {}) {
+  if (provider !== undefined) setInspectorValue(dom.inspectorProvider, provider || INSPECTOR_EMPTY);
+  if (model !== undefined) setInspectorValue(dom.inspectorModel, model || INSPECTOR_EMPTY);
+  if (variant !== undefined) setInspectorValue(dom.inspectorVariant, variant || INSPECTOR_EMPTY);
+  if (capabilities !== undefined) {
+    const value = Array.isArray(capabilities) ? capabilities.join(" / ") : capabilities;
+    setInspectorValue(dom.inspectorCapabilities, value || INSPECTOR_EMPTY);
+  }
+  if (tokens !== undefined) setInspectorValue(dom.inspectorTokens, formatTokenUsage(tokens));
+  if (latencyMs !== undefined) setInspectorValue(dom.inspectorLatency, formatDurationMs(latencyMs));
+  if (durationMs !== undefined) setInspectorValue(dom.inspectorDuration, formatDurationMs(durationMs));
+  if (temperature !== undefined) setInspectorValue(dom.inspectorTemperature, formatNumberValue(temperature));
+  if (topP !== undefined) setInspectorValue(dom.inspectorTopP, formatNumberValue(topP));
+  if (maxTokens !== undefined) setInspectorValue(dom.inspectorMaxTokens, formatIntegerValue(maxTokens));
+  if (status !== undefined) setInspectorValue(dom.inspectorStatus, status || "Idle");
+}
+
+export function syncInspectorWithSettings(settings) {
+  if (!settings) return;
+  updateInspector({
+    temperature: settings.temperature,
+    topP: settings.top_p,
+    maxTokens: settings.max_tokens,
+    capabilities: settings.streaming === false ? "Batch" : "Streaming",
+  });
+}
+
 export function updateStatus({ provider, model, token_usage }) {
   if (dom.providerLabel) {
     dom.providerLabel.textContent = provider || "—";
@@ -642,6 +773,7 @@ export function updateStatus({ provider, model, token_usage }) {
       ? `Tokens: ${token_usage.total_tokens ?? "—"}`
       : "Tokens: —";
   }
+  updateInspector({ provider, model, tokens: token_usage ?? null });
 }
 
 export function setBackendBadge(baseUrl) {

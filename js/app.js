@@ -52,12 +52,16 @@ import {
   getUiState,
   setSidebarCollapsed,
   isSidebarCollapsed,
+  setInspectorCollapsed,
+  isInspectorCollapsed,
   resetUiState,
 } from "./state.js";
 import {
   renderConversations,
   renderMessages,
   updateStatus,
+  updateInspector,
+  syncInspectorWithSettings,
   showError,
   bindConversationActions,
   bindJumpButton,
@@ -114,6 +118,7 @@ let auditFilters = { event: "", from: "", to: "" };
 let authRedirecting = false;
 const providerModelsCache = new Map();
 let autoRetryTimeout = null;
+let streamTiming = { startedAt: null, firstTokenAt: null };
 
 function normalizeProviderId(provider) {
   if (!provider) return null;
@@ -214,6 +219,7 @@ function applySettings(settings) {
   if (!settings) return;
   applySettingsToUI(settings);
   updateSettingsControls(settings);
+  syncInspectorWithSettings(settings);
   setAutoScroll(settings.autoScroll !== false);
 }
 
@@ -227,11 +233,17 @@ function handleSettingsReset() {
   resetUiState();
   applySettings(getSettings());
   updateSidebarUi(false);
+  updateInspectorUi(false);
 }
 
 function updateSidebarUi(collapsed) {
   document.body.classList.toggle("sidebar-collapsed", Boolean(collapsed));
   setSidebarCollapsed(Boolean(collapsed));
+}
+
+function updateInspectorUi(collapsed) {
+  document.body.classList.toggle("inspector-collapsed", Boolean(collapsed));
+  setInspectorCollapsed(Boolean(collapsed));
 }
 
 function clearAutoRetry() {
@@ -658,6 +670,7 @@ function clearUiForLogout() {
   }
   clearAutoRetry();
   detachStream();
+  streamTiming = { startedAt: null, firstTokenAt: null };
   clearActiveStreamMeta();
   stopElapsedTimer();
   updateStreamBadge(null);
@@ -670,6 +683,7 @@ function clearUiForLogout() {
   setUserSummary(null);
   setPlanBadge(null);
   updateStatus({ provider: null, model: null, token_usage: null });
+  updateInspector({ status: "Idle", latencyMs: null, durationMs: null, tokens: null });
   renderMessages([]);
   renderConversations([], handleSelectConversation, {
     onRename: handleRenameConversation,
@@ -831,6 +845,8 @@ function buildStreamHandlers(conversation) {
           ? "Polling…"
           : "Streaming…"
         : "Processing…";
+      streamTiming = { startedAt: getState().streamStartTime || Date.now(), firstTokenAt: null };
+      updateInspector({ status: statusLabel, latencyMs: null, durationMs: null });
       updateStreamBadge(statusLabel);
       startElapsedTimer();
       setRetryEnabled(false);
@@ -855,6 +871,10 @@ function buildStreamHandlers(conversation) {
       if (!message) return;
       const nextContent = `${message.content || ""}${data.text || ""}`;
       const updated = updateMessageById(assistantMessageId, { content: nextContent, isTyping: true });
+      if (streamTiming.startedAt && !streamTiming.firstTokenAt) {
+        streamTiming.firstTokenAt = Date.now();
+        updateInspector({ latencyMs: streamTiming.firstTokenAt - streamTiming.startedAt });
+      }
       const streamingEnabled = getSettings()?.streaming !== false;
       if (updated && streamingEnabled) {
         updateMessage(updated);
@@ -874,6 +894,13 @@ function buildStreamHandlers(conversation) {
         updateMessage(updated);
       }
       updateStatus({ provider: activeProvider, model: activeModel, token_usage: data?.token_usage });
+      if (streamTiming.startedAt) {
+        updateInspector({
+          status: "Completed",
+          durationMs: Date.now() - streamTiming.startedAt,
+        });
+      }
+      streamTiming = { startedAt: null, firstTokenAt: null };
       updateStreamBadge(null);
       hideResumeNotice();
       setRetryEnabled(false);
@@ -890,6 +917,15 @@ function buildStreamHandlers(conversation) {
       if (updated) {
         updateMessage(updated);
       }
+      if (streamTiming.startedAt) {
+        updateInspector({
+          status: "Error",
+          durationMs: Date.now() - streamTiming.startedAt,
+        });
+      } else {
+        updateInspector({ status: "Error" });
+      }
+      streamTiming = { startedAt: null, firstTokenAt: null };
       updateStreamBadge("Disconnected");
       showResumeNotice("Connection interrupted. Retry to continue.");
       setRetryEnabled(true);
@@ -909,6 +945,15 @@ function buildStreamHandlers(conversation) {
       if (updated) {
         updateMessage(updated);
       }
+      if (streamTiming.startedAt) {
+        updateInspector({
+          status: "Disconnected",
+          durationMs: Date.now() - streamTiming.startedAt,
+        });
+      } else {
+        updateInspector({ status: "Disconnected" });
+      }
+      streamTiming = { startedAt: null, firstTokenAt: null };
       setRetryEnabled(true);
       updateStreamBadge("Disconnected");
       showResumeNotice("A response may have been interrupted.");
@@ -924,6 +969,15 @@ function buildStreamHandlers(conversation) {
       if (updated) {
         updateMessage(updated);
       }
+      if (streamTiming.startedAt) {
+        updateInspector({
+          status: "Canceled",
+          durationMs: Date.now() - streamTiming.startedAt,
+        });
+      } else {
+        updateInspector({ status: "Canceled" });
+      }
+      streamTiming = { startedAt: null, firstTokenAt: null };
       updateStreamBadge("Canceled");
       showResumeNotice("Response canceled. Retry if you like.");
       setRetryEnabled(true);
@@ -1174,11 +1228,13 @@ async function mainApp() {
   const composer = document.getElementById("composerInput");
   const logoutBtn = document.getElementById("logoutBtn");
   const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+  const inspectorToggleBtn = document.getElementById("inspectorToggleBtn");
   const userMenuBtn = document.getElementById("userMenuBtn");
   const userMenuPanel = document.getElementById("userMenuPanel");
 
   applySettings(getSettings());
   updateSidebarUi(getUiState().sidebarCollapsed);
+  updateInspectorUi(getUiState().inspectorCollapsed);
   bindSettingsAccordion();
   bindSettingsControls({
     onChange: handleSettingsChange,
@@ -1232,6 +1288,10 @@ async function mainApp() {
 
   sidebarToggleBtn?.addEventListener("click", () => {
     updateSidebarUi(!isSidebarCollapsed());
+  });
+
+  inspectorToggleBtn?.addEventListener("click", () => {
+    updateInspectorUi(!isInspectorCollapsed());
   });
 
   userMenuBtn?.addEventListener("click", () => {
