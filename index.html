@@ -4,16 +4,19 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <base href="./" />
-  <title>OmniAI Chat</title>
+  <title>OmniAI Workspace</title>
   <meta name="theme-color" content="#0b0f14" />
   <link rel="icon" href="./favicon.ico" />
   <link rel="stylesheet" href="./assets/css/fonts.css" />
   <link rel="stylesheet" href="./assets/css/style.css" />
 </head>
-<body class="page app" data-page="app">
-  <main class="app-shell">
-    <header class="topbar">
+<body class="page app" data-page="app" data-theme="dark" data-density="comfortable" data-code-style="contrast" data-font-size="md" data-show-meta="off" data-debug="off">
+  <main class="app-shell" role="application">
+    <header class="topbar" role="banner">
       <div class="topbar-left">
+        <button id="sidebarToggleBtn" class="icon-btn" type="button" aria-label="Toggle sidebar" title="Toggle sidebar (Ctrl+B)">
+          <span aria-hidden="true">☰</span>
+        </button>
         <div class="brand">
           <img src="./icons/chat.svg" alt="" width="32" height="32" aria-hidden="true" />
           <div>
@@ -22,157 +25,349 @@
           </div>
         </div>
       </div>
+
       <div class="topbar-center" aria-label="System context">
         <div class="context-chip">
-          <span class="context-label">Model</span>
-          <span id="modelLabel" class="context-value">Model: —</span>
+          <span class="context-label">Provider</span>
+          <span id="providerLabel" class="context-value" title="Active provider for this chat">—</span>
         </div>
-        <div class="context-chip">
+        <div class="context-chip context-select">
+          <span class="context-label">Model</span>
+          <div class="context-controls">
+            <label class="sr-only" for="providerSelect">Provider</label>
+            <select id="providerSelect" class="select" title="Select provider for new responses"></select>
+            <label class="sr-only" for="modelSelect">Model</label>
+            <select id="modelSelect" class="select" title="Select model for new responses"></select>
+          </div>
+          <span id="modelLabel" class="context-value" title="Active model for this chat">—</span>
+        </div>
+        <div class="context-chip context-providers">
           <span class="context-label">Providers</span>
-          <div id="providersPanel" class="providers-panel"></div>
+          <div id="providersPanel" class="providers-panel" title="Configured providers"></div>
         </div>
       </div>
+
       <div class="topbar-right">
-        <span id="backendBadge" class="connection-badge" title="">Online</span>
-        <span id="planBadge" class="plan-badge">Plan: —</span>
-        <div class="user-pill">
-          <span id="userName" class="user-name">—</span>
-          <span id="userRoleBadge" class="role-badge" data-role="member">Member</span>
+        <span id="backendBadge" class="connection-badge" title="Backend connection status">Online</span>
+        <span id="planBadge" class="plan-badge" title="Current account plan">Plan: —</span>
+        <span id="debugBadge" class="debug-badge" title="Debug mode enabled">Debug</span>
+        <div class="user-menu">
+          <button id="userMenuBtn" class="user-pill" type="button" aria-haspopup="true" aria-expanded="false" title="Open user menu">
+            <span id="userName" class="user-name">—</span>
+            <span id="userRoleBadge" class="role-badge" data-role="member">Member</span>
+          </button>
+          <div id="userMenuPanel" class="user-menu-panel hidden" role="menu">
+            <div class="menu-item-row">
+              <button id="settingsOpenBtn" class="menu-item" type="button" role="menuitem" title="Open workspace settings">Settings</button>
+              <span class="help-tip menu-help" data-tooltip="Workspace settings and preferences." tabindex="0" aria-label="Workspace settings and preferences.">?</span>
+            </div>
+            <button id="logoutBtn" class="menu-item" type="button" role="menuitem" title="Sign out of OmniAI">Log out</button>
+          </div>
         </div>
-        <button id="logoutBtn" class="ghost-btn" type="button">Log out</button>
       </div>
     </header>
 
     <div id="errorBanner" class="error-banner hidden" role="alert"></div>
 
-    <div class="app-grid" role="main">
+    <div class="workspace" role="main">
       <aside class="sidebar" aria-label="Conversations">
         <div class="sidebar-header">
-          <strong>Conversations</strong>
+          <div class="sidebar-title">
+            <strong>Conversations</strong>
+            <span class="sidebar-subtitle">Your AI workspace history</span>
+          </div>
           <div class="sidebar-actions">
-            <button id="adminToggleBtn" class="link-btn hidden" type="button">Admin</button>
-            <button id="newConvoBtn" class="primary-btn" type="button" aria-label="Start new conversation">New chat</button>
+            <button id="adminToggleBtn" class="link-btn hidden" type="button" title="Open admin panel">Admin</button>
+            <button id="newConvoBtn" class="primary-btn" type="button" aria-label="Start new conversation" title="Start a new chat">New chat</button>
           </div>
         </div>
         <div class="conversation-list" id="conversationList" tabindex="0"></div>
         <div class="sidebar-footer">
-          <p class="sidebar-note">Invite codes unlock VIP features soon.</p>
+          <p class="sidebar-note">Tip: Rename chats to keep context organized.</p>
         </div>
       </aside>
 
-      <section class="transcript" aria-live="polite">
+      <section class="transcript" aria-live="polite" aria-label="Conversation transcript">
         <div class="message-stream" id="messageStream"></div>
         <div class="message-toolbar">
-          <button id="jumpBottomBtn" class="jump-btn hidden" type="button">Jump to bottom</button>
+          <button id="jumpBottomBtn" class="jump-btn hidden" type="button" title="Scroll to latest message">Jump to bottom</button>
           <div id="resumeNotice" class="resume-notice hidden" role="status">
             <span>A response may have been interrupted.</span>
-            <button id="resumeRetryBtn" class="link-btn" type="button">Retry</button>
-          </div>
-        </div>
-        <div class="prompt-bar" aria-label="Composer">
-          <label class="prompt-label" for="composerInput">Prompt</label>
-          <div class="prompt-body">
-            <textarea id="composerInput" placeholder="Ask something..." rows="3"></textarea>
-          </div>
-          <div class="prompt-actions">
-            <span id="streamBadge" class="stream-badge hidden" aria-live="polite"></span>
-            <span id="elapsedTime" class="elapsed-time hidden" aria-live="polite"></span>
-            <span id="tokenUsage" class="token-usage">Tokens: —</span>
-            <button id="sendBtn" class="primary-btn" type="button">Send</button>
-            <button id="cancelBtn" class="ghost-btn" type="button">Stop</button>
-            <button id="retryBtn" class="ghost-btn" type="button">Retry</button>
-          </div>
-        </div>
-      </section>
-
-      <section id="adminPanel" class="admin-panel hidden" aria-live="polite">
-        <div class="admin-panel-inner">
-          <header class="admin-panel-header">
-            <div>
-              <h2>Admin Controls</h2>
-              <p class="admin-panel-subtitle">Manage users, quotas, invites, and audit logs.</p>
-            </div>
-            <button id="adminCloseBtn" class="link-btn" type="button">Close</button>
-          </header>
-          <div class="admin-section">
-            <div class="admin-section-header">
-              <h3>Users</h3>
-              <div class="admin-header-actions">
-                <span id="adminSelectionCount" class="admin-selection-count hidden" aria-live="polite">0 selected</span>
-                <button id="adminExportUsersBtn" class="link-btn" type="button">Export CSV</button>
-                <button id="bulkEnableUsersBtn" class="link-btn" type="button" disabled>Enable selected</button>
-                <button id="bulkDisableUsersBtn" class="link-btn" type="button" disabled>Disable selected</button>
-                <button id="adminUsersRefreshBtn" class="link-btn" type="button">Refresh</button>
-              </div>
-            </div>
-            <div id="adminUsersTable" class="admin-users-table"></div>
-          </div>
-          <div class="admin-section">
-            <div class="admin-section-header">
-              <h3>Usage</h3>
-              <div class="admin-header-actions">
-                <button id="adminExportUsageBtn" class="link-btn" type="button">Export CSV</button>
-                <button id="adminUsageRefreshBtn" class="link-btn" type="button">Refresh</button>
-              </div>
-            </div>
-            <div id="adminUsageList"></div>
-          </div>
-          <div class="admin-section">
-            <div class="admin-section-header">
-              <h3>Invites</h3>
-            </div>
-            <form id="adminInvitesForm" class="admin-invite-form">
-              <label>
-                Expires in (seconds)
-                <input type="number" name="expires_in_seconds" value="604800" min="60" max="2592000" />
-              </label>
-              <label>
-                Max uses
-                <input type="number" name="max_uses" value="1" min="1" max="100" />
-              </label>
-              <button type="submit" class="primary-btn">Create Invite</button>
-            </form>
-            <div id="adminInvitesList" class="admin-invites-list"></div>
-          </div>
-          <div class="admin-section">
-            <div class="admin-section-header">
-              <h3>Audit Log</h3>
-              <div class="admin-header-actions">
-                <button id="adminExportAuditBtn" class="link-btn" type="button">Export CSV</button>
-                <button id="adminAuditRefreshBtn" class="link-btn" type="button">Refresh</button>
-              </div>
-            </div>
-            <div class="admin-filter-row">
-              <label class="admin-filter-item">
-                Event type
-                <select id="adminAuditEventFilter">
-                  <option value="">All</option>
-                  <option value="USER_DISABLE">User Disabled</option>
-                  <option value="USER_ENABLE">User Enabled</option>
-                  <option value="USER_QUOTA_UPDATE">Quota Updated</option>
-                  <option value="INVITE_CREATED">Invite Created</option>
-                  <option value="STREAM_STARTED">Stream Started</option>
-                  <option value="STREAM_RETRY">Stream Retried</option>
-                </select>
-              </label>
-              <label class="admin-filter-item">
-                From
-                <input type="date" id="adminAuditFromFilter" />
-              </label>
-              <label class="admin-filter-item">
-                To
-                <input type="date" id="adminAuditToFilter" />
-              </label>
-              <button id="adminApplyAuditFilterBtn" class="link-btn" type="button">Apply filters</button>
-            </div>
-            <div id="adminAuditList" class="admin-audit-list"></div>
+            <button id="resumeRetryBtn" class="link-btn" type="button" title="Retry the last response">Retry</button>
           </div>
         </div>
       </section>
     </div>
 
-    <div class="card providers-panel hidden" id="settingsPanel"></div>
+    <section class="action-bar" aria-label="Composer">
+      <div class="action-bar-header">
+        <div class="action-status">
+          <span id="streamBadge" class="stream-badge hidden" aria-live="polite" title="Streaming status"></span>
+          <span id="elapsedTime" class="elapsed-time hidden" aria-live="polite" title="Elapsed streaming time"></span>
+          <span id="tokenUsage" class="token-usage" title="Token usage for the latest response">Tokens: —</span>
+        </div>
+        <div class="action-hints">
+          <span class="hint">Enter = send · Shift+Enter = newline</span>
+        </div>
+      </div>
+      <label class="prompt-label" for="composerInput">Prompt</label>
+      <div class="prompt-body">
+        <textarea id="composerInput" placeholder="Ask something..." rows="3" title="Type your prompt. Enter to send, Shift+Enter for a newline."></textarea>
+      </div>
+      <div class="prompt-actions">
+        <button id="sendBtn" class="primary-btn" type="button" title="Send message">Send</button>
+        <button id="cancelBtn" class="ghost-btn" type="button" title="Stop streaming response">Stop</button>
+        <button id="retryBtn" class="ghost-btn" type="button" title="Retry the last response">Retry</button>
+      </div>
+    </section>
   </main>
+
+  <div id="settingsModal" class="settings-modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="settings-backdrop" data-close="settings"></div>
+    <div class="settings-panel">
+      <header class="settings-header">
+        <div>
+          <h2 id="settingsTitle">Workspace Settings</h2>
+          <p class="settings-subtitle">Tune your model, UI, and streaming preferences.</p>
+        </div>
+        <button id="settingsCloseBtn" class="ghost-btn" type="button" aria-label="Close settings" title="Close settings">Close</button>
+      </header>
+
+      <div class="settings-groups" id="settingsGroups">
+        <details class="settings-group" data-settings-group="model" open>
+          <summary>Model &amp; Generation</summary>
+          <div class="settings-body">
+            <label>
+              Provider
+              <span class="help-tip" data-tooltip="Choose which backend provider supplies the available models." tabindex="0" aria-label="Choose which backend provider supplies the available models.">?</span>
+              <select id="settingsProviderSelect"></select>
+            </label>
+            <label>
+              Default model
+              <span class="help-tip" data-tooltip="Set the model used for new chats unless overridden per conversation." tabindex="0" aria-label="Set the model used for new chats unless overridden per conversation.">?</span>
+              <select id="settingsModelSelect"></select>
+            </label>
+            <label>
+              Temperature
+              <span class="help-tip" data-tooltip="Controls creativity. Higher values are more varied; lower values are more deterministic." tabindex="0" aria-label="Controls creativity. Higher values are more varied; lower values are more deterministic.">?</span>
+              <input id="settingTemperature" type="number" min="0" max="2" step="0.1" />
+            </label>
+            <label>
+              Top-p
+              <span class="help-tip" data-tooltip="Nucleus sampling threshold. Lower values keep output focused on higher-probability tokens." tabindex="0" aria-label="Nucleus sampling threshold. Lower values keep output focused on higher-probability tokens.">?</span>
+              <input id="settingTopP" type="number" min="0" max="1" step="0.05" />
+            </label>
+            <label>
+              Max tokens
+              <span class="help-tip" data-tooltip="Upper bound for completion length. Leave empty to use provider defaults." tabindex="0" aria-label="Upper bound for completion length. Leave empty to use provider defaults.">?</span>
+              <input id="settingMaxTokens" type="number" min="1" step="1" />
+            </label>
+          </div>
+          <details class="settings-advanced">
+            <summary>Advanced</summary>
+            <div class="settings-body">
+              <label class="toggle">
+                <span>Streaming enabled <span class="help-tip" data-tooltip="Toggle SSE streaming. Disable if you prefer full responses at once." tabindex="0" aria-label="Toggle SSE streaming. Disable if you prefer full responses at once.">?</span></span>
+                <input id="settingStreaming" type="checkbox" />
+              </label>
+            </div>
+          </details>
+        </details>
+
+        <details class="settings-group" data-settings-group="appearance">
+          <summary>UI &amp; Appearance</summary>
+          <div class="settings-body">
+            <label>
+              Theme
+              <span class="help-tip" data-tooltip="Workspace theme preset. Additional themes can be added later." tabindex="0" aria-label="Workspace theme preset. Additional themes can be added later.">?</span>
+              <select id="settingTheme">
+                <option value="dark">Dark</option>
+              </select>
+            </label>
+            <label>
+              Chat font size
+              <span class="help-tip" data-tooltip="Adjust the size of chat text without changing system labels." tabindex="0" aria-label="Adjust the size of chat text without changing system labels.">?</span>
+              <select id="settingFontSize">
+                <option value="sm">Small</option>
+                <option value="md">Medium</option>
+                <option value="lg">Large</option>
+              </select>
+            </label>
+            <label>
+              Code block style
+              <span class="help-tip" data-tooltip="Choose the background styling for code blocks in responses." tabindex="0" aria-label="Choose the background styling for code blocks in responses.">?</span>
+              <select id="settingCodeStyle">
+                <option value="contrast">Contrast</option>
+                <option value="midnight">Midnight</option>
+                <option value="solar">Solar</option>
+              </select>
+            </label>
+            <label>
+              Layout density
+              <span class="help-tip" data-tooltip="Switch between comfortable spacing and a tighter layout." tabindex="0" aria-label="Switch between comfortable spacing and a tighter layout.">?</span>
+              <select id="settingDensity">
+                <option value="comfortable">Spacious</option>
+                <option value="compact">Compact</option>
+              </select>
+            </label>
+          </div>
+          <details class="settings-advanced">
+            <summary>Advanced</summary>
+            <div class="settings-body">
+              <label class="toggle">
+                <span>Sidebar auto-collapse <span class="help-tip" data-tooltip="Automatically collapse the sidebar after selecting a conversation." tabindex="0" aria-label="Automatically collapse the sidebar after selecting a conversation.">?</span></span>
+                <input id="settingSidebarCollapse" type="checkbox" />
+              </label>
+            </div>
+          </details>
+        </details>
+
+        <details class="settings-group" data-settings-group="behavior">
+          <summary>Chat Behavior</summary>
+          <div class="settings-body">
+            <label class="toggle">
+              <span>Auto-scroll to newest message <span class="help-tip" data-tooltip="Keep the transcript pinned to the latest message while streaming." tabindex="0" aria-label="Keep the transcript pinned to the latest message while streaming.">?</span></span>
+              <input id="settingAutoScroll" type="checkbox" />
+            </label>
+            <label class="toggle">
+              <span>Show token usage <span class="help-tip" data-tooltip="Display token counts in the action bar after each response." tabindex="0" aria-label="Display token counts in the action bar after each response.">?</span></span>
+              <input id="settingShowTokens" type="checkbox" />
+            </label>
+            <label class="toggle">
+              <span>Show provider metadata <span class="help-tip" data-tooltip="Reveal provider/model metadata on assistant messages." tabindex="0" aria-label="Reveal provider/model metadata on assistant messages.">?</span></span>
+              <input id="settingShowMeta" type="checkbox" />
+            </label>
+          </div>
+          <details class="settings-advanced">
+            <summary>Advanced</summary>
+            <div class="settings-body">
+              <label>
+                Retry behavior
+                <span class="help-tip" data-tooltip="Control whether the client retries automatically after disconnects." tabindex="0" aria-label="Control whether the client retries automatically after disconnects.">?</span>
+                <select id="settingRetryBehavior">
+                  <option value="manual">Manual only</option>
+                  <option value="auto">Auto retry after disconnect</option>
+                </select>
+              </label>
+            </div>
+          </details>
+        </details>
+
+        <details class="settings-group" data-settings-group="system">
+          <summary>System</summary>
+          <div class="settings-body">
+            <div class="settings-reset">
+              <button id="settingsResetBtn" class="ghost-btn" type="button">Reset UI state</button>
+              <span class="help-tip" data-tooltip="Clears UI preferences such as sidebar state and restores defaults." tabindex="0" aria-label="Clears UI preferences such as sidebar state and restores defaults.">?</span>
+            </div>
+          </div>
+          <details class="settings-advanced">
+            <summary>Advanced</summary>
+            <div class="settings-body">
+              <label>
+                Transport preference
+                <span class="help-tip" data-tooltip="Prefer SSE for realtime tokens or polling for compatibility." tabindex="0" aria-label="Prefer SSE for realtime tokens or polling for compatibility.">?</span>
+                <select id="settingTransport">
+                  <option value="sse">Prefer SSE</option>
+                  <option value="polling">Prefer polling</option>
+                </select>
+              </label>
+              <label class="toggle">
+                <span>Debug mode <span class="help-tip" data-tooltip="Show extra diagnostics and metadata badges in the UI." tabindex="0" aria-label="Show extra diagnostics and metadata badges in the UI.">?</span></span>
+                <input id="settingDebug" type="checkbox" />
+              </label>
+            </div>
+          </details>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <section id="adminPanel" class="admin-panel hidden" aria-live="polite">
+    <div class="admin-panel-inner">
+      <header class="admin-panel-header">
+        <div>
+          <h2>Admin Controls</h2>
+          <p class="admin-panel-subtitle">Manage users, quotas, invites, and audit logs.</p>
+        </div>
+        <button id="adminCloseBtn" class="link-btn" type="button">Close</button>
+      </header>
+      <div class="admin-section">
+        <div class="admin-section-header">
+          <h3>Users</h3>
+          <div class="admin-header-actions">
+            <span id="adminSelectionCount" class="admin-selection-count hidden" aria-live="polite">0 selected</span>
+            <button id="adminExportUsersBtn" class="link-btn" type="button">Export CSV</button>
+            <button id="bulkEnableUsersBtn" class="link-btn" type="button" disabled>Enable selected</button>
+            <button id="bulkDisableUsersBtn" class="link-btn" type="button" disabled>Disable selected</button>
+            <button id="adminUsersRefreshBtn" class="link-btn" type="button">Refresh</button>
+          </div>
+        </div>
+        <div id="adminUsersTable" class="admin-users-table"></div>
+      </div>
+      <div class="admin-section">
+        <div class="admin-section-header">
+          <h3>Usage</h3>
+          <div class="admin-header-actions">
+            <button id="adminExportUsageBtn" class="link-btn" type="button">Export CSV</button>
+            <button id="adminUsageRefreshBtn" class="link-btn" type="button">Refresh</button>
+          </div>
+        </div>
+        <div id="adminUsageList"></div>
+      </div>
+      <div class="admin-section">
+        <div class="admin-section-header">
+          <h3>Invites</h3>
+        </div>
+        <form id="adminInvitesForm" class="admin-invite-form">
+          <label>
+            Expires in (seconds)
+            <input type="number" name="expires_in_seconds" value="604800" min="60" max="2592000" />
+          </label>
+          <label>
+            Max uses
+            <input type="number" name="max_uses" value="1" min="1" max="100" />
+          </label>
+          <button type="submit" class="primary-btn">Create Invite</button>
+        </form>
+        <div id="adminInvitesList" class="admin-invites-list"></div>
+      </div>
+      <div class="admin-section">
+        <div class="admin-section-header">
+          <h3>Audit Log</h3>
+          <div class="admin-header-actions">
+            <button id="adminExportAuditBtn" class="link-btn" type="button">Export CSV</button>
+            <button id="adminAuditRefreshBtn" class="link-btn" type="button">Refresh</button>
+          </div>
+        </div>
+        <div class="admin-filter-row">
+          <label class="admin-filter-item">
+            Event type
+            <select id="adminAuditEventFilter">
+              <option value="">All</option>
+              <option value="USER_DISABLE">User Disabled</option>
+              <option value="USER_ENABLE">User Enabled</option>
+              <option value="USER_QUOTA_UPDATE">Quota Updated</option>
+              <option value="INVITE_CREATED">Invite Created</option>
+              <option value="STREAM_STARTED">Stream Started</option>
+              <option value="STREAM_RETRY">Stream Retried</option>
+            </select>
+          </label>
+          <label class="admin-filter-item">
+            From
+            <input type="date" id="adminAuditFromFilter" />
+          </label>
+          <label class="admin-filter-item">
+            To
+            <input type="date" id="adminAuditToFilter" />
+          </label>
+          <button id="adminApplyAuditFilterBtn" class="link-btn" type="button">Apply filters</button>
+        </div>
+        <div id="adminAuditList" class="admin-audit-list"></div>
+      </div>
+    </div>
+  </section>
+
   <script type="module" src="./js/app.js"></script>
 </body>
 </html>

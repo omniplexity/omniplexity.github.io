@@ -46,6 +46,13 @@ import {
   resetAppState,
   getProviderSelection,
   setProviderSelection,
+  getSettings,
+  updateSettings,
+  resetSettings,
+  getUiState,
+  setSidebarCollapsed,
+  isSidebarCollapsed,
+  resetUiState,
 } from "./state.js";
 import {
   renderConversations,
@@ -88,12 +95,25 @@ import {
   setPlanBadge,
   setBackendBadge,
   renderProviders,
+  renderProviderOptions,
+  renderModelOptions,
+  bindProviderSelectors,
+  bindModelSelectors,
+  bindSettingsControls,
+  updateSettingsControls,
+  applySettingsToUI,
+  bindSettingsModal,
+  bindSettingsAccordion,
+  bindMessageActions,
+  openSettingsModal,
+  closeSettingsModal,
 } from "./ui.js";
 
 let elapsedInterval = null;
 let auditFilters = { event: "", from: "", to: "" };
 let authRedirecting = false;
 const providerModelsCache = new Map();
+let autoRetryTimeout = null;
 
 function normalizeProviderId(provider) {
   if (!provider) return null;
@@ -130,16 +150,18 @@ async function fetchProviderModels(providerId) {
 async function ensureProviderSelection(preferredProviderId, preferredModel) {
   const providers = getState().providers;
   const selection = getProviderSelection();
+  const settings = getSettings();
   const providerId =
     normalizeProviderId(preferredProviderId) ||
     normalizeProviderId(selection.providerId) ||
+    normalizeProviderId(settings?.defaultProviderId) ||
     pickDefaultProvider(providers);
   if (!providerId) {
     showError("No providers available.");
     return null;
   }
   const models = await fetchProviderModels(providerId);
-  let model = preferredModel || selection.model;
+  let model = preferredModel || selection.model || settings?.defaultModel;
   if (!model || (models.length && !models.includes(model))) {
     model = models[0] || null;
   }
@@ -149,7 +171,7 @@ async function ensureProviderSelection(preferredProviderId, preferredModel) {
   }
   setProviderSelection({ providerId, model });
   updateStatus({ provider: providerId, model, token_usage: null });
-  return { providerId, model };
+  return { providerId, model, models };
 }
 
 function applyConversationProviderModel(conversation, providerId, model) {
@@ -185,6 +207,103 @@ function syncConversationFromMessages(conversation, messages) {
   const model = lastAssistant.model || lastAssistant.provider_meta?.model || null;
   if (providerId || model) {
     applyConversationProviderModel(conversation, providerId, model);
+  }
+}
+
+function applySettings(settings) {
+  if (!settings) return;
+  applySettingsToUI(settings);
+  updateSettingsControls(settings);
+  setAutoScroll(settings.autoScroll !== false);
+}
+
+function handleSettingsChange(patch) {
+  const updated = updateSettings(patch);
+  applySettings(updated);
+}
+
+function handleSettingsReset() {
+  resetSettings();
+  resetUiState();
+  applySettings(getSettings());
+  updateSidebarUi(false);
+}
+
+function updateSidebarUi(collapsed) {
+  document.body.classList.toggle("sidebar-collapsed", Boolean(collapsed));
+  setSidebarCollapsed(Boolean(collapsed));
+}
+
+function clearAutoRetry() {
+  if (autoRetryTimeout) {
+    clearTimeout(autoRetryTimeout);
+    autoRetryTimeout = null;
+  }
+}
+
+function scheduleAutoRetry() {
+  const settings = getSettings();
+  if (settings?.retryBehavior !== "auto") return;
+  if (autoRetryTimeout) return;
+  autoRetryTimeout = setTimeout(() => {
+    autoRetryTimeout = null;
+    handleRetry();
+  }, 1200);
+}
+
+function buildStreamSettings() {
+  const settings = getSettings();
+  return {
+    temperature: settings?.temperature,
+    top_p: settings?.top_p,
+    max_tokens: settings?.max_tokens ?? null,
+    streaming: settings?.streaming !== false,
+    transport_preference: settings?.transportPreference || "sse",
+  };
+}
+
+async function setActiveProviderModel(providerId, model, { persist = false } = {}) {
+  if (!providerId) return null;
+  const models = await fetchProviderModels(providerId);
+  let nextModel = model;
+  if (!nextModel || (models.length && !models.includes(nextModel))) {
+    nextModel = models[0] || null;
+  }
+  if (!nextModel) {
+    showError(`No models available for ${providerId}.`);
+    return null;
+  }
+  setProviderSelection({ providerId, model: nextModel });
+  renderProviderOptions(getState().providers, providerId);
+  renderModelOptions(models, nextModel);
+  updateStatus({ provider: providerId, model: nextModel, token_usage: null });
+  renderProviders(getState().providers);
+  if (persist) {
+    updateSettings({ defaultProviderId: providerId, defaultModel: nextModel });
+  }
+  return { providerId, model: nextModel, models };
+}
+
+function applySelectionToConversation(providerId, model) {
+  const conversation = getState().selectedConversation;
+  if (!conversation) return;
+  applyConversationProviderModel(conversation, providerId, model);
+}
+
+async function handleProviderSelection(providerId) {
+  if (!providerId) return;
+  const selection = await setActiveProviderModel(providerId, null, { persist: true });
+  if (selection) {
+    applySelectionToConversation(selection.providerId, selection.model);
+  }
+}
+
+async function handleModelSelection(model) {
+  const providerId = getProviderSelection().providerId || getSettings()?.defaultProviderId;
+  if (!providerId || !model) return;
+  const selection = await setActiveProviderModel(providerId, model, { persist: true });
+  if (selection) {
+    applySelectionToConversation(selection.providerId, selection.model);
   }
 }
 
@@ -520,6 +639,13 @@ function setRetryEnabled(enabled) {
   retryBtn.disabled = !enabled;
 }
 
+function setStreamControls(active) {
+  const sendBtn = document.getElementById("sendBtn");
+  const cancelBtn = document.getElementById("cancelBtn");
+  if (sendBtn) sendBtn.disabled = Boolean(active);
+  if (cancelBtn) cancelBtn.disabled = !active;
+}
+
 function streamCompleted() {
   detachStream();
   stopElapsedTimer();
@@ -530,13 +656,16 @@ function clearUiForLogout() {
   if (stream) {
     stream.cancel();
   }
+  clearAutoRetry();
   detachStream();
   clearActiveStreamMeta();
   stopElapsedTimer();
   updateStreamBadge(null);
   hideResumeNotice();
   setRetryEnabled(false);
+  setStreamControls(false);
   setJumpButtonVisibility(false);
+  closeSettingsModal();
   resetAppState();
   setUserSummary(null);
   setPlanBadge(null);
@@ -689,17 +818,27 @@ function buildStreamHandlers(conversation) {
   let activeModel = model;
   return {
     meta(data) {
+      clearAutoRetry();
       const resolvedProvider = data.provider_id || providerId || "lmstudio";
       const resolvedModel = data.model || model || "default";
       const mode = data.mode || "sse";
       activeProvider = resolvedProvider;
       activeModel = resolvedModel;
       applyConversationProviderModel(conversation, resolvedProvider, resolvedModel);
-      updateStreamBadge(mode === "polling" ? "Polling…" : "Streaming…");
+      const streamingEnabled = getSettings()?.streaming !== false;
+      const statusLabel = streamingEnabled
+        ? mode === "polling"
+          ? "Polling…"
+          : "Streaming…"
+        : "Processing…";
+      updateStreamBadge(statusLabel);
       startElapsedTimer();
       setRetryEnabled(false);
-      setAutoScroll(true);
-      scrollToBottom();
+      setStreamControls(true);
+      setAutoScroll(getSettings()?.autoScroll !== false);
+      if (shouldAutoScroll()) {
+        scrollToBottom();
+      }
       setActiveStreamMeta({
         conversationId: conversation.id,
         assistantMessageId,
@@ -716,7 +855,8 @@ function buildStreamHandlers(conversation) {
       if (!message) return;
       const nextContent = `${message.content || ""}${data.text || ""}`;
       const updated = updateMessageById(assistantMessageId, { content: nextContent, isTyping: true });
-      if (updated) {
+      const streamingEnabled = getSettings()?.streaming !== false;
+      if (updated && streamingEnabled) {
         updateMessage(updated);
       }
       if (shouldAutoScroll()) {
@@ -724,7 +864,12 @@ function buildStreamHandlers(conversation) {
       }
     },
     final(data) {
-      const updated = updateMessageById(assistantMessageId, { isTyping: false });
+      const meta = data?.provider_meta || null;
+      const updated = updateMessageById(assistantMessageId, {
+        isTyping: false,
+        provider_meta: meta || undefined,
+        token_usage: data?.token_usage || undefined,
+      });
       if (updated) {
         updateMessage(updated);
       }
@@ -732,6 +877,7 @@ function buildStreamHandlers(conversation) {
       updateStreamBadge(null);
       hideResumeNotice();
       setRetryEnabled(false);
+      setStreamControls(false);
       streamCompleted();
       clearActiveStreamMeta();
     },
@@ -747,6 +893,8 @@ function buildStreamHandlers(conversation) {
       updateStreamBadge("Disconnected");
       showResumeNotice("Connection interrupted. Retry to continue.");
       setRetryEnabled(true);
+      setStreamControls(false);
+      scheduleAutoRetry();
       streamCompleted();
     },
     reconnecting() {
@@ -764,6 +912,8 @@ function buildStreamHandlers(conversation) {
       setRetryEnabled(true);
       updateStreamBadge("Disconnected");
       showResumeNotice("A response may have been interrupted.");
+      setStreamControls(false);
+      scheduleAutoRetry();
       streamCompleted();
     },
     canceled() {
@@ -777,6 +927,7 @@ function buildStreamHandlers(conversation) {
       updateStreamBadge("Canceled");
       showResumeNotice("Response canceled. Retry if you like.");
       setRetryEnabled(true);
+      setStreamControls(false);
       streamCompleted();
     },
   };
@@ -797,6 +948,7 @@ async function handleSend(composer) {
     showError("Select a conversation first");
     return;
   }
+  clearAutoRetry();
   if (!state.providers.length) {
     await loadProviders();
   }
@@ -807,21 +959,27 @@ async function handleSend(composer) {
   applyConversationProviderModel(conversation, selection.providerId, selection.model);
   composer.value = "";
   setRetryEnabled(false);
+  setStreamControls(true);
   pushMessage({ role: "user", content: text });
   renderMessages(getState().messages);
-  scrollToBottom();
+  if (getSettings()?.autoScroll !== false) {
+    scrollToBottom();
+  }
   const assistantMessage = pushMessage({ role: "assistant", content: "", isTyping: true });
   setCurrentAssistantMessageId(assistantMessage.id);
   renderMessages(getState().messages);
-  scrollToBottom();
+  if (getSettings()?.autoScroll !== false) {
+    scrollToBottom();
+  }
   setJumpButtonVisibility(false);
   updateStreamBadge(null);
+  const streamSettings = buildStreamSettings();
   const stream = createSseStream({
     conversationId: conversation.id,
     providerId: conversation.provider || selection.providerId,
     model: conversation.model || selection.model,
     input: text,
-    settings: {},
+    settings: streamSettings,
     onEvent: buildStreamHandlers(conversation),
   });
   attachStream(stream);
@@ -830,6 +988,7 @@ async function handleSend(composer) {
   } catch (err) {
     showError(err.message || "Stream failed");
     streamCompleted();
+    setStreamControls(false);
   }
 }
 
@@ -853,12 +1012,16 @@ async function handleRetry() {
     showError("Select a conversation to retry");
     return;
   }
+  clearAutoRetry();
   setRetryEnabled(false);
+  setStreamControls(true);
   hideResumeNotice();
   const assistantMessage = pushMessage({ role: "assistant", content: "", isTyping: true });
   setCurrentAssistantMessageId(assistantMessage.id);
   renderMessages(getState().messages);
-  scrollToBottom();
+  if (getSettings()?.autoScroll !== false) {
+    scrollToBottom();
+  }
   updateStreamBadge(null);
   const stream = createRetryStream(conversation.id, buildStreamHandlers(conversation));
   attachStream(stream);
@@ -867,6 +1030,7 @@ async function handleRetry() {
   } catch (err) {
     showError(err.message || "Retry failed");
     streamCompleted();
+    setStreamControls(false);
   }
 }
 
@@ -920,6 +1084,9 @@ async function handleSelectConversation(conversation) {
     onRename: handleRenameConversation,
     onDelete: handleDeleteConversation,
   });
+  if (getSettings()?.sidebarAutoCollapse) {
+    updateSidebarUi(true);
+  }
   document.getElementById("composerInput")?.focus();
   try {
     const payload = await get(`/conversations/${conversation.id}/messages`);
@@ -927,11 +1094,16 @@ async function handleSelectConversation(conversation) {
     resetVirtualMeasurements();
     resetVirtualRange();
     renderMessages(payload.messages);
-    scrollToBottom();
-    setAutoScroll(true);
+    if (getSettings()?.autoScroll !== false) {
+      scrollToBottom();
+    }
+    setAutoScroll(getSettings()?.autoScroll !== false);
     setJumpButtonVisibility(false);
     hideResumeNotice();
     syncConversationFromMessages(conversation, payload.messages);
+    if (conversation.provider || conversation.model) {
+      await setActiveProviderModel(conversation.provider, conversation.model, { persist: false });
+    }
     const hint = getResumeHint(conversation.id);
     if (hint) {
       const message = payload.messages.find((msg) => msg.id === hint.assistantMessageId);
@@ -961,8 +1133,12 @@ async function loadProviders() {
     const payload = await get("/providers");
     const providers = Array.isArray(payload) ? payload : payload?.providers;
     setProviders(Array.isArray(providers) ? providers : []);
+    const selection = await ensureProviderSelection();
     renderProviders(getState().providers);
-    await ensureProviderSelection();
+    renderProviderOptions(getState().providers, selection?.providerId || null);
+    if (selection?.models) {
+      renderModelOptions(selection.models, selection.model);
+    }
   } catch (err) {
     showError(err.message, err.code);
   }
@@ -975,7 +1151,12 @@ function setupScrolling() {
   streamEl.addEventListener("scroll", () => {
     const atBottom =
       streamEl.scrollHeight - streamEl.scrollTop - streamEl.clientHeight <= 80;
-    setAutoScroll(atBottom);
+    const autoEnabled = getSettings()?.autoScroll !== false;
+    if (autoEnabled) {
+      setAutoScroll(atBottom);
+    } else {
+      setAutoScroll(false);
+    }
     setJumpButtonVisibility(!atBottom);
     if (scrollRaf) {
       cancelAnimationFrame(scrollRaf);
@@ -992,11 +1173,45 @@ async function mainApp() {
   const retryBtn = document.getElementById("retryBtn");
   const composer = document.getElementById("composerInput");
   const logoutBtn = document.getElementById("logoutBtn");
+  const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+  const userMenuBtn = document.getElementById("userMenuBtn");
+  const userMenuPanel = document.getElementById("userMenuPanel");
+
+  applySettings(getSettings());
+  updateSidebarUi(getUiState().sidebarCollapsed);
+  bindSettingsAccordion();
+  bindSettingsControls({
+    onChange: handleSettingsChange,
+    onReset: handleSettingsReset,
+  });
+  bindSettingsModal({
+    onOpen: () => {
+      updateSettingsControls(getSettings());
+      const selection = getProviderSelection();
+      renderProviderOptions(getState().providers, selection.providerId);
+      if (selection.providerId) {
+        fetchProviderModels(selection.providerId).then((models) => {
+          renderModelOptions(models, selection.model);
+        });
+      }
+      openSettingsModal();
+      userMenuPanel?.classList.add("hidden");
+      userMenuBtn?.setAttribute("aria-expanded", "false");
+    },
+    onClose: () => closeSettingsModal(),
+  });
+  bindProviderSelectors(handleProviderSelection);
+  bindModelSelectors(handleModelSelection);
+  bindMessageActions({
+    onRetry: () => handleRetry(),
+  });
 
   bindConversationActions(startNewConversation);
   bindJumpButton(() => {
     scrollToBottom();
-    setAutoScroll(true);
+    if (getSettings()?.autoScroll !== false) {
+      setAutoScroll(true);
+    }
     setJumpButtonVisibility(false);
   });
   bindResumeRetry(handleRetry);
@@ -1005,12 +1220,39 @@ async function mainApp() {
   sendBtn?.addEventListener("click", () => handleSend(composer));
   cancelBtn?.addEventListener("click", handleCancel);
   retryBtn?.addEventListener("click", handleRetry);
+  setStreamControls(false);
   logoutBtn?.addEventListener("click", async () => {
     try {
       await logout();
     } finally {
       clearUiForLogout();
       window.location.replace(buildLoginUrl("logout"));
+    }
+  });
+
+  sidebarToggleBtn?.addEventListener("click", () => {
+    updateSidebarUi(!isSidebarCollapsed());
+  });
+
+  userMenuBtn?.addEventListener("click", () => {
+    if (!userMenuPanel) return;
+    const isHidden = userMenuPanel.classList.contains("hidden");
+    if (isHidden) {
+      userMenuPanel.classList.remove("hidden");
+      userMenuBtn.setAttribute("aria-expanded", "true");
+    } else {
+      userMenuPanel.classList.add("hidden");
+      userMenuBtn.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!userMenuPanel || !userMenuBtn) return;
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (!userMenuPanel.contains(target) && !userMenuBtn.contains(target)) {
+      userMenuPanel.classList.add("hidden");
+      userMenuBtn.setAttribute("aria-expanded", "false");
     }
   });
 
@@ -1022,6 +1264,19 @@ async function mainApp() {
     if (event.key === "Escape") {
       event.preventDefault();
       handleCancel();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    const key = event.key.toLowerCase();
+    if ((event.ctrlKey || event.metaKey) && key === "b") {
+      event.preventDefault();
+      updateSidebarUi(!isSidebarCollapsed());
+    }
+    if (event.key === "Escape") {
+      closeSettingsModal();
+      userMenuPanel?.classList.add("hidden");
+      userMenuBtn?.setAttribute("aria-expanded", "false");
     }
   });
 

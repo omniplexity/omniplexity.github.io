@@ -6,12 +6,17 @@ import {
   resetVirtualMeasurements,
   shouldAutoScroll,
   getSelectedAdminUsers,
+  getProviderSelection,
+  getSettings,
 } from "./state.js";
 
 const dom = {
   conversationList: document.getElementById("conversationList"),
   messageStream: document.getElementById("messageStream"),
   modelLabel: document.getElementById("modelLabel"),
+  providerLabel: document.getElementById("providerLabel"),
+  providerSelect: document.getElementById("providerSelect"),
+  modelSelect: document.getElementById("modelSelect"),
   tokenUsage: document.getElementById("tokenUsage"),
   statusLine: document.getElementById("statusLine"),
   errorBanner: document.getElementById("errorBanner"),
@@ -25,6 +30,28 @@ const dom = {
   userName: document.getElementById("userName"),
   userRoleBadge: document.getElementById("userRoleBadge"),
   providersPanel: document.getElementById("providersPanel"),
+  settingsModal: document.getElementById("settingsModal"),
+  settingsOpenBtn: document.getElementById("settingsOpenBtn"),
+  settingsCloseBtn: document.getElementById("settingsCloseBtn"),
+  settingsGroups: document.getElementById("settingsGroups"),
+  settingsProviderSelect: document.getElementById("settingsProviderSelect"),
+  settingsModelSelect: document.getElementById("settingsModelSelect"),
+  settingTemperature: document.getElementById("settingTemperature"),
+  settingTopP: document.getElementById("settingTopP"),
+  settingMaxTokens: document.getElementById("settingMaxTokens"),
+  settingStreaming: document.getElementById("settingStreaming"),
+  settingTheme: document.getElementById("settingTheme"),
+  settingFontSize: document.getElementById("settingFontSize"),
+  settingCodeStyle: document.getElementById("settingCodeStyle"),
+  settingDensity: document.getElementById("settingDensity"),
+  settingSidebarCollapse: document.getElementById("settingSidebarCollapse"),
+  settingAutoScroll: document.getElementById("settingAutoScroll"),
+  settingShowTokens: document.getElementById("settingShowTokens"),
+  settingShowMeta: document.getElementById("settingShowMeta"),
+  settingRetryBehavior: document.getElementById("settingRetryBehavior"),
+  settingTransport: document.getElementById("settingTransport"),
+  settingDebug: document.getElementById("settingDebug"),
+  settingsResetBtn: document.getElementById("settingsResetBtn"),
   adminToggle: document.getElementById("adminToggleBtn"),
   adminPanel: document.getElementById("adminPanel"),
   adminCloseBtn: document.getElementById("adminCloseBtn"),
@@ -186,6 +213,109 @@ function renderMessageContent(text) {
   return fragment;
 }
 
+function parseProviderMeta(message) {
+  if (!message) return null;
+  const raw = message.provider_meta;
+  if (!raw) return null;
+  if (typeof raw === "object") return raw;
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function collectMetadata(message) {
+  const meta = parseProviderMeta(message);
+  const entries = [];
+  const providerId =
+    message.provider || meta?.provider_id || meta?.provider || message.provider_id || null;
+  const model = message.model || meta?.model || null;
+  if (providerId) {
+    entries.push(["Provider", providerId]);
+  }
+  if (model) {
+    entries.push(["Model", model]);
+  }
+  if (message.metaStatus) {
+    entries.push(["Status", message.metaStatus]);
+  }
+  if (meta?.finish_reason) {
+    entries.push(["Finish", meta.finish_reason]);
+  }
+  if (meta?.request_id) {
+    entries.push(["Request", meta.request_id]);
+  }
+  if (meta?.stream_id) {
+    entries.push(["Stream", meta.stream_id]);
+  }
+  if (meta?.completed === true) {
+    entries.push(["Completed", "Yes"]);
+  }
+  if (meta?.canceled === true) {
+    entries.push(["Canceled", "Yes"]);
+  }
+  if (meta?.error?.message || meta?.error?.code) {
+    const label = meta.error.code ? `${meta.error.code}` : "Error";
+    entries.push([label, meta.error.message || "Stream error"]);
+  }
+  if (message.token_usage?.total_tokens != null) {
+    entries.push(["Tokens", String(message.token_usage.total_tokens)]);
+  }
+  if (message.errorMessage) {
+    entries.push(["Error", message.errorMessage]);
+  }
+  if (message.created_at) {
+    entries.push(["Created", message.created_at]);
+  }
+  const settings = getSettings();
+  if (settings?.debugMode) {
+    if (message.id) {
+      entries.push(["Message ID", message.id]);
+    }
+    if (meta?.conversation_id) {
+      entries.push(["Conversation", meta.conversation_id]);
+    }
+  }
+  return { entries, meta };
+}
+
+function createMetaPanel(metaInfo) {
+  const panel = document.createElement("div");
+  panel.className = "message-meta-panel";
+  if (!metaInfo?.entries?.length) {
+    panel.textContent = "No metadata available.";
+    return panel;
+  }
+  metaInfo.entries.forEach(([label, value]) => {
+    const row = document.createElement("div");
+    row.className = "message-meta-item";
+    const key = document.createElement("span");
+    key.textContent = label;
+    const val = document.createElement("strong");
+    val.textContent = value;
+    row.append(key, val);
+    panel.appendChild(row);
+  });
+  if (getSettings()?.debugMode && metaInfo.meta) {
+    const raw = document.createElement("pre");
+    raw.className = "message-meta-raw";
+    raw.textContent = JSON.stringify(metaInfo.meta, null, 2);
+    panel.appendChild(raw);
+  }
+  return panel;
+}
+
+function createTypingPlaceholder() {
+  const placeholder = document.createElement("div");
+  placeholder.className = "message-placeholder";
+  placeholder.innerHTML = "<span></span><span></span><span></span>";
+  return placeholder;
+}
+
 function createMessageElement(message) {
   const el = document.createElement("article");
   el.className = `message ${message.role}`;
@@ -193,15 +323,47 @@ function createMessageElement(message) {
   if (message.role === "assistant" && message.isTyping) {
     el.classList.add("typing");
   }
+  const header = document.createElement("div");
+  header.className = "message-header";
+  const role = document.createElement("span");
+  role.className = "message-role";
+  role.textContent = message.role === "assistant" ? "Assistant" : "You";
+  header.appendChild(role);
+  if (message.role === "assistant") {
+    const actions = document.createElement("div");
+    actions.className = "message-actions";
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.dataset.action = "copy-message";
+    copyBtn.textContent = "Copy";
+    copyBtn.title = "Copy this response";
+    const retryBtn = document.createElement("button");
+    retryBtn.type = "button";
+    retryBtn.dataset.action = "retry-message";
+    retryBtn.textContent = "Retry";
+    retryBtn.title = "Retry this response";
+    actions.append(copyBtn, retryBtn);
+    header.appendChild(actions);
+  }
+  el.appendChild(header);
   const contentNode = document.createElement("div");
   contentNode.className = "message-content";
-  contentNode.appendChild(renderMessageContent(message.content || ""));
+  if (message.isTyping && !message.content) {
+    contentNode.appendChild(createTypingPlaceholder());
+  } else {
+    contentNode.appendChild(renderMessageContent(message.content || ""));
+  }
   el.appendChild(contentNode);
-  if (message.metaStatus) {
-    const meta = document.createElement("div");
-    meta.className = "message-meta";
-    meta.textContent = message.metaStatus;
-    el.appendChild(meta);
+  const metaInfo = collectMetadata(message);
+  if (metaInfo.entries.length) {
+    const metaToggle = document.createElement("button");
+    metaToggle.type = "button";
+    metaToggle.className = "message-meta-toggle";
+    metaToggle.dataset.action = "toggle-meta";
+    metaToggle.textContent = "Details";
+    metaToggle.title = "Show provider metadata";
+    el.appendChild(metaToggle);
+    el.appendChild(createMetaPanel(metaInfo));
   }
   if (message.errorMessage) {
     const err = document.createElement("div");
@@ -302,19 +464,30 @@ function updateMessageElement(message) {
   if (!existing) return;
   const contentNode = existing.querySelector(".message-content");
   contentNode.innerHTML = "";
-  contentNode.appendChild(renderMessageContent(message.content || ""));
-  const meta = existing.querySelector(".message-meta");
-  if (message.metaStatus) {
-    if (meta) {
-      meta.textContent = message.metaStatus;
-    } else {
-      const wrapper = document.createElement("div");
-      wrapper.className = "message-meta";
-      wrapper.textContent = message.metaStatus;
-      existing.appendChild(wrapper);
+  if (message.isTyping && !message.content) {
+    contentNode.appendChild(createTypingPlaceholder());
+  } else {
+    contentNode.appendChild(renderMessageContent(message.content || ""));
+  }
+  const metaInfo = collectMetadata(message);
+  const metaToggle = existing.querySelector(".message-meta-toggle");
+  const metaPanel = existing.querySelector(".message-meta-panel");
+  if (metaInfo.entries.length) {
+    if (!metaToggle) {
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "message-meta-toggle";
+      toggle.dataset.action = "toggle-meta";
+      toggle.textContent = "Details";
+      existing.appendChild(toggle);
     }
-  } else if (meta) {
-    meta.remove();
+    if (metaPanel) {
+      metaPanel.remove();
+    }
+    existing.appendChild(createMetaPanel(metaInfo));
+  } else {
+    metaToggle?.remove();
+    metaPanel?.remove();
   }
   const errorEl = existing.querySelector(".message-error");
   if (message.errorMessage) {
@@ -406,6 +579,7 @@ export function renderConversations(conversations, onSelect, { onRename, onDelet
     if (currentId === conv.id) {
       item.classList.add("active");
     }
+    item.title = `Open conversation: ${conv.title || "New chat"}`;
     item.addEventListener("click", () => onSelect(conv));
 
     const label = document.createElement("span");
@@ -413,13 +587,13 @@ export function renderConversations(conversations, onSelect, { onRename, onDelet
     item.appendChild(label);
 
     const actions = document.createElement("span");
-    actions.style.display = "flex";
-    actions.style.gap = "0.25rem";
+    actions.className = "conversation-actions";
     if (onRename) {
       const rename = document.createElement("button");
       rename.type = "button";
       rename.innerText = "✎";
       rename.setAttribute("aria-label", "Rename conversation");
+      rename.title = "Rename conversation";
       rename.addEventListener("click", (event) => {
         event.stopPropagation();
         onRename(conv);
@@ -431,6 +605,7 @@ export function renderConversations(conversations, onSelect, { onRename, onDelet
       del.type = "button";
       del.innerText = "🗑";
       del.setAttribute("aria-label", "Delete conversation");
+      del.title = "Delete conversation";
       del.addEventListener("click", (event) => {
         event.stopPropagation();
         onDelete(conv);
@@ -456,8 +631,11 @@ export function updateMessage(message) {
 }
 
 export function updateStatus({ provider, model, token_usage }) {
+  if (dom.providerLabel) {
+    dom.providerLabel.textContent = provider || "—";
+  }
   if (dom.modelLabel) {
-    dom.modelLabel.textContent = `Model: ${provider || "—"} / ${model || "—"}`;
+    dom.modelLabel.textContent = model || "—";
   }
   if (dom.tokenUsage) {
     dom.tokenUsage.textContent = token_usage
@@ -512,15 +690,301 @@ export function renderProviders(providers) {
     dom.providersPanel.innerHTML = "<span class='muted'>No providers configured.</span>";
     return;
   }
+  const activeProvider = getProviderSelection()?.providerId;
   providers.forEach((provider) => {
     const chip = document.createElement("span");
     chip.className = "provider-chip";
+    let providerId = "";
     if (typeof provider === "string") {
       chip.textContent = provider;
+      providerId = provider;
     } else {
-      chip.textContent = provider?.label || provider?.id || "Provider";
+      providerId = provider?.id || provider?.provider_id || provider?.label || "";
+      chip.textContent = provider?.label || providerId || "Provider";
+    }
+    chip.title = providerId ? `Provider: ${providerId}` : "Provider";
+    if (activeProvider && providerId && activeProvider === providerId) {
+      chip.classList.add("active");
     }
     dom.providersPanel.appendChild(chip);
+  });
+}
+
+export function renderProviderOptions(providers, activeProviderId) {
+  const list = Array.isArray(providers) ? providers : [];
+  const options = list
+    .map((provider) => {
+      if (typeof provider === "string") {
+        return { id: provider, label: provider };
+      }
+      const id = provider?.id || provider?.provider_id || provider?.label || "";
+      return { id, label: provider?.label || id || "Provider" };
+    })
+    .filter((item) => item.id);
+  const selects = [dom.providerSelect, dom.settingsProviderSelect].filter(Boolean);
+  selects.forEach((select) => {
+    if (!select) return;
+    const current = select.value;
+    select.innerHTML = "";
+    options.forEach((item) => {
+      const opt = document.createElement("option");
+      opt.value = item.id;
+      opt.textContent = item.label;
+      select.appendChild(opt);
+    });
+    const next = activeProviderId || current || options[0]?.id || "";
+    if (next) {
+      select.value = next;
+    }
+    select.disabled = options.length === 0;
+  });
+}
+
+export function renderModelOptions(models, activeModel) {
+  const list = Array.isArray(models) ? models.filter(Boolean) : [];
+  const selects = [dom.modelSelect, dom.settingsModelSelect].filter(Boolean);
+  selects.forEach((select) => {
+    if (!select) return;
+    const current = select.value;
+    select.innerHTML = "";
+    list.forEach((model) => {
+      const opt = document.createElement("option");
+      opt.value = model;
+      opt.textContent = model;
+      select.appendChild(opt);
+    });
+    const next = activeModel || current || list[0] || "";
+    if (next) {
+      select.value = next;
+    }
+    select.disabled = list.length === 0;
+  });
+}
+
+export function bindProviderSelectors(onChange) {
+  [dom.providerSelect, dom.settingsProviderSelect].forEach((select) => {
+    select?.addEventListener("change", () => {
+      onChange?.(select.value);
+    });
+  });
+}
+
+export function bindModelSelectors(onChange) {
+  [dom.modelSelect, dom.settingsModelSelect].forEach((select) => {
+    select?.addEventListener("change", () => {
+      onChange?.(select.value);
+    });
+  });
+}
+
+function parseNumber(value) {
+  if (value == null) return null;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function bindSettingsControls(callbacks) {
+  const notify = (key, value) => callbacks?.onChange?.({ [key]: value });
+  dom.settingTemperature?.addEventListener("change", () => {
+    notify("temperature", parseNumber(dom.settingTemperature.value));
+  });
+  dom.settingTopP?.addEventListener("change", () => {
+    notify("top_p", parseNumber(dom.settingTopP.value));
+  });
+  dom.settingMaxTokens?.addEventListener("change", () => {
+    notify("max_tokens", parseNumber(dom.settingMaxTokens.value));
+  });
+  dom.settingStreaming?.addEventListener("change", () => {
+    notify("streaming", dom.settingStreaming.checked);
+  });
+  dom.settingTheme?.addEventListener("change", () => {
+    notify("theme", dom.settingTheme.value);
+  });
+  dom.settingFontSize?.addEventListener("change", () => {
+    notify("fontSize", dom.settingFontSize.value);
+  });
+  dom.settingCodeStyle?.addEventListener("change", () => {
+    notify("codeStyle", dom.settingCodeStyle.value);
+  });
+  dom.settingDensity?.addEventListener("change", () => {
+    notify("density", dom.settingDensity.value);
+  });
+  dom.settingSidebarCollapse?.addEventListener("change", () => {
+    notify("sidebarAutoCollapse", dom.settingSidebarCollapse.checked);
+  });
+  dom.settingAutoScroll?.addEventListener("change", () => {
+    notify("autoScroll", dom.settingAutoScroll.checked);
+  });
+  dom.settingShowTokens?.addEventListener("change", () => {
+    notify("showTokenUsage", dom.settingShowTokens.checked);
+  });
+  dom.settingShowMeta?.addEventListener("change", () => {
+    notify("showProviderMetadata", dom.settingShowMeta.checked);
+  });
+  dom.settingRetryBehavior?.addEventListener("change", () => {
+    notify("retryBehavior", dom.settingRetryBehavior.value);
+  });
+  dom.settingTransport?.addEventListener("change", () => {
+    notify("transportPreference", dom.settingTransport.value);
+  });
+  dom.settingDebug?.addEventListener("change", () => {
+    notify("debugMode", dom.settingDebug.checked);
+  });
+  dom.settingsResetBtn?.addEventListener("click", () => callbacks?.onReset?.());
+}
+
+export function updateSettingsControls(settings) {
+  if (!settings) return;
+  if (dom.settingTemperature) {
+    dom.settingTemperature.value = settings.temperature ?? "";
+  }
+  if (dom.settingTopP) {
+    dom.settingTopP.value = settings.top_p ?? "";
+  }
+  if (dom.settingMaxTokens) {
+    dom.settingMaxTokens.value = settings.max_tokens ?? "";
+  }
+  if (dom.settingStreaming) {
+    dom.settingStreaming.checked = settings.streaming !== false;
+  }
+  if (dom.settingTheme) {
+    dom.settingTheme.value = settings.theme || "dark";
+  }
+  if (dom.settingFontSize) {
+    dom.settingFontSize.value = settings.fontSize || "md";
+  }
+  if (dom.settingCodeStyle) {
+    dom.settingCodeStyle.value = settings.codeStyle || "contrast";
+  }
+  if (dom.settingDensity) {
+    dom.settingDensity.value = settings.density || "comfortable";
+  }
+  if (dom.settingSidebarCollapse) {
+    dom.settingSidebarCollapse.checked = Boolean(settings.sidebarAutoCollapse);
+  }
+  if (dom.settingAutoScroll) {
+    dom.settingAutoScroll.checked = settings.autoScroll !== false;
+  }
+  if (dom.settingShowTokens) {
+    dom.settingShowTokens.checked = settings.showTokenUsage !== false;
+  }
+  if (dom.settingShowMeta) {
+    dom.settingShowMeta.checked = Boolean(settings.showProviderMetadata);
+  }
+  if (dom.settingRetryBehavior) {
+    dom.settingRetryBehavior.value = settings.retryBehavior || "manual";
+  }
+  if (dom.settingTransport) {
+    dom.settingTransport.value = settings.transportPreference || "sse";
+  }
+  if (dom.settingDebug) {
+    dom.settingDebug.checked = Boolean(settings.debugMode);
+  }
+}
+
+export function applySettingsToUI(settings) {
+  if (!settings || typeof document === "undefined") return;
+  document.body.dataset.theme = settings.theme || "dark";
+  document.body.dataset.density = settings.density || "comfortable";
+  document.body.dataset.codeStyle = settings.codeStyle || "contrast";
+  document.body.dataset.fontSize = settings.fontSize || "md";
+  document.body.dataset.showTokens = settings.showTokenUsage ? "on" : "off";
+  document.body.dataset.showMeta = settings.showProviderMetadata ? "on" : "off";
+  document.body.dataset.debug = settings.debugMode ? "on" : "off";
+}
+
+export function bindSettingsAccordion() {
+  if (!dom.settingsGroups) return;
+  const groups = dom.settingsGroups.querySelectorAll("details.settings-group");
+  groups.forEach((detail) => {
+    detail.addEventListener("toggle", () => {
+      if (!detail.open) return;
+      groups.forEach((other) => {
+        if (other !== detail) {
+          other.open = false;
+        }
+      });
+    });
+  });
+}
+
+export function openSettingsModal() {
+  if (!dom.settingsModal) return;
+  dom.settingsModal.classList.remove("hidden");
+  dom.settingsModal.setAttribute("aria-hidden", "false");
+  dom.settingsCloseBtn?.focus();
+}
+
+export function closeSettingsModal() {
+  if (!dom.settingsModal) return;
+  dom.settingsModal.classList.add("hidden");
+  dom.settingsModal.setAttribute("aria-hidden", "true");
+}
+
+export function bindSettingsModal(callbacks) {
+  dom.settingsOpenBtn?.addEventListener("click", () => callbacks?.onOpen?.());
+  dom.settingsCloseBtn?.addEventListener("click", () => callbacks?.onClose?.());
+  dom.settingsModal?.addEventListener("click", (event) => {
+    const target = event.target;
+    if (target instanceof Element && target.matches("[data-close='settings']")) {
+      callbacks?.onClose?.();
+    }
+  });
+}
+
+export function bindMessageActions(callbacks) {
+  dom.messageStream?.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const button = target?.closest("button[data-action]");
+    if (!button) return;
+    const action = button.getAttribute("data-action");
+    const messageEl = button.closest(".message");
+    const messageId = messageEl?.getAttribute("data-message-id");
+    if (!messageId) return;
+    if (action === "toggle-meta") {
+      messageEl?.classList.toggle("meta-open");
+      return;
+    }
+    const message = getState().messages.find((msg) => msg.id === messageId);
+    if (!message) return;
+    if (action === "copy-message") {
+      const content = message.content || "";
+      button.setAttribute("aria-busy", "true");
+      if (!navigator?.clipboard) {
+        button.textContent = "Error";
+        const handle = setTimeout(() => {
+          button.textContent = "Copy";
+          button.removeAttribute("aria-busy");
+        }, 1200);
+        copyTimeouts.set(button, handle);
+        return;
+      }
+      navigator.clipboard.writeText(content).then(
+        () => {
+          button.textContent = "Copied";
+          clearTimeout(copyTimeouts.get(button));
+          const handle = setTimeout(() => {
+            button.textContent = "Copy";
+            button.removeAttribute("aria-busy");
+          }, 1200);
+          copyTimeouts.set(button, handle);
+        },
+        () => {
+          button.textContent = "Error";
+          clearTimeout(copyTimeouts.get(button));
+          const handle = setTimeout(() => {
+            button.textContent = "Copy";
+            button.removeAttribute("aria-busy");
+          }, 1200);
+          copyTimeouts.set(button, handle);
+        }
+      );
+    }
+    if (action === "retry-message") {
+      callbacks?.onRetry?.(message);
+    }
   });
 }
 

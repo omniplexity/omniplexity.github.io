@@ -1,4 +1,30 @@
 const RESUME_HINTS_KEY = "omni_stream_resume";
+const SETTINGS_KEY = "omni_ui_settings";
+const UI_STATE_KEY = "omni_ui_state";
+
+const defaultSettings = {
+  defaultProviderId: null,
+  defaultModel: null,
+  temperature: 0.7,
+  top_p: 1,
+  max_tokens: null,
+  streaming: true,
+  theme: "dark",
+  fontSize: "md",
+  codeStyle: "contrast",
+  density: "comfortable",
+  sidebarAutoCollapse: false,
+  autoScroll: true,
+  showTokenUsage: true,
+  showProviderMetadata: false,
+  retryBehavior: "manual",
+  transportPreference: "sse",
+  debugMode: false,
+};
+
+const defaultUiState = {
+  sidebarCollapsed: false,
+};
 
 function loadResumeHints() {
   if (typeof window === "undefined") return {};
@@ -20,6 +46,83 @@ function persistResumeHints() {
   }
 }
 
+function normalizeSettings(raw) {
+  if (!raw || typeof raw !== "object") {
+    return { ...defaultSettings };
+  }
+  const next = { ...defaultSettings };
+  if (typeof raw.defaultProviderId === "string") next.defaultProviderId = raw.defaultProviderId;
+  if (typeof raw.defaultModel === "string") next.defaultModel = raw.defaultModel;
+  if (typeof raw.temperature === "number" && Number.isFinite(raw.temperature)) next.temperature = raw.temperature;
+  if (typeof raw.top_p === "number" && Number.isFinite(raw.top_p)) next.top_p = raw.top_p;
+  if (raw.max_tokens === null) {
+    next.max_tokens = null;
+  } else if (typeof raw.max_tokens === "number" && Number.isFinite(raw.max_tokens)) {
+    next.max_tokens = raw.max_tokens;
+  }
+  if (typeof raw.streaming === "boolean") next.streaming = raw.streaming;
+  if (typeof raw.theme === "string") next.theme = raw.theme;
+  if (typeof raw.fontSize === "string") next.fontSize = raw.fontSize;
+  if (typeof raw.codeStyle === "string") next.codeStyle = raw.codeStyle;
+  if (typeof raw.density === "string") next.density = raw.density;
+  if (typeof raw.sidebarAutoCollapse === "boolean") next.sidebarAutoCollapse = raw.sidebarAutoCollapse;
+  if (typeof raw.autoScroll === "boolean") next.autoScroll = raw.autoScroll;
+  if (typeof raw.showTokenUsage === "boolean") next.showTokenUsage = raw.showTokenUsage;
+  if (typeof raw.showProviderMetadata === "boolean") next.showProviderMetadata = raw.showProviderMetadata;
+  if (typeof raw.retryBehavior === "string") next.retryBehavior = raw.retryBehavior;
+  if (typeof raw.transportPreference === "string") next.transportPreference = raw.transportPreference;
+  if (typeof raw.debugMode === "boolean") next.debugMode = raw.debugMode;
+  return next;
+}
+
+function loadSettings() {
+  if (typeof window === "undefined") return { ...defaultSettings };
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    return normalizeSettings(raw ? JSON.parse(raw) : {});
+  } catch (e) {
+    console.warn("Unable to load settings", e);
+    return { ...defaultSettings };
+  }
+}
+
+function persistSettings() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+  } catch (e) {
+    console.warn("Unable to persist settings", e);
+  }
+}
+
+function loadUiState() {
+  if (typeof window === "undefined") return { ...defaultUiState };
+  try {
+    const raw = localStorage.getItem(UI_STATE_KEY);
+    if (!raw) return { ...defaultUiState };
+    const parsed = JSON.parse(raw);
+    return {
+      ...defaultUiState,
+      sidebarCollapsed: Boolean(parsed?.sidebarCollapsed),
+    };
+  } catch (e) {
+    console.warn("Unable to load UI state", e);
+    return { ...defaultUiState };
+  }
+}
+
+function persistUiState() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(UI_STATE_KEY, JSON.stringify(state.ui));
+  } catch (e) {
+    console.warn("Unable to persist UI state", e);
+  }
+}
+
+const initialSettings = loadSettings();
+const initialUiState = loadUiState();
+
 const state = {
   conversations: [],
   messages: [],
@@ -30,7 +133,7 @@ const state = {
   currentAssistantMessageId: null,
   streamActive: false,
   streamStartTime: null,
-  autoScroll: true,
+  autoScroll: initialSettings.autoScroll ?? true,
   lastErrorByConversation: {},
   editingConversationId: null,
   providerSelection: { providerId: null, model: null },
@@ -38,6 +141,8 @@ const state = {
   resumeHints: loadResumeHints(),
   activeStreamMeta: null,
   currentUser: null,
+  settings: initialSettings,
+  ui: initialUiState,
   admin: {
     users: [],
     usage: [],
@@ -101,6 +206,40 @@ export function setProviders(list) {
 
 export function getState() {
   return state;
+}
+
+export function getSettings() {
+  return state.settings;
+}
+
+export function updateSettings(partial) {
+  state.settings = normalizeSettings({ ...state.settings, ...partial });
+  persistSettings();
+  return state.settings;
+}
+
+export function resetSettings() {
+  state.settings = { ...defaultSettings };
+  persistSettings();
+  return state.settings;
+}
+
+export function getUiState() {
+  return state.ui;
+}
+
+export function setSidebarCollapsed(collapsed) {
+  state.ui.sidebarCollapsed = Boolean(collapsed);
+  persistUiState();
+}
+
+export function isSidebarCollapsed() {
+  return Boolean(state.ui.sidebarCollapsed);
+}
+
+export function resetUiState() {
+  state.ui = { ...defaultUiState };
+  persistUiState();
 }
 
 export function attachStream(stream) {
@@ -333,7 +472,7 @@ export function resetAppState() {
   state.currentAssistantMessageId = null;
   state.streamActive = false;
   state.streamStartTime = null;
-  state.autoScroll = true;
+  state.autoScroll = state.settings?.autoScroll ?? true;
   state.lastErrorByConversation = {};
   state.editingConversationId = null;
   state.providerSelection = { providerId: null, model: null };
