@@ -56,6 +56,7 @@ const dom = {
   settingTemperature: document.getElementById("settingTemperature"),
   settingTopP: document.getElementById("settingTopP"),
   settingMaxTokens: document.getElementById("settingMaxTokens"),
+  generationLockNotice: document.getElementById("generationLockNotice"),
   settingStreaming: document.getElementById("settingStreaming"),
   settingTheme: document.getElementById("settingTheme"),
   settingFontSize: document.getElementById("settingFontSize"),
@@ -1178,14 +1179,25 @@ export function bindSettingsControls(callbacks) {
 
 export function updateSettingsControls(settings) {
   if (!settings) return;
+  const generationLocked = Boolean(settings.generationLocked);
+  const lockLabel = settings.generationSource
+    ? `Generation locked to ${settings.generationSource}.`
+    : "Generation locked to model defaults.";
   if (dom.settingTemperature) {
     dom.settingTemperature.value = settings.temperature ?? "";
+    dom.settingTemperature.disabled = generationLocked;
   }
   if (dom.settingTopP) {
     dom.settingTopP.value = settings.top_p ?? "";
+    dom.settingTopP.disabled = generationLocked;
   }
   if (dom.settingMaxTokens) {
     dom.settingMaxTokens.value = settings.max_tokens ?? "";
+    dom.settingMaxTokens.disabled = generationLocked;
+  }
+  if (dom.generationLockNotice) {
+    dom.generationLockNotice.textContent = lockLabel;
+    dom.generationLockNotice.classList.toggle("hidden", !generationLocked);
   }
   if (dom.settingStreaming) {
     dom.settingStreaming.checked = settings.streaming !== false;
@@ -1447,9 +1459,17 @@ export function bindAdminInviteForm(onSubmit) {
     event.preventDefault();
     if (!dom.adminInvitesForm) return;
     const formData = new FormData(dom.adminInvitesForm);
+    const userTypeRaw = formData.get("user_type");
+    const roleRaw = formData.get("role");
+    const messagesRaw = formData.get("messages_per_day");
+    const tokensRaw = formData.get("tokens_per_day");
     const payload = {
       expires_in_seconds: Number(formData.get("expires_in_seconds")) || 0,
       max_uses: Number(formData.get("max_uses")) || 1,
+      role: typeof roleRaw === "string" ? roleRaw.trim() : null,
+      user_type: typeof userTypeRaw === "string" ? userTypeRaw.trim() || null : null,
+      messages_per_day: messagesRaw === "" || messagesRaw == null ? null : Number(messagesRaw),
+      tokens_per_day: tokensRaw === "" || tokensRaw == null ? null : Number(tokensRaw),
     };
     onSubmit?.(payload);
   });
@@ -1856,13 +1876,57 @@ export function renderAdminInvites(invites) {
     return;
   }
   invites.forEach((invite) => {
+    const status =
+      invite.revoked_at ? "Revoked" : invite.use_count >= invite.max_uses ? "Exhausted" : "Active";
+    const statusClass = status.toLowerCase();
     const entry = document.createElement("div");
     entry.className = "admin-invite-entry";
+    entry.dataset.inviteId = invite.id;
+    entry.dataset.inviteCode = invite.code;
     entry.innerHTML = `
-      <strong>${invite.code}</strong>
-      <span class="metadata">Expires: ${invite.expires_at}</span>
-      <span class="metadata">Uses: ${invite.use_count}/${invite.max_uses}</span>
-    `;
+        <div class="admin-invite-header">
+          <div class="admin-invite-code">
+            <strong>${invite.code}</strong>
+            <span class="admin-invite-status ${statusClass}">${status}</span>
+          </div>
+          <div class="admin-invite-actions">
+            <button type="button" class="link-btn" data-action="copy">Copy</button>
+            <button type="button" class="link-btn" data-action="revoke" ${
+              invite.revoked_at ? "disabled" : ""
+            }>Revoke</button>
+          </div>
+        </div>
+        <div class="admin-invite-meta">
+          <span class="metadata">Type: ${invite.user_type || "standard"}</span>
+          <span class="metadata">Role: ${invite.role || "user"}</span>
+          <span class="metadata">Uses: ${invite.use_count}/${invite.max_uses}</span>
+          <span class="metadata">Expires: ${invite.expires_at}</span>
+        </div>
+        <div class="admin-invite-meta">
+          <span class="metadata">Messages/day: ${invite.messages_per_day ?? "—"}</span>
+          <span class="metadata">Tokens/day: ${invite.tokens_per_day ?? "—"}</span>
+        </div>
+      `;
     dom.adminInvitesList.appendChild(entry);
+  });
+}
+
+export function bindAdminInviteActions(callbacks) {
+  dom.adminInvitesList?.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const button = target.closest("button[data-action]");
+    if (!button) return;
+    const action = button.getAttribute("data-action");
+    const entry = button.closest(".admin-invite-entry");
+    if (!entry) return;
+    const inviteId = entry.dataset.inviteId;
+    const code = entry.dataset.inviteCode;
+    if (action === "copy") {
+      callbacks?.onCopy?.({ code, button });
+    }
+    if (action === "revoke") {
+      callbacks?.onRevoke?.({ inviteId, button });
+    }
   });
 }

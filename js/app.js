@@ -12,6 +12,8 @@ import {
   getAdminAudit,
   getAdminInvites,
   postAdminInvite,
+  revokeAdminInvite,
+  getModelDefaults,
   setAuthErrorHandler,
 } from "./api.js";
 import { createSseStream, createRetryStream } from "./sse.js";
@@ -86,6 +88,7 @@ import {
   renderAdminAudit,
   renderAdminInvites,
   bindAdminInviteForm,
+  bindAdminInviteActions,
   refreshVisibleMessages,
   resetVirtualRange,
   bindAdminBulkButtons,
@@ -125,9 +128,10 @@ import {
   recordFirstToken,
   recordStreamEnd,
   recordStreamMessage,
-} from "./diagnostics.js";
+  } from "./diagnostics.js";
 
-let elapsedInterval = null;
+  let elapsedInterval = null;
+  let lastDefaultsKey = null;
 let auditFilters = { event: "", from: "", to: "" };
 let authRedirecting = false;
 const providerModelsCache = new Map();
@@ -190,11 +194,12 @@ async function ensureProviderSelection(preferredProviderId, preferredModel) {
   if (!model) {
     showError(`No models available for ${providerId}.`);
     return null;
+    }
+    setProviderSelection({ providerId, model });
+    updateStatus({ provider: providerId, model, token_usage: null });
+    await syncModelDefaults(providerId, model);
+    return { providerId, model, models };
   }
-  setProviderSelection({ providerId, model });
-  updateStatus({ provider: providerId, model, token_usage: null });
-  return { providerId, model, models };
-}
 
 function applyConversationProviderModel(conversation, providerId, model) {
   if (!conversation) return;
@@ -240,6 +245,32 @@ function applySettings(settings) {
   setAutoScroll(settings.autoScroll !== false);
 }
 
+async function syncModelDefaults(providerId, model) {
+  if (!providerId || !model) return;
+  const key = `${providerId}:${model}`;
+  if (key === lastDefaultsKey) return;
+  lastDefaultsKey = key;
+  try {
+    const payload = await getModelDefaults(providerId, model);
+    const defaults = payload?.defaults;
+    if (defaults && typeof defaults === "object") {
+      const next = updateSettings({
+        temperature: typeof defaults.temperature === "number" ? defaults.temperature : 0.7,
+        top_p: typeof defaults.top_p === "number" ? defaults.top_p : null,
+        max_tokens: typeof defaults.max_tokens === "number" ? defaults.max_tokens : null,
+        generationLocked: true,
+        generationSource: defaults.source || "LM Studio",
+      });
+      applySettings(next);
+      return;
+    }
+  } catch (err) {
+    console.warn("Unable to load model defaults", err);
+  }
+  const next = updateSettings({ generationLocked: false, generationSource: null });
+  applySettings(next);
+}
+
 function handleSettingsChange(patch) {
   const updated = updateSettings(patch);
   applySettings(updated);
@@ -251,6 +282,9 @@ function handleSettingsReset() {
   applySettings(getSettings());
   updateSidebarUi(false);
   updateInspectorUi(false);
+  lastDefaultsKey = null;
+  const selection = getProviderSelection();
+  syncModelDefaults(selection?.providerId, selection?.model);
 }
 
 function updateSidebarUi(collapsed) {
@@ -282,13 +316,20 @@ function scheduleAutoRetry() {
 
 function buildStreamSettings() {
   const settings = getSettings();
-  return {
-    temperature: settings?.temperature,
-    top_p: settings?.top_p,
-    max_tokens: settings?.max_tokens ?? null,
+  const payload = {
     streaming: settings?.streaming !== false,
     transport_preference: settings?.transportPreference || "sse",
   };
+  if (typeof settings?.temperature === "number" && Number.isFinite(settings.temperature)) {
+    payload.temperature = settings.temperature;
+  }
+  if (typeof settings?.top_p === "number" && Number.isFinite(settings.top_p)) {
+    payload.top_p = settings.top_p;
+  }
+  if (typeof settings?.max_tokens === "number" && Number.isFinite(settings.max_tokens)) {
+    payload.max_tokens = settings.max_tokens;
+  }
+  return payload;
 }
 
 async function setActiveProviderModel(providerId, model, { persist = false } = {}) {
@@ -305,13 +346,14 @@ async function setActiveProviderModel(providerId, model, { persist = false } = {
   setProviderSelection({ providerId, model: nextModel });
   renderProviderOptions(getState().providers, providerId);
   renderModelOptions(models, nextModel);
-  updateStatus({ provider: providerId, model: nextModel, token_usage: null });
-  renderProviders(getState().providers);
-  if (persist) {
-    updateSettings({ defaultProviderId: providerId, defaultModel: nextModel });
+    updateStatus({ provider: providerId, model: nextModel, token_usage: null });
+    renderProviders(getState().providers);
+    if (persist) {
+      updateSettings({ defaultProviderId: providerId, defaultModel: nextModel });
+    }
+    await syncModelDefaults(providerId, nextModel);
+    return { providerId, model: nextModel, models };
   }
-  return { providerId, model: nextModel, models };
-}
 
 function applySelectionToConversation(providerId, model) {
   const conversation = getState().selectedConversation;
@@ -769,6 +811,40 @@ async function handleAdminInviteSubmit(payload) {
   }
 }
 
+async function handleAdminInviteCopy({ code, button }) {
+  if (!code) return;
+  try {
+    await navigator.clipboard.writeText(code);
+    if (button) {
+      const prev = button.textContent;
+      button.textContent = "Copied";
+      setTimeout(() => {
+        button.textContent = prev;
+      }, 1200);
+    }
+  } catch (err) {
+    showError("Unable to copy invite code");
+  }
+}
+
+async function handleAdminInviteRevoke({ inviteId, button }) {
+  if (!inviteId) return;
+  try {
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Revoking…";
+    }
+    await revokeAdminInvite(inviteId);
+    await refreshAdminInvites();
+  } catch (err) {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Revoke";
+    }
+    showError(err.message || "Unable to revoke invite");
+  }
+}
+
 function setupAdminPanel() {
   bindAdminToggle(() => {
     showAdminPanel();
@@ -797,6 +873,10 @@ function setupAdminPanel() {
     onAudit: refreshAdminAudit,
   });
   bindAdminInviteForm(handleAdminInviteSubmit);
+  bindAdminInviteActions({
+    onCopy: handleAdminInviteCopy,
+    onRevoke: handleAdminInviteRevoke,
+  });
   setAuditFilterControls(auditFilters);
   handleAdminSelectionChange([]);
   setBulkButtonsEnabled(false);
@@ -840,15 +920,16 @@ function clearUiForLogout() {
   resetAppState();
   setUserSummary(null);
   setPlanBadge(null);
-  updateStatus({ provider: null, model: null, token_usage: null });
-  updateInspector({ status: "Idle", latencyMs: null, durationMs: null, tokens: null });
-  renderMessages([]);
-  renderConversations([], handleSelectConversation, {
-    onRename: handleRenameConversation,
-    onDelete: handleDeleteConversation,
-  });
-  renderProviders([]);
-}
+    updateStatus({ provider: null, model: null, token_usage: null });
+    updateInspector({ status: "Idle", latencyMs: null, durationMs: null, tokens: null });
+    renderMessages([]);
+    renderConversations([], handleSelectConversation, {
+      onRename: handleRenameConversation,
+      onDelete: handleDeleteConversation,
+    });
+    renderProviders([]);
+    lastDefaultsKey = null;
+  }
 
 async function handleLoginPage() {
   const loginForm = document.getElementById("loginForm");

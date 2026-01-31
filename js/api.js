@@ -132,3 +132,11 @@ export async function getAdminInvites() {
 export async function postAdminInvite(body) {
   return post("/admin/invites", body);
 }
+
+export async function revokeAdminInvite(inviteId) {
+  return post(`/admin/invites/${inviteId}/revoke`, null);
+}
+
+export async function getModelDefaults(providerId, model) {
+  return get(`/providers/${providerId}/models/defaults`, model ? { model } : null);
+}

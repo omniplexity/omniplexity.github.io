@@ -8,6 +8,8 @@ const defaultSettings = {
   temperature: 0.7,
   top_p: 1,
   max_tokens: null,
+  generationLocked: false,
+  generationSource: null,
   streaming: true,
   theme: "dark",
   fontSize: "md",
@@ -61,6 +63,8 @@ function normalizeSettings(raw) {
   } else if (typeof raw.max_tokens === "number" && Number.isFinite(raw.max_tokens)) {
     next.max_tokens = raw.max_tokens;
   }
+  if (typeof raw.generationLocked === "boolean") next.generationLocked = raw.generationLocked;
+  if (typeof raw.generationSource === "string") next.generationSource = raw.generationSource;
   if (typeof raw.streaming === "boolean") next.streaming = raw.streaming;
   if (typeof raw.theme === "string") next.theme = raw.theme;
   if (typeof raw.fontSize === "string") next.fontSize = raw.fontSize;

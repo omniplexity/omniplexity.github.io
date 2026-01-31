@@ -863,12 +863,66 @@ select:focus {
 .admin-usage-entry,
 .admin-audit-entry,
 .admin-invite-entry {
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: var(--radius-sm);
-  padding: 0.75rem 1rem;
-  margin-bottom: 0.6rem;
-  background: rgba(255, 255, 255, 0.8);
-}
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.6rem;
+    background: rgba(255, 255, 255, 0.8);
+  }
+
+  .admin-invite-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .admin-invite-code {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .admin-invite-status {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid rgba(15, 23, 42, 0.18);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .admin-invite-status.active {
+    background: rgb(var(--color-accent) / 0.15);
+    color: rgb(var(--color-accent));
+    border-color: rgb(var(--color-accent) / 0.35);
+  }
+
+  .admin-invite-status.exhausted {
+    background: rgb(var(--color-muted) / 0.15);
+    color: rgb(var(--color-muted));
+    border-color: rgb(var(--color-muted) / 0.35);
+  }
+
+  .admin-invite-status.revoked {
+    background: rgb(var(--color-error) / 0.15);
+    color: rgb(var(--color-error));
+    border-color: rgb(var(--color-error) / 0.35);
+  }
+
+  .admin-invite-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 0.35rem;
+    font-size: 0.75rem;
+  }
+
+  .admin-invite-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
 
 .admin-usage-entry:last-child,
 .admin-audit-entry:last-child,
@@ -939,9 +993,10 @@ select:focus {
   font-weight: 600;
 }
 
-.admin-invite-form input {
-  width: 100%;
-}
+.admin-invite-form input,
+.admin-invite-form select {
+    width: 100%;
+  }
 
 .admin-audit-details {
   font-size: 0.75rem;
@@ -2412,10 +2467,19 @@ body.app[data-code-style="solar"] .code-block {
 }
 
 .settings-body {
-  margin-top: 0.75rem;
-  display: grid;
-  gap: 0.65rem;
-}
+    margin-top: 0.75rem;
+    display: grid;
+    gap: 0.65rem;
+  }
+
+  .settings-lock {
+    font-size: 0.75rem;
+    color: rgb(var(--color-muted));
+    border: 1px dashed rgb(var(--color-muted) / 0.3);
+    border-radius: 0.65rem;
+    padding: 0.45rem 0.6rem;
+    background: rgb(var(--color-panel) / 0.45);
+  }
 
 .settings-advanced {
   margin-top: 0.75rem;
