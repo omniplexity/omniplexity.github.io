@@ -20,6 +20,11 @@ const dom = {
   jumpButton: document.getElementById("jumpBottomBtn"),
   resumeNotice: document.getElementById("resumeNotice"),
   resumeRetry: document.getElementById("resumeRetryBtn"),
+  backendBadge: document.getElementById("backendBadge"),
+  planBadge: document.getElementById("planBadge"),
+  userName: document.getElementById("userName"),
+  userRoleBadge: document.getElementById("userRoleBadge"),
+  providersPanel: document.getElementById("providersPanel"),
   adminToggle: document.getElementById("adminToggleBtn"),
   adminPanel: document.getElementById("adminPanel"),
   adminCloseBtn: document.getElementById("adminCloseBtn"),
@@ -349,9 +354,29 @@ function captureMessageHeight(messageId) {
   }
 }
 
-export function showError(message, requestId) {
+function isErrorCode(value) {
+  return typeof value === "string" && /^E\d{4}$/.test(value);
+}
+
+function formatErrorMessage(message, code) {
+  if (code === "E1005") {
+    return "Rate limit reached. Please wait a moment and try again.";
+  }
+  if (code === "E2000" || code === "E2002") {
+    return "Session expired. Please sign in again.";
+  }
+  if (code === "E_NETWORK") {
+    return "Backend unavailable. Check your tunnel connection and refresh.";
+  }
+  return message;
+}
+
+export function showError(message, requestIdOrCode) {
   if (!dom.errorBanner) return;
-  dom.errorBanner.textContent = requestId ? `${message} (request: ${requestId})` : message;
+  const code = isErrorCode(requestIdOrCode) ? requestIdOrCode : null;
+  const requestId = code ? null : requestIdOrCode;
+  const text = formatErrorMessage(message, code);
+  dom.errorBanner.textContent = requestId ? `${text} (request: ${requestId})` : text;
   dom.errorBanner.classList.remove("hidden");
   setTimeout(() => dom.errorBanner?.classList.add("hidden"), 6000);
 }
@@ -360,6 +385,10 @@ export function renderConversations(conversations, onSelect, { onRename, onDelet
   if (!dom.conversationList) return;
   dom.conversationList.innerHTML = "";
   const currentId = getState().selectedConversation?.id;
+  if (!conversations.length) {
+    dom.conversationList.innerHTML = "<div class='empty-state'>No conversations yet. Start a new chat.</div>";
+    return;
+  }
   conversations.forEach((conv) => {
     const item = document.createElement("button");
     item.type = "button";
@@ -425,6 +454,62 @@ export function updateStatus({ provider, model, token_usage }) {
       ? `Tokens: ${token_usage.total_tokens ?? "—"}`
       : "Tokens: —";
   }
+}
+
+export function setBackendBadge(baseUrl) {
+  if (!dom.backendBadge || !baseUrl) return;
+  let label = baseUrl;
+  try {
+    const url = new URL(baseUrl);
+    label = url.host;
+  } catch {
+    label = baseUrl;
+  }
+  dom.backendBadge.textContent = `Backend: ${label}`;
+  dom.backendBadge.title = baseUrl;
+}
+
+export function setUserSummary(user) {
+  if (dom.userName) {
+    dom.userName.textContent = user?.username || "Guest";
+  }
+  if (dom.userRoleBadge) {
+    const rawRole = (user?.role || "member").toLowerCase();
+    let label = "Member";
+    if (rawRole === "admin") label = "Admin";
+    if (rawRole === "vip") label = "VIP";
+    dom.userRoleBadge.textContent = label;
+    dom.userRoleBadge.dataset.role = rawRole;
+  }
+}
+
+export function setPlanBadge(user) {
+  if (!dom.planBadge) return;
+  const rawRole = (user?.role || "free").toLowerCase();
+  let label = "Free";
+  if (rawRole === "admin") label = "Admin";
+  if (rawRole === "vip") label = "VIP";
+  dom.planBadge.textContent = `Plan: ${label}`;
+  dom.planBadge.dataset.plan = label.toLowerCase();
+}
+
+export function renderProviders(providers) {
+  if (!dom.providersPanel) return;
+  dom.providersPanel.innerHTML = "";
+  if (!providers || !providers.length) {
+    dom.providersPanel.innerHTML = "<span class='muted'>No providers configured.</span>";
+    return;
+  }
+  providers.forEach((provider) => {
+    const chip = document.createElement("span");
+    chip.className = "provider-chip";
+    if (typeof provider === "string") {
+      chip.textContent = provider;
+    } else {
+      chip.textContent = provider?.label || provider?.id || "Provider";
+    }
+    dom.providersPanel.appendChild(chip);
+  });
 }
 
 export function clearMessages() {

@@ -5,24 +5,49 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <base href="./" />
   <title>OmniAI Chat</title>
+  <meta name="theme-color" content="#f6f3ee" />
   <link rel="icon" href="./favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;700&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./assets/css/style.css" />
 </head>
 <body class="page" data-page="app">
   <main class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <img src="./icons/chat.svg" alt="" width="36" height="36" aria-hidden="true" />
+        <div>
+          <span class="brand-name">OmniAI</span>
+          <span class="brand-tagline">Local-first intelligence</span>
+        </div>
+      </div>
+      <div class="header-status">
+        <span id="backendBadge" class="status-chip">Backend: —</span>
+        <span id="planBadge" class="status-chip">Plan: —</span>
+      </div>
+      <div class="header-actions">
+        <div class="user-pill">
+          <span id="userName" class="user-name">—</span>
+          <span id="userRoleBadge" class="role-badge" data-role="member">Member</span>
+        </div>
+        <button id="logoutBtn" class="ghost-btn" type="button">Log out</button>
+      </div>
+    </header>
     <div class="layout" role="main">
       <aside class="sidebar" aria-label="Conversations">
         <div class="sidebar-header">
           <strong>Conversations</strong>
           <div class="sidebar-actions">
-            <button id="adminToggleBtn" class="link-btn hidden" type="button">
-              Admin
-            </button>
+            <button id="adminToggleBtn" class="link-btn hidden" type="button">Admin</button>
             <button id="newConvoBtn" aria-label="Start new conversation">New</button>
           </div>
         </div>
         <div class="conversation-list" id="conversationList" tabindex="0"></div>
-        <div class="providers-panel" id="providersPanel"></div>
+        <div class="sidebar-footer">
+          <div class="providers-panel" id="providersPanel"></div>
+          <p class="sidebar-note">Invite codes unlock VIP features soon.</p>
+        </div>
       </aside>
       <section class="messages-panel" aria-live="polite">
         <div class="status-line" id="statusLine">
@@ -47,8 +72,8 @@
           <textarea id="composerInput" placeholder="Ask something..." rows="3"></textarea>
           <div class="composer-actions">
             <button id="sendBtn" class="primary-btn">Send</button>
-            <button id="cancelBtn">Cancel</button>
-            <button id="retryBtn">Retry last</button>
+            <button id="cancelBtn" class="ghost-btn" type="button">Cancel</button>
+            <button id="retryBtn" class="ghost-btn" type="button">Retry last</button>
           </div>
         </div>
       </section>
@@ -138,7 +163,7 @@
       </section>
     </div>
     <div id="errorBanner" class="card error-banner hidden" role="alert"></div>
-    <div class="card providers-panel" id="settingsPanel"></div>
+    <div class="card providers-panel hidden" id="settingsPanel"></div>
   </main>
   <script type="module" src="./js/app.js"></script>
 </body>

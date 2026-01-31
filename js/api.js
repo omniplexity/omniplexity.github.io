@@ -1,6 +1,19 @@
 import { apiBaseUrl, ngrokHeaders } from "./config.js";
 import { getCsrfToken } from "./auth.js";
 
+let authErrorHandler = null;
+
+export function setAuthErrorHandler(handler) {
+  authErrorHandler = typeof handler === "function" ? handler : null;
+}
+
+export function notifyAuthError(error) {
+  if (!error) return;
+  if (error.code === "E2000" || error.code === "E2002") {
+    authErrorHandler?.(error);
+  }
+}
+
 async function safeJson(res) {
   try {
     return await res.json();
@@ -18,13 +31,18 @@ async function normalizeResponse(res) {
     const error = new Error(payload.error.message);
     error.code = payload.error.code;
     error.requestId = payload.error.request_id;
+    notifyAuthError(error);
     throw error;
   }
   const error = new Error(res.statusText || "Unexpected error");
   error.status = res.status;
+  if (res.status === 429) {
+    error.code = "E1005";
+  }
   if (res.status === 401) {
     error.code = "E2000";
   }
+  notifyAuthError(error);
   throw error;
 }
 
@@ -40,8 +58,19 @@ function buildUrl(path, params) {
   return url.toString();
 }
 
+async function safeFetch(url, options) {
+  try {
+    return await fetch(url, options);
+  } catch (err) {
+    const error = new Error("Backend unavailable. Check your tunnel connection.");
+    error.code = "E_NETWORK";
+    error.cause = err;
+    throw error;
+  }
+}
+
 export async function get(path, params) {
-  const res = await fetch(buildUrl(path, params), {
+  const res = await safeFetch(buildUrl(path, params), {
     credentials: "include",
     headers: {
       ...ngrokHeaders(),
@@ -67,7 +96,7 @@ async function sendWithBody(method, path, body, csrf) {
   if (csrf) {
     headers["X-CSRF-Token"] = await getCsrfToken();
   }
-  const res = await fetch(buildUrl(path), {
+  const res = await safeFetch(buildUrl(path), {
     method,
     credentials: "include",
     headers,

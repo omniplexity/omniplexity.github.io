@@ -1,36 +1,13 @@
+const HARD_CODED_BACKEND_BASE_URL = "https://rossie-chargeful-plentifully.ngrok-free.dev";
+
 const runtime = {
-  data: null,
+  data: {
+    BACKEND_BASE_URL: HARD_CODED_BACKEND_BASE_URL,
+  },
 };
 
-function getCandidateConfigPaths() {
-  const href = document.querySelector("base")?.getAttribute("href")?.trim() || "";
-  const normalizedBase = href.replace(/\/$/, "");
-  const paths = [];
-  if (normalizedBase && normalizedBase !== ".") {
-    paths.push(`${normalizedBase}/runtime-config.json`);
-  }
-  paths.push("./runtime-config.json");
-  return paths;
-}
-
 export async function loadConfig() {
-  if (runtime.data) {
-    return runtime.data;
-  }
-  let lastError = new Error("Unable to load runtime config");
-  for (const configPath of getCandidateConfigPaths()) {
-    try {
-      const res = await fetch(configPath, { cache: "no-store" });
-      if (res.ok) {
-        runtime.data = await res.json();
-        return runtime.data;
-      }
-      lastError = new Error(`Unable to load runtime config (${configPath}: ${res.status})`);
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  throw lastError;
+  return runtime.data;
 }
 
 export function apiBaseUrl() {

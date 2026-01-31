@@ -4,18 +4,41 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>OmniAI Login</title>
+  <meta name="theme-color" content="#f6f3ee" />
   <link rel="icon" href="./favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;700&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./assets/css/style.css" />
 </head>
 <body class="page" data-page="login">
-  <main class="login-shell">
-    <section class="card">
-      <header>
-        <img src="./icons/chat.svg" alt="" width="48" height="48" aria-hidden="true" />
-        <h1>OmniAI</h1>
-        <p>Sign in to continue with your conversations.</p>
-      </header>
-      <form id="loginForm" aria-describedby="loginError">
+  <main class="auth-shell">
+    <section class="auth-hero">
+      <div class="brand-lockup">
+        <img src="./icons/chat.svg" alt="" width="56" height="56" aria-hidden="true" />
+        <div>
+          <p class="brand-kicker">OmniAI</p>
+          <h1>Private, real-time assistance for your local stack.</h1>
+          <p class="lead">FastAPI handles auth, providers, and session security. You just connect and start chatting.</p>
+        </div>
+      </div>
+      <ul class="feature-list">
+        <li>Cookie-based sessions with CSRF protection handled server-side.</li>
+        <li>Streaming responses over SSE with polling fallback for older browsers.</li>
+        <li>Invite codes unlock upcoming VIP features while free users sign up instantly.</li>
+      </ul>
+      <div class="auth-meta">
+        <span id="backendBadge" class="status-chip">Backend: —</span>
+        <span class="status-chip status-chip-ghost">Static GitHub Pages frontend</span>
+      </div>
+    </section>
+    <section class="card auth-card">
+      <div class="auth-tabs" role="tablist">
+        <button class="tab-btn active" type="button" data-auth-tab="login" role="tab" aria-selected="true">Sign in</button>
+        <button class="tab-btn" type="button" data-auth-tab="register" role="tab" aria-selected="false">Create account</button>
+      </div>
+      <div id="authNotice" class="error-banner hidden" role="status"></div>
+      <form id="loginForm" class="auth-form" data-auth-form="login" aria-describedby="loginError">
         <div>
           <label for="email">Username or Email</label>
           <input id="email" name="username" type="text" required autocomplete="username" />
@@ -25,8 +48,31 @@
           <input id="password" name="password" type="password" required autocomplete="current-password" />
         </div>
         <div id="loginError" class="error-banner hidden" role="alert"></div>
-        <button type="submit" class="primary-btn" id="loginButton">Log In</button>
+        <button type="submit" class="primary-btn" id="loginButton">Log in</button>
       </form>
+      <form id="registerForm" class="auth-form hidden" data-auth-form="register" aria-describedby="registerError">
+        <div>
+          <label for="registerUsername">Username</label>
+          <input id="registerUsername" name="username" type="text" required autocomplete="username" minlength="3" maxlength="64" pattern="[a-zA-Z0-9_-]+" />
+        </div>
+        <div>
+          <label for="registerEmail">Email (optional)</label>
+          <input id="registerEmail" name="email" type="email" autocomplete="email" />
+        </div>
+        <div>
+          <label for="registerPassword">Password</label>
+          <input id="registerPassword" name="password" type="password" required autocomplete="new-password" minlength="8" />
+          <p class="field-hint">Minimum 8 characters.</p>
+        </div>
+        <div>
+          <label for="registerInvite">Invite code (optional)</label>
+          <input id="registerInvite" name="invite_code" type="text" autocomplete="one-time-code" />
+          <p class="field-hint">Invite codes grant future VIP access.</p>
+        </div>
+        <div id="registerError" class="error-banner hidden" role="alert"></div>
+        <button type="submit" class="primary-btn" id="registerButton">Create account</button>
+      </form>
+      <p class="auth-disclaimer">By continuing you accept the local terms of service and agree to cookie-based sessions.</p>
     </section>
   </main>
   <script type="module" src="./js/app.js"></script>

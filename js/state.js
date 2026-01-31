@@ -322,3 +322,34 @@ export function resetVirtualMeasurements() {
 export function getAdminInvites() {
   return state.admin.invites;
 }
+
+export function resetAppState() {
+  state.conversations = [];
+  state.messages = [];
+  state.selectedConversation = null;
+  state.providers = [];
+  state.stream = null;
+  state.activeStreamId = null;
+  state.currentAssistantMessageId = null;
+  state.streamActive = false;
+  state.streamStartTime = null;
+  state.autoScroll = true;
+  state.lastErrorByConversation = {};
+  state.editingConversationId = null;
+  state.providerSelection = { providerId: null, model: null };
+  state.streamStatusByConversation = {};
+  state.activeStreamMeta = null;
+  state.currentUser = null;
+  state.admin = {
+    users: [],
+    usage: [],
+    audit: [],
+    invites: [],
+    selectedUserIds: [],
+  };
+  state.resumeHints = {};
+  persistResumeHints();
+  virtualization.heights = {};
+  virtualization.averageHeight = 120;
+  virtualization.buffer = 6;
+}

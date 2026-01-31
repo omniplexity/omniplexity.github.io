@@ -4,8 +4,19 @@ const authState = {
   csrfToken: null,
 };
 
+async function safeFetch(url, options) {
+  try {
+    return await fetch(url, options);
+  } catch (err) {
+    const error = new Error("Backend unavailable. Check your tunnel connection.");
+    error.code = "E_NETWORK";
+    error.cause = err;
+    throw error;
+  }
+}
+
 async function fetchCsrfToken() {
-  const res = await fetch(`${apiBaseUrl()}/auth/csrf`, {
+  const res = await safeFetch(`${apiBaseUrl()}/auth/csrf`, {
     credentials: "include",
     headers: {
       ...ngrokHeaders(),
@@ -27,7 +38,7 @@ export async function getCsrfToken() {
 }
 
 export async function login(credentials) {
-  const res = await fetch(`${apiBaseUrl()}/auth/login`, {
+  const res = await safeFetch(`${apiBaseUrl()}/auth/login`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -50,9 +61,38 @@ export async function login(credentials) {
   return res.json();
 }
 
+export async function register(payload) {
+  const res = await safeFetch(`${apiBaseUrl()}/auth/register`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...ngrokHeaders(),
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    if (body?.error?.message) {
+      const error = new Error(body.error.message);
+      error.code = body.error.code;
+      error.requestId = body.error.request_id;
+      throw error;
+    }
+    throw new Error("Registration failed");
+  }
+  const data = await res.json();
+  if (data?.csrf_token) {
+    authState.csrfToken = data.csrf_token;
+  } else {
+    await fetchCsrfToken();
+  }
+  return data;
+}
+
 export async function logout() {
   const token = await getCsrfToken();
-  await fetch(`${apiBaseUrl()}/auth/logout`, {
+  await safeFetch(`${apiBaseUrl()}/auth/logout`, {
     credentials: "include",
     method: "POST",
     headers: { "X-CSRF-Token": token, ...ngrokHeaders() },

@@ -1,5 +1,5 @@
-import { loadConfig } from "./config.js";
-import { login } from "./auth.js";
+import { loadConfig, apiBaseUrl } from "./config.js";
+import { login, logout, register } from "./auth.js";
 import {
   get,
   post,
@@ -12,6 +12,7 @@ import {
   getAdminAudit,
   getAdminInvites,
   postAdminInvite,
+  setAuthErrorHandler,
 } from "./api.js";
 import { createSseStream, createRetryStream } from "./sse.js";
 import {
@@ -42,6 +43,7 @@ import {
   getAdminUsers as getAdminUsersState,
   getAdminUsage as getAdminUsageState,
   getAdminAudit as getAdminAuditState,
+  resetAppState,
 } from "./state.js";
 import {
   renderConversations,
@@ -80,10 +82,43 @@ import {
   setBulkButtonsEnabled,
   syncSelectAllCheckbox,
   setAuditFilterControls,
+  setUserSummary,
+  setPlanBadge,
+  setBackendBadge,
+  renderProviders,
 } from "./ui.js";
 
 let elapsedInterval = null;
 let auditFilters = { event: "", from: "", to: "" };
+let authRedirecting = false;
+
+function buildLoginUrl(reason) {
+  const params = new URLSearchParams();
+  if (reason) {
+    params.set("reason", reason);
+  }
+  const query = params.toString();
+  return query ? `login.html?${query}` : "login.html";
+}
+
+function redirectToLogin(reason) {
+  if (authRedirecting) return;
+  authRedirecting = true;
+  window.location.replace(buildLoginUrl(reason));
+}
+
+function mapAuthNotice(reason) {
+  if (reason === "expired") {
+    return "Your session expired. Please sign in again.";
+  }
+  if (reason === "logout") {
+    return "You have been signed out.";
+  }
+  if (reason === "unauthorized") {
+    return "Please sign in to continue.";
+  }
+  return "";
+}
 
 function startElapsedTimer() {
   stopElapsedTimer();
@@ -112,6 +147,8 @@ async function loadCurrentUser() {
   try {
     const payload = await getMe();
     setCurrentUser(payload.user);
+    setUserSummary(payload.user);
+    setPlanBadge(payload.user);
     const isAdmin = payload.user?.role === "admin";
     setAdminToggleVisible(Boolean(isAdmin));
     if (!isAdmin) {
@@ -121,8 +158,11 @@ async function loadCurrentUser() {
   } catch (err) {
     setAdminToggleVisible(false);
     if (err?.code === "E2000" || err?.code === "E2002") {
-      window.location.replace("login.html");
+      redirectToLogin("expired");
       return false;
+    }
+    if (err?.code === "E_NETWORK") {
+      showError(err.message, err.code);
     }
     return false;
   }
@@ -389,28 +429,143 @@ function streamCompleted() {
   stopElapsedTimer();
 }
 
+function clearUiForLogout() {
+  const stream = getState().stream;
+  if (stream) {
+    stream.cancel();
+  }
+  detachStream();
+  clearActiveStreamMeta();
+  stopElapsedTimer();
+  updateStreamBadge(null);
+  hideResumeNotice();
+  setRetryEnabled(false);
+  setJumpButtonVisibility(false);
+  resetAppState();
+  setUserSummary(null);
+  setPlanBadge(null);
+  updateStatus({ provider: null, model: null, token_usage: null });
+  renderMessages([]);
+  renderConversations([], handleSelectConversation, {
+    onRename: handleRenameConversation,
+    onDelete: handleDeleteConversation,
+  });
+  renderProviders([]);
+}
+
 async function handleLoginPage() {
-  const form = document.getElementById("loginForm");
-  const button = document.getElementById("loginButton");
-  const error = document.getElementById("loginError");
-  form?.addEventListener("submit", async (event) => {
+  const loginForm = document.getElementById("loginForm");
+  const registerForm = document.getElementById("registerForm");
+  const loginButton = document.getElementById("loginButton");
+  const registerButton = document.getElementById("registerButton");
+  const loginError = document.getElementById("loginError");
+  const registerError = document.getElementById("registerError");
+  const authNotice = document.getElementById("authNotice");
+  const tabs = document.querySelectorAll("[data-auth-tab]");
+  const panels = document.querySelectorAll("[data-auth-form]");
+
+  try {
+    const payload = await getMe();
+    if (payload?.user) {
+      window.location.replace("index.html");
+      return;
+    }
+  } catch (err) {
+    if (err?.code === "E_NETWORK") {
+      if (authNotice) {
+        authNotice.textContent = "Backend unavailable. Check your tunnel connection and try again.";
+        authNotice.classList.remove("hidden");
+      }
+    }
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const reason = params.get("reason");
+  const notice = mapAuthNotice(reason);
+  if (authNotice && notice) {
+    authNotice.textContent = notice;
+    authNotice.classList.remove("hidden");
+  }
+
+  const setAuthMode = (mode) => {
+    tabs.forEach((tab) => {
+      const active = tab.getAttribute("data-auth-tab") === mode;
+      tab.classList.toggle("active", active);
+      tab.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    panels.forEach((panel) => {
+      panel.classList.toggle("hidden", panel.getAttribute("data-auth-form") !== mode);
+    });
+  };
+
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      setAuthMode(tab.getAttribute("data-auth-tab"));
+    });
+  });
+
+  loginForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    button.disabled = true;
-    error?.classList.add("hidden");
+    if (loginButton) {
+      loginButton.disabled = true;
+    }
+    loginError?.classList.add("hidden");
     try {
       await login({
-        username: form.username?.value,
-        password: form.password?.value,
+        username: loginForm.username?.value,
+        password: loginForm.password?.value,
       });
       window.location.replace("index.html");
     } catch (err) {
       const message = err?.message || "Invalid credentials";
-      if (error) {
-        error.textContent = message;
+      if (loginError) {
+        loginError.textContent = message;
+        loginError.classList.remove("hidden");
       }
-      error.classList.remove("hidden");
     } finally {
-      button.disabled = false;
+      if (loginButton) {
+        loginButton.disabled = false;
+      }
+    }
+  });
+
+  registerForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (registerButton) {
+      registerButton.disabled = true;
+    }
+    registerError?.classList.add("hidden");
+    try {
+      await register({
+        username: registerForm.username?.value,
+        password: registerForm.password?.value,
+        email: registerForm.email?.value || null,
+        invite_code: registerForm.invite_code?.value || null,
+      });
+      try {
+        const payload = await getMe();
+        if (payload?.user) {
+          window.location.replace("index.html");
+          return;
+        }
+      } catch (_err) {
+        // Fall through to show feedback if session not established.
+      }
+      if (registerError) {
+        registerError.textContent =
+          "Account created, but we could not start a session. Please log in and check your cookie settings.";
+        registerError.classList.remove("hidden");
+      }
+    } catch (err) {
+      const message = err?.message || "Registration failed";
+      if (registerError) {
+        registerError.textContent = message;
+        registerError.classList.remove("hidden");
+      }
+    } finally {
+      if (registerButton) {
+        registerButton.disabled = false;
+      }
     }
   });
 }
@@ -425,10 +580,11 @@ function buildStreamHandlers(conversation) {
     meta(data) {
       const resolvedProvider = data.provider_id || providerId || "lmstudio";
       const resolvedModel = data.model || model || "default";
+      const mode = data.mode || "sse";
       activeProvider = resolvedProvider;
       activeModel = resolvedModel;
       updateStatus({ provider: resolvedProvider, model: resolvedModel });
-      updateStreamBadge("Streaming…");
+      updateStreamBadge(mode === "polling" ? "Polling…" : "Streaming…");
       startElapsedTimer();
       setRetryEnabled(false);
       setAutoScroll(true);
@@ -685,6 +841,7 @@ async function loadProviders() {
     const payload = await get("/providers");
     const providers = Array.isArray(payload) ? payload : payload?.providers;
     setProviders(Array.isArray(providers) ? providers : []);
+    renderProviders(getState().providers);
   } catch (err) {
     showError(err.message, err.code);
   }
@@ -713,6 +870,7 @@ async function mainApp() {
   const cancelBtn = document.getElementById("cancelBtn");
   const retryBtn = document.getElementById("retryBtn");
   const composer = document.getElementById("composerInput");
+  const logoutBtn = document.getElementById("logoutBtn");
 
   bindConversationActions(startNewConversation);
   bindJumpButton(() => {
@@ -726,6 +884,14 @@ async function mainApp() {
   sendBtn?.addEventListener("click", () => handleSend(composer));
   cancelBtn?.addEventListener("click", handleCancel);
   retryBtn?.addEventListener("click", handleRetry);
+  logoutBtn?.addEventListener("click", async () => {
+    try {
+      await logout();
+    } finally {
+      clearUiForLogout();
+      window.location.replace(buildLoginUrl("logout"));
+    }
+  });
 
   composer?.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -753,7 +919,21 @@ async function mainApp() {
 async function init() {
   try {
     await loadConfig();
+    setBackendBadge(apiBaseUrl());
     const page = document.body.dataset.page;
+    if (page === "login") {
+      setAuthErrorHandler(null);
+    } else {
+      setAuthErrorHandler((error) => {
+        if (error?.code === "E2002") {
+          redirectToLogin("expired");
+          return;
+        }
+        if (error?.code === "E2000") {
+          redirectToLogin("unauthorized");
+        }
+      });
+    }
     if (page === "login") {
       await handleLoginPage();
     } else {
