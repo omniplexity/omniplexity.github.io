@@ -487,6 +487,24 @@ async function handleLoginPage() {
     authNotice.classList.remove("hidden");
   }
 
+  const setButtonLoading = (button, loading) => {
+    if (!button) return;
+    if (loading) {
+      button.disabled = true;
+      button.dataset.loading = "true";
+      button.setAttribute("aria-busy", "true");
+    } else {
+      button.disabled = false;
+      delete button.dataset.loading;
+      button.removeAttribute("aria-busy");
+    }
+  };
+
+  const focusFirstInput = (mode) => {
+    const panel = document.querySelector(`[data-auth-form="${mode}"]`);
+    panel?.querySelector("input")?.focus();
+  };
+
   const setAuthMode = (mode) => {
     tabs.forEach((tab) => {
       const active = tab.getAttribute("data-auth-tab") === mode;
@@ -494,8 +512,11 @@ async function handleLoginPage() {
       tab.setAttribute("aria-selected", active ? "true" : "false");
     });
     panels.forEach((panel) => {
-      panel.classList.toggle("hidden", panel.getAttribute("data-auth-form") !== mode);
+      const active = panel.getAttribute("data-auth-form") === mode;
+      panel.classList.toggle("active", active);
+      panel.setAttribute("aria-hidden", active ? "false" : "true");
     });
+    focusFirstInput(mode);
   };
 
   tabs.forEach((tab) => {
@@ -504,11 +525,11 @@ async function handleLoginPage() {
     });
   });
 
+  setAuthMode("login");
+
   loginForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (loginButton) {
-      loginButton.disabled = true;
-    }
+    setButtonLoading(loginButton, true);
     loginError?.classList.add("hidden");
     try {
       await login({
@@ -523,17 +544,13 @@ async function handleLoginPage() {
         loginError.classList.remove("hidden");
       }
     } finally {
-      if (loginButton) {
-        loginButton.disabled = false;
-      }
+      setButtonLoading(loginButton, false);
     }
   });
 
   registerForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (registerButton) {
-      registerButton.disabled = true;
-    }
+    setButtonLoading(registerButton, true);
     registerError?.classList.add("hidden");
     try {
       await register({
@@ -563,9 +580,7 @@ async function handleLoginPage() {
         registerError.classList.remove("hidden");
       }
     } finally {
-      if (registerButton) {
-        registerButton.disabled = false;
-      }
+      setButtonLoading(registerButton, false);
     }
   });
 }

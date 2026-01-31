@@ -4,76 +4,71 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>OmniAI Login</title>
-  <meta name="theme-color" content="#f6f3ee" />
+  <meta name="theme-color" content="#0b0f14" />
   <link rel="icon" href="./favicon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;700&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./assets/css/style.css" />
 </head>
-<body class="page" data-page="login">
+<body class="page auth" data-page="login">
   <main class="auth-shell">
-    <section class="auth-hero">
-      <div class="brand-lockup">
-        <img src="./icons/chat.svg" alt="" width="56" height="56" aria-hidden="true" />
-        <div>
-          <p class="brand-kicker">OmniAI</p>
-          <h1>Private, real-time assistance for your local stack.</h1>
-          <p class="lead">FastAPI handles auth, providers, and session security. You just connect and start chatting.</p>
+    <header class="auth-header">
+      <h1>OmniAI</h1>
+      <p class="subtitle">Private AI Workspace</p>
+      <p class="auth-note">Private access only. Accounts are limited. Invite required in some cases.</p>
+    </header>
+
+    <nav class="auth-tabs" role="tablist" aria-label="Authentication">
+      <button class="tab-btn active" type="button" data-auth-tab="login" role="tab" aria-selected="true" aria-controls="loginForm">Login</button>
+      <button class="tab-btn" type="button" data-auth-tab="register" role="tab" aria-selected="false" aria-controls="registerForm">Create account</button>
+    </nav>
+
+    <section class="auth-card">
+      <div id="authNotice" class="auth-notice hidden" role="status" aria-live="polite"></div>
+
+      <form id="loginForm" class="auth-form active" data-auth-form="login" aria-describedby="loginError" aria-hidden="false">
+        <div class="field">
+          <label class="sr-only" for="loginUsername">Email or username</label>
+          <input id="loginUsername" name="username" type="text" placeholder="Email or username" autocomplete="username" required />
         </div>
-      </div>
-      <ul class="feature-list">
-        <li>Cookie-based sessions with CSRF protection handled server-side.</li>
-        <li>Streaming responses over SSE with polling fallback for older browsers.</li>
-        <li>Invite codes unlock upcoming VIP features while free users sign up instantly.</li>
-      </ul>
-      <div class="auth-meta">
-        <span id="backendBadge" class="status-chip">Backend: —</span>
-        <span class="status-chip status-chip-ghost">Static GitHub Pages frontend</span>
-      </div>
-    </section>
-    <section class="card auth-card">
-      <div class="auth-tabs" role="tablist">
-        <button class="tab-btn active" type="button" data-auth-tab="login" role="tab" aria-selected="true">Sign in</button>
-        <button class="tab-btn" type="button" data-auth-tab="register" role="tab" aria-selected="false">Create account</button>
-      </div>
-      <div id="authNotice" class="error-banner hidden" role="status"></div>
-      <form id="loginForm" class="auth-form" data-auth-form="login" aria-describedby="loginError">
-        <div>
-          <label for="email">Username or Email</label>
-          <input id="email" name="username" type="text" required autocomplete="username" />
+        <div class="field">
+          <label class="sr-only" for="loginPassword">Password</label>
+          <input id="loginPassword" name="password" type="password" placeholder="Password" autocomplete="current-password" required />
         </div>
-        <div>
-          <label for="password">Password</label>
-          <input id="password" name="password" type="password" required autocomplete="current-password" />
-        </div>
-        <div id="loginError" class="error-banner hidden" role="alert"></div>
-        <button type="submit" class="primary-btn" id="loginButton">Log in</button>
+        <p id="loginError" class="error-banner hidden" role="status" aria-live="polite"></p>
+        <button type="submit" class="primary-btn auth-submit" id="loginButton">
+          <span class="btn-label">Continue</span>
+          <span class="btn-spinner" aria-hidden="true"></span>
+        </button>
       </form>
-      <form id="registerForm" class="auth-form hidden" data-auth-form="register" aria-describedby="registerError">
-        <div>
-          <label for="registerUsername">Username</label>
-          <input id="registerUsername" name="username" type="text" required autocomplete="username" minlength="3" maxlength="64" pattern="[a-zA-Z0-9_-]+" />
+
+      <form id="registerForm" class="auth-form" data-auth-form="register" aria-describedby="registerError" aria-hidden="true">
+        <div class="field">
+          <label class="sr-only" for="registerUsername">Email or username</label>
+          <input id="registerUsername" name="username" type="text" placeholder="Email or username" autocomplete="username" required minlength="3" maxlength="64" pattern="[a-zA-Z0-9_-]+" />
         </div>
-        <div>
-          <label for="registerEmail">Email (optional)</label>
-          <input id="registerEmail" name="email" type="email" autocomplete="email" />
+        <div class="field">
+          <label class="sr-only" for="registerPassword">Password</label>
+          <input id="registerPassword" name="password" type="password" placeholder="Password" autocomplete="new-password" required minlength="8" />
         </div>
-        <div>
-          <label for="registerPassword">Password</label>
-          <input id="registerPassword" name="password" type="password" required autocomplete="new-password" minlength="8" />
-          <p class="field-hint">Minimum 8 characters.</p>
+        <div class="field invite-field">
+          <label class="sr-only" for="registerInvite">Invite code (optional)</label>
+          <input id="registerInvite" name="invite_code" type="text" placeholder="Invite code (optional)" autocomplete="one-time-code" />
         </div>
-        <div>
-          <label for="registerInvite">Invite code (optional)</label>
-          <input id="registerInvite" name="invite_code" type="text" autocomplete="one-time-code" />
-          <p class="field-hint">Invite codes grant future VIP access.</p>
-        </div>
-        <div id="registerError" class="error-banner hidden" role="alert"></div>
-        <button type="submit" class="primary-btn" id="registerButton">Create account</button>
+        <p id="registerError" class="error-banner hidden" role="status" aria-live="polite"></p>
+        <button type="submit" class="primary-btn auth-submit" id="registerButton">
+          <span class="btn-label">Create account</span>
+          <span class="btn-spinner" aria-hidden="true"></span>
+        </button>
       </form>
-      <p class="auth-disclaimer">By continuing you accept the local terms of service and agree to cookie-based sessions.</p>
     </section>
+
+    <footer class="auth-footer">
+      <span>Secure</span>
+      <span>Local Models</span>
+      <span>Private</span>
+    </footer>
   </main>
   <script type="module" src="./js/app.js"></script>
 </body>
