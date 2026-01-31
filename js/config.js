@@ -34,10 +34,11 @@ export async function loadConfig() {
 }
 
 export function apiBaseUrl() {
-  if (!runtime.data?.API_BASE_URL) {
-    throw new Error("API_BASE_URL not configured");
+  const baseUrl = runtime.data?.BACKEND_BASE_URL || runtime.data?.API_BASE_URL;
+  if (!baseUrl) {
+    throw new Error("BACKEND_BASE_URL (or API_BASE_URL) not configured");
   }
-  return runtime.data.API_BASE_URL.replace(/\/+$/, "");
+  return baseUrl.replace(/\/+$/, "");
 }
 
 export function ngrokHeaders() {

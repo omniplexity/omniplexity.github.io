@@ -5,7 +5,7 @@
 1. Ensure `.env` matches `.env.example` and points to production database.
 2. Apply migrations: `alembic upgrade head`.
 3. Launch backend: `uvicorn app.main:app --host 127.0.0.1 --port 8000`.
-4. Frontend deploy: build static assets (if using bundler) and host on GitHub Pages; point runtime `API_BASE_URL` to tunnel/external URL.
+4. Frontend deploy: build static assets (if using bundler) and host on GitHub Pages; point runtime `BACKEND_BASE_URL` to tunnel/external URL.
 5. Confirm `/healthz` and `/admin/users` behave with admin session.
 
 ## Backup & Recovery
