@@ -1265,17 +1265,20 @@ select:focus {
 }
 
 /* App workspace overhaul */
-body.app {
-  --color-bg: 14 15 18;
-  --color-panel: 21 24 33;
-  --color-accent: 106 27 154;
-  --color-text: 230 233 238;
-  --color-muted: 148 163 184;
-  --color-error: 255 82 82;
-  --sidebar-width: 280px;
-  --sidebar-collapsed-width: 76px;
-  --inspector-width: 320px;
-  --inspector-collapsed-width: 68px;
+  body.app {
+    --color-bg: 14 15 18;
+    --color-panel: 21 24 33;
+    --color-accent: 106 27 154;
+    --color-text: 230 233 238;
+    --color-muted: 148 163 184;
+    --color-error: 255 82 82;
+    --sidebar-width: 260px;
+    --sidebar-collapsed-width: 76px;
+    --inspector-width: 300px;
+    --inspector-collapsed-width: 68px;
+    --sidebar-current: var(--sidebar-width);
+    --inspector-current: var(--inspector-width);
+    --workspace-gap: var(--space-3);
   --space-1: 0.4rem;
   --space-2: 0.6rem;
   --space-3: 0.9rem;
@@ -1401,54 +1404,78 @@ body.app .brand-tagline {
 }
 
 .topbar-center {
-  flex-wrap: wrap;
-  justify-content: center;
-}
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    min-width: 0;
+    row-gap: var(--space-1);
+  }
 
-.context-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.4rem 0.75rem;
-  border-radius: 999px;
-  border: 1px solid rgb(var(--color-muted) / 0.2);
-  background: rgb(var(--color-panel) / 0.75);
-}
+  .context-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid rgb(var(--color-muted) / 0.2);
+    background: rgb(var(--color-panel) / 0.75);
+    min-width: 0;
+    max-width: 100%;
+  }
 
-.context-chip.context-select {
-  flex-wrap: wrap;
-}
+  .context-chip.context-select {
+    flex: 1 1 540px;
+    flex-wrap: wrap;
+  }
 
-.context-chip.context-providers {
-  max-width: 280px;
-}
+  .context-chip.context-providers {
+    max-width: 220px;
+  }
 
-.context-label {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: rgb(var(--color-muted));
-}
+  .context-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: rgb(var(--color-muted));
+  }
 
-.context-value {
-  font-size: 0.9rem;
-  color: rgb(var(--color-text));
-}
+  .context-value {
+    font-size: 0.9rem;
+    color: rgb(var(--color-text));
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
-.context-controls {
-  display: flex;
-  gap: 0.4rem;
-  align-items: center;
-}
+  .context-controls {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .context-chip.context-select .context-value {
+    display: none;
+  }
+
+  #providerSelect {
+    width: clamp(110px, 14vw, 160px);
+  }
+
+  #modelSelect {
+    width: clamp(180px, 28vw, 320px);
+  }
 
 .select {
-  background: rgb(var(--color-bg) / 0.85);
-  border: 1px solid rgb(var(--color-muted) / 0.25);
-  color: rgb(var(--color-text));
-  padding: 0.35rem 0.6rem;
-  border-radius: 10px;
-  font-size: 0.85rem;
-}
+    background: rgb(var(--color-bg) / 0.85);
+    border: 1px solid rgb(var(--color-muted) / 0.25);
+    color: rgb(var(--color-text));
+    padding: 0.35rem 0.6rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    max-width: 100%;
+    min-width: 0;
+  }
 
 .select:focus {
   border-color: rgb(var(--color-accent) / 0.7);
@@ -1643,12 +1670,20 @@ body.app .primary-btn:hover:not(:disabled) {
 }
 
 body.sidebar-collapsed .workspace {
-  grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr) var(--inspector-width);
-}
+    grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr) var(--inspector-width);
+  }
 
 body.inspector-collapsed .workspace {
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--inspector-collapsed-width);
-}
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--inspector-collapsed-width);
+  }
+
+  body.sidebar-collapsed {
+    --sidebar-current: var(--sidebar-collapsed-width);
+  }
+
+  body.inspector-collapsed {
+    --inspector-current: var(--inspector-collapsed-width);
+  }
 
 body.sidebar-collapsed.inspector-collapsed .workspace {
   grid-template-columns:
@@ -2185,14 +2220,16 @@ body.inspector-collapsed .inspector-rail {
 }
 
 .action-bar {
-  background: rgb(var(--color-panel) / 0.75);
-  border: 1px solid rgb(var(--color-muted) / 0.2);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  display: grid;
-  gap: var(--space-3);
-  position: relative;
-}
+    background: rgb(var(--color-panel) / 0.75);
+    border: 1px solid rgb(var(--color-muted) / 0.2);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3);
+    display: grid;
+    gap: var(--space-3);
+    position: relative;
+    margin-left: calc(var(--sidebar-current) + var(--workspace-gap));
+    margin-right: calc(var(--inspector-current) + var(--workspace-gap));
+  }
 
 .action-bar.drag-active {
   border-color: rgb(var(--color-accent) / 0.6);
@@ -2243,10 +2280,10 @@ body.inspector-collapsed .inspector-rail {
 }
 
 .prompt-body textarea {
-  width: 100%;
-  min-height: 120px;
-  resize: vertical;
-  background: rgb(var(--color-bg) / 0.85);
+    width: 100%;
+    min-height: 80px;
+    resize: vertical;
+    background: rgb(var(--color-bg) / 0.85);
   color: rgb(var(--color-text));
   border: 1px solid rgb(var(--color-muted) / 0.2);
   border-radius: var(--radius-md);
@@ -2696,23 +2733,27 @@ select:focus-visible {
   }
 }
 
-@media (max-width: 980px) {
-  .workspace {
-    grid-template-columns: 1fr;
+  @media (max-width: 980px) {
+    .workspace {
+      grid-template-columns: 1fr;
+    }
+    .sidebar {
+      order: 2;
+    }
+    .transcript {
+      order: 1;
+    }
+    .inspector {
+      order: 3;
+    }
+    body.sidebar-collapsed .workspace {
+      grid-template-columns: 1fr;
+    }
+    .action-bar {
+      margin-left: 0;
+      margin-right: 0;
+    }
   }
-  .sidebar {
-    order: 2;
-  }
-  .transcript {
-    order: 1;
-  }
-  .inspector {
-    order: 3;
-  }
-  body.sidebar-collapsed .workspace {
-    grid-template-columns: 1fr;
-  }
-}
 
 @media (max-width: 720px) {
   body.app .app-shell {
