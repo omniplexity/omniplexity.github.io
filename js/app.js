@@ -44,6 +44,8 @@ import {
   getAdminUsage as getAdminUsageState,
   getAdminAudit as getAdminAuditState,
   resetAppState,
+  getProviderSelection,
+  setProviderSelection,
 } from "./state.js";
 import {
   renderConversations,
@@ -91,6 +93,100 @@ import {
 let elapsedInterval = null;
 let auditFilters = { event: "", from: "", to: "" };
 let authRedirecting = false;
+const providerModelsCache = new Map();
+
+function normalizeProviderId(provider) {
+  if (!provider) return null;
+  if (typeof provider === "string") return provider;
+  return provider.id || provider.provider_id || null;
+}
+
+function pickDefaultProvider(providers) {
+  if (!Array.isArray(providers) || !providers.length) return null;
+  const normalized = providers.map((item) => (typeof item === "string" ? { id: item } : item));
+  const healthy = normalized.find((item) => item?.ok === true);
+  const available = normalized.find((item) => item?.ok !== false);
+  const fallback = healthy || available || normalized[0];
+  return normalizeProviderId(fallback);
+}
+
+async function fetchProviderModels(providerId) {
+  if (!providerId) return [];
+  if (providerModelsCache.has(providerId)) {
+    return providerModelsCache.get(providerId);
+  }
+  try {
+    const payload = await get(`/providers/${providerId}/models`);
+    const models = Array.isArray(payload) ? payload : payload?.models;
+    const list = Array.isArray(models) ? models.filter(Boolean) : [];
+    providerModelsCache.set(providerId, list);
+    return list;
+  } catch (err) {
+    showError(err.message, err.code);
+    return [];
+  }
+}
+
+async function ensureProviderSelection(preferredProviderId, preferredModel) {
+  const providers = getState().providers;
+  const selection = getProviderSelection();
+  const providerId =
+    normalizeProviderId(preferredProviderId) ||
+    normalizeProviderId(selection.providerId) ||
+    pickDefaultProvider(providers);
+  if (!providerId) {
+    showError("No providers available.");
+    return null;
+  }
+  const models = await fetchProviderModels(providerId);
+  let model = preferredModel || selection.model;
+  if (!model || (models.length && !models.includes(model))) {
+    model = models[0] || null;
+  }
+  if (!model) {
+    showError(`No models available for ${providerId}.`);
+    return null;
+  }
+  setProviderSelection({ providerId, model });
+  updateStatus({ provider: providerId, model, token_usage: null });
+  return { providerId, model };
+}
+
+function applyConversationProviderModel(conversation, providerId, model) {
+  if (!conversation) return;
+  if (providerId) {
+    conversation.provider = providerId;
+  }
+  if (model) {
+    conversation.model = model;
+  }
+  if (conversation.provider || conversation.model) {
+    setProviderSelection({
+      providerId: conversation.provider || providerId || null,
+      model: conversation.model || model || null,
+    });
+    updateStatus({
+      provider: conversation.provider || providerId || null,
+      model: conversation.model || model || null,
+      token_usage: null,
+    });
+  }
+}
+
+function syncConversationFromMessages(conversation, messages) {
+  if (!conversation || !Array.isArray(messages) || !messages.length) return;
+  const lastAssistant = [...messages].reverse().find((msg) => msg.role === "assistant");
+  if (!lastAssistant) return;
+  const providerId =
+    lastAssistant.provider ||
+    lastAssistant.provider_id ||
+    lastAssistant.provider_meta?.provider_id ||
+    null;
+  const model = lastAssistant.model || lastAssistant.provider_meta?.model || null;
+  if (providerId || model) {
+    applyConversationProviderModel(conversation, providerId, model);
+  }
+}
 
 function buildLoginUrl(reason) {
   const params = new URLSearchParams();
@@ -598,7 +694,7 @@ function buildStreamHandlers(conversation) {
       const mode = data.mode || "sse";
       activeProvider = resolvedProvider;
       activeModel = resolvedModel;
-      updateStatus({ provider: resolvedProvider, model: resolvedModel });
+      applyConversationProviderModel(conversation, resolvedProvider, resolvedModel);
       updateStreamBadge(mode === "polling" ? "Polling…" : "Streaming…");
       startElapsedTimer();
       setRetryEnabled(false);
@@ -701,6 +797,14 @@ async function handleSend(composer) {
     showError("Select a conversation first");
     return;
   }
+  if (!state.providers.length) {
+    await loadProviders();
+  }
+  const selection = await ensureProviderSelection(conversation.provider, conversation.model);
+  if (!selection) {
+    return;
+  }
+  applyConversationProviderModel(conversation, selection.providerId, selection.model);
   composer.value = "";
   setRetryEnabled(false);
   pushMessage({ role: "user", content: text });
@@ -714,8 +818,8 @@ async function handleSend(composer) {
   updateStreamBadge(null);
   const stream = createSseStream({
     conversationId: conversation.id,
-    providerId: conversation.provider || state.providers[0]?.id || "lmstudio",
-    model: conversation.model || "default",
+    providerId: conversation.provider || selection.providerId,
+    model: conversation.model || selection.model,
     input: text,
     settings: {},
     onEvent: buildStreamHandlers(conversation),
@@ -827,6 +931,7 @@ async function handleSelectConversation(conversation) {
     setAutoScroll(true);
     setJumpButtonVisibility(false);
     hideResumeNotice();
+    syncConversationFromMessages(conversation, payload.messages);
     const hint = getResumeHint(conversation.id);
     if (hint) {
       const message = payload.messages.find((msg) => msg.id === hint.assistantMessageId);
@@ -857,6 +962,7 @@ async function loadProviders() {
     const providers = Array.isArray(payload) ? payload : payload?.providers;
     setProviders(Array.isArray(providers) ? providers : []);
     renderProviders(getState().providers);
+    await ensureProviderSelection();
   } catch (err) {
     showError(err.message, err.code);
   }
