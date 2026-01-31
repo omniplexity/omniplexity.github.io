@@ -216,14 +216,22 @@
         </div>
       </div>
       <label class="prompt-label" for="composerInput">Prompt</label>
+      <div class="prompt-attachments" id="attachmentTray" aria-live="polite" aria-label="Image attachments"></div>
       <div class="prompt-body">
         <textarea id="composerInput" placeholder="Ask something..." rows="3" title="Type your prompt. Enter to send, Shift+Enter for a newline."></textarea>
       </div>
       <div class="prompt-actions">
-        <button id="sendBtn" class="primary-btn" type="button" title="Send message">Send</button>
-        <button id="cancelBtn" class="ghost-btn" type="button" title="Stop streaming response">Stop</button>
-        <button id="retryBtn" class="ghost-btn" type="button" title="Retry the last response">Retry</button>
+        <div class="prompt-actions-left">
+          <button id="attachImageBtn" class="ghost-btn" type="button" title="Attach images">Image</button>
+          <button id="clearAttachmentsBtn" class="ghost-btn hidden" type="button" title="Clear attachments">Clear</button>
+        </div>
+        <div class="prompt-actions-right">
+          <button id="sendBtn" class="primary-btn" type="button" title="Send message">Send</button>
+          <button id="cancelBtn" class="ghost-btn" type="button" title="Stop streaming response">Stop</button>
+          <button id="retryBtn" class="ghost-btn" type="button" title="Retry the last response">Retry</button>
+        </div>
       </div>
+      <input id="imageInput" class="sr-only" type="file" accept="image/*" multiple />
     </section>
   </main>
 

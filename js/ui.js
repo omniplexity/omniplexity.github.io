@@ -30,6 +30,12 @@ const dom = {
   userName: document.getElementById("userName"),
   userRoleBadge: document.getElementById("userRoleBadge"),
   providersPanel: document.getElementById("providersPanel"),
+  attachmentTray: document.getElementById("attachmentTray"),
+  attachImageBtn: document.getElementById("attachImageBtn"),
+  clearAttachmentsBtn: document.getElementById("clearAttachmentsBtn"),
+  imageInput: document.getElementById("imageInput"),
+  composerInput: document.getElementById("composerInput"),
+  actionBar: document.querySelector(".action-bar"),
   inspectorProvider: document.getElementById("inspectorProvider"),
   inspectorModel: document.getElementById("inspectorModel"),
   inspectorVariant: document.getElementById("inspectorVariant"),
@@ -225,6 +231,92 @@ function renderMessageContent(text) {
   return fragment;
 }
 
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0B";
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let index = 0;
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index += 1;
+  }
+  const rounded = value >= 100 ? Math.round(value) : value >= 10 ? value.toFixed(1) : value.toFixed(2);
+  return `${rounded}${units[index]}`;
+}
+
+function normalizeAttachment(item) {
+  if (!item) return null;
+  if (typeof item === "string") {
+    return { url: item };
+  }
+  if (typeof item !== "object") return null;
+  const dataUrl = item.dataUrl || item.data_url || item.data || item.base64 || null;
+  const url = item.url || item.href || dataUrl || null;
+  return {
+    id: item.id,
+    name: item.name,
+    type: item.type,
+    size: item.size,
+    width: item.width,
+    height: item.height,
+    url,
+  };
+}
+
+function collectMessageAttachments(message) {
+  if (!message) return [];
+  const raw =
+    message.attachments ||
+    message.images ||
+    message.provider_meta?.images ||
+    message.provider_meta?.attachments;
+  if (!Array.isArray(raw)) return [];
+  return raw.map(normalizeAttachment).filter(Boolean);
+}
+
+function createAttachmentMeta(attachment) {
+  const meta = document.createElement("div");
+  meta.className = "message-attachment-meta";
+  const name = document.createElement("span");
+  name.textContent = attachment.name || "image";
+  const details = document.createElement("span");
+  const parts = [];
+  if (attachment.width && attachment.height) {
+    parts.push(`${attachment.width}x${attachment.height}`);
+  }
+  if (attachment.size) {
+    parts.push(formatBytes(attachment.size));
+  }
+  if (attachment.type) {
+    parts.push(attachment.type);
+  }
+  details.textContent = parts.length ? parts.join(" · ") : "";
+  meta.append(name, details);
+  return meta;
+}
+
+function createMessageAttachments(attachments) {
+  const wrap = document.createElement("div");
+  wrap.className = "message-attachments";
+  attachments.forEach((attachment) => {
+    if (!attachment.url) return;
+    const card = document.createElement("div");
+    card.className = "message-attachment";
+    const link = document.createElement("a");
+    link.href = attachment.url;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    const img = document.createElement("img");
+    img.src = attachment.url;
+    img.alt = attachment.name || "Attached image";
+    img.loading = "lazy";
+    link.appendChild(img);
+    card.append(link, createAttachmentMeta(attachment));
+    wrap.appendChild(card);
+  });
+  return wrap;
+}
+
 function parseProviderMeta(message) {
   if (!message) return null;
   const raw = message.provider_meta;
@@ -382,9 +474,13 @@ function createMessageElement(message) {
   el.appendChild(header);
   const contentNode = document.createElement("div");
   contentNode.className = "message-content";
-  if (message.isTyping && !message.content) {
+  const attachments = collectMessageAttachments(message);
+  if (attachments.length) {
+    contentNode.appendChild(createMessageAttachments(attachments));
+  }
+  if (message.isTyping && !message.content && !attachments.length) {
     contentNode.appendChild(createTypingPlaceholder());
-  } else {
+  } else if (message.content) {
     contentNode.appendChild(renderMessageContent(message.content || ""));
   }
   if (message.role === "assistant" && message.isTyping) {
@@ -502,9 +598,13 @@ function updateMessageElement(message) {
   if (!existing) return;
   const contentNode = existing.querySelector(".message-content");
   contentNode.innerHTML = "";
-  if (message.isTyping && !message.content) {
+  const attachments = collectMessageAttachments(message);
+  if (attachments.length) {
+    contentNode.appendChild(createMessageAttachments(attachments));
+  }
+  if (message.isTyping && !message.content && !attachments.length) {
     contentNode.appendChild(createTypingPlaceholder());
-  } else {
+  } else if (message.content) {
     contentNode.appendChild(renderMessageContent(message.content || ""));
   }
   const metaInfo = collectMetadata(message);
@@ -774,6 +874,115 @@ export function updateStatus({ provider, model, token_usage }) {
       : "Tokens: —";
   }
   updateInspector({ provider, model, tokens: token_usage ?? null });
+}
+
+export function renderAttachmentTray(attachments) {
+  if (!dom.attachmentTray) return;
+  dom.attachmentTray.innerHTML = "";
+  const list = Array.isArray(attachments) ? attachments : [];
+  dom.attachmentTray.classList.toggle("active", list.length > 0);
+  list.forEach((attachment, index) => {
+    const card = document.createElement("div");
+    card.className = "attachment-card";
+    card.dataset.attachmentId = attachment.id;
+
+    const img = document.createElement("img");
+    img.className = "attachment-thumb";
+    img.src = attachment.dataUrl;
+    img.alt = attachment.name || "Attached image";
+    img.loading = "lazy";
+
+    const meta = document.createElement("div");
+    meta.className = "attachment-meta";
+    const name = document.createElement("span");
+    name.textContent = attachment.name || "image";
+    const details = document.createElement("span");
+    const parts = [];
+    if (attachment.width && attachment.height) {
+      parts.push(`${attachment.width}x${attachment.height}`);
+    }
+    if (attachment.size) {
+      parts.push(formatBytes(attachment.size));
+    }
+    if (attachment.type) {
+      parts.push(attachment.type);
+    }
+    details.textContent = parts.join(" · ");
+    meta.append(name, details);
+
+    const controls = document.createElement("div");
+    controls.className = "attachment-controls";
+    const leftBtn = document.createElement("button");
+    leftBtn.type = "button";
+    leftBtn.dataset.action = "move-left";
+    leftBtn.dataset.attachmentId = attachment.id;
+    leftBtn.textContent = "<";
+    leftBtn.title = "Move left";
+    leftBtn.disabled = index === 0;
+
+    const rightBtn = document.createElement("button");
+    rightBtn.type = "button";
+    rightBtn.dataset.action = "move-right";
+    rightBtn.dataset.attachmentId = attachment.id;
+    rightBtn.textContent = ">";
+    rightBtn.title = "Move right";
+    rightBtn.disabled = index === list.length - 1;
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.dataset.action = "remove";
+    removeBtn.dataset.attachmentId = attachment.id;
+    removeBtn.textContent = "x";
+    removeBtn.title = "Remove";
+
+    controls.append(leftBtn, rightBtn, removeBtn);
+    card.append(img, meta, controls);
+    dom.attachmentTray.appendChild(card);
+  });
+}
+
+export function bindAttachmentTray(callbacks) {
+  dom.attachmentTray?.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const button = target?.closest("button[data-action]");
+    if (!button) return;
+    const action = button.getAttribute("data-action");
+    const id = button.getAttribute("data-attachment-id");
+    if (!id) return;
+    if (action === "remove") {
+      callbacks?.onRemove?.(id);
+    }
+    if (action === "move-left") {
+      callbacks?.onMove?.(id, -1);
+    }
+    if (action === "move-right") {
+      callbacks?.onMove?.(id, 1);
+    }
+  });
+}
+
+export function setActionBarDragActive(active) {
+  dom.actionBar?.classList.toggle("drag-active", Boolean(active));
+}
+
+export function setAttachmentClearVisible(visible) {
+  dom.clearAttachmentsBtn?.classList.toggle("hidden", !visible);
+}
+
+export function openImagePicker() {
+  dom.imageInput?.click();
+}
+
+export function bindImagePicker(onFiles) {
+  dom.imageInput?.addEventListener("change", (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) return;
+    const files = input.files ? Array.from(input.files) : [];
+    if (files.length) {
+      onFiles?.(files);
+    }
+    input.value = "";
+  });
 }
 
 export function setBackendBadge(baseUrl) {

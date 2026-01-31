@@ -109,9 +109,23 @@ import {
   bindSettingsModal,
   bindSettingsAccordion,
   bindMessageActions,
+  renderAttachmentTray,
+  bindAttachmentTray,
+  setActionBarDragActive,
+  setAttachmentClearVisible,
+  openImagePicker,
+  bindImagePicker,
   openSettingsModal,
   closeSettingsModal,
 } from "./ui.js";
+import {
+  initDiagnostics,
+  bindScrollProbe,
+  recordStreamStart,
+  recordFirstToken,
+  recordStreamEnd,
+  recordStreamMessage,
+} from "./diagnostics.js";
 
 let elapsedInterval = null;
 let auditFilters = { event: "", from: "", to: "" };
@@ -119,6 +133,9 @@ let authRedirecting = false;
 const providerModelsCache = new Map();
 let autoRetryTimeout = null;
 let streamTiming = { startedAt: null, firstTokenAt: null };
+const MAX_ATTACHMENTS = 6;
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+let composerAttachments = [];
 
 function normalizeProviderId(provider) {
   if (!provider) return null;
@@ -368,6 +385,146 @@ function stopElapsedTimer() {
     elapsedInterval = null;
   }
   updateElapsedTime(0);
+}
+
+function setComposerAttachments(next) {
+  composerAttachments = Array.isArray(next) ? next : [];
+  renderAttachmentTray(composerAttachments);
+  setAttachmentClearVisible(composerAttachments.length > 0);
+}
+
+function clearComposerAttachments() {
+  setComposerAttachments([]);
+}
+
+function makeAttachmentId() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Unable to read image"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function getImageDimensions(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.width, height: img.height });
+    img.onerror = () => resolve({ width: null, height: null });
+    img.src = dataUrl;
+  });
+}
+
+async function createAttachmentFromFile(file) {
+  const dataUrl = await readFileAsDataUrl(file);
+  const dimensions = await getImageDimensions(dataUrl);
+  return {
+    id: makeAttachmentId(),
+    name: file.name,
+    type: file.type,
+    size: file.size,
+    width: dimensions.width,
+    height: dimensions.height,
+    dataUrl,
+  };
+}
+
+async function handleImageFiles(files) {
+  if (!files?.length) return;
+  const imageFiles = files.filter((file) => file.type?.startsWith("image/"));
+  if (!imageFiles.length) {
+    showError("Only image files are supported.");
+    return;
+  }
+  if (composerAttachments.length >= MAX_ATTACHMENTS) {
+    showError(`Attachment limit reached (${MAX_ATTACHMENTS}).`);
+    return;
+  }
+  const remaining = MAX_ATTACHMENTS - composerAttachments.length;
+  const accepted = imageFiles.slice(0, remaining);
+  const next = [...composerAttachments];
+  for (const file of accepted) {
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      showError(`Image too large. Max size is ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))}MB.`);
+      continue;
+    }
+    try {
+      const attachment = await createAttachmentFromFile(file);
+      next.push(attachment);
+    } catch (err) {
+      showError(err.message || "Unable to read image.");
+    }
+  }
+  setComposerAttachments(next);
+}
+
+function handleAttachmentMove(id, delta) {
+  const index = composerAttachments.findIndex((att) => att.id === id);
+  if (index < 0) return;
+  const nextIndex = index + delta;
+  if (nextIndex < 0 || nextIndex >= composerAttachments.length) return;
+  const next = [...composerAttachments];
+  const [item] = next.splice(index, 1);
+  next.splice(nextIndex, 0, item);
+  setComposerAttachments(next);
+}
+
+function handleAttachmentRemove(id) {
+  const next = composerAttachments.filter((att) => att.id !== id);
+  setComposerAttachments(next);
+}
+
+function handleComposerPaste(event) {
+  const items = event.clipboardData?.items;
+  if (!items || !items.length) return;
+  const files = [];
+  for (const item of items) {
+    if (item.kind === "file") {
+      const file = item.getAsFile();
+      if (file) files.push(file);
+    }
+  }
+  if (files.length) {
+    handleImageFiles(files);
+  }
+}
+
+let dragDepth = 0;
+
+function handleDragEnter(event) {
+  event.preventDefault();
+  dragDepth += 1;
+  setActionBarDragActive(true);
+}
+
+function handleDragOver(event) {
+  event.preventDefault();
+  setActionBarDragActive(true);
+}
+
+function handleDragLeave(event) {
+  event.preventDefault();
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) {
+    setActionBarDragActive(false);
+  }
+}
+
+function handleDrop(event) {
+  event.preventDefault();
+  dragDepth = 0;
+  setActionBarDragActive(false);
+  const files = Array.from(event.dataTransfer?.files || []);
+  if (files.length) {
+    handleImageFiles(files);
+  }
 }
 
 async function loadCurrentUser() {
@@ -673,6 +830,7 @@ function clearUiForLogout() {
   streamTiming = { startedAt: null, firstTokenAt: null };
   clearActiveStreamMeta();
   stopElapsedTimer();
+  clearComposerAttachments();
   updateStreamBadge(null);
   hideResumeNotice();
   setRetryEnabled(false);
@@ -845,6 +1003,7 @@ function buildStreamHandlers(conversation) {
           ? "Polling…"
           : "Streaming…"
         : "Processing…";
+      recordStreamStart();
       streamTiming = { startedAt: getState().streamStartTime || Date.now(), firstTokenAt: null };
       updateInspector({ status: statusLabel, latencyMs: null, durationMs: null });
       updateStreamBadge(statusLabel);
@@ -873,6 +1032,7 @@ function buildStreamHandlers(conversation) {
       const updated = updateMessageById(assistantMessageId, { content: nextContent, isTyping: true });
       if (streamTiming.startedAt && !streamTiming.firstTokenAt) {
         streamTiming.firstTokenAt = Date.now();
+        recordFirstToken();
         updateInspector({ latencyMs: streamTiming.firstTokenAt - streamTiming.startedAt });
       }
       const streamingEnabled = getSettings()?.streaming !== false;
@@ -893,6 +1053,8 @@ function buildStreamHandlers(conversation) {
       if (updated) {
         updateMessage(updated);
       }
+      recordStreamEnd("final");
+      recordStreamMessage();
       updateStatus({ provider: activeProvider, model: activeModel, token_usage: data?.token_usage });
       if (streamTiming.startedAt) {
         updateInspector({
@@ -917,6 +1079,7 @@ function buildStreamHandlers(conversation) {
       if (updated) {
         updateMessage(updated);
       }
+      recordStreamEnd("error");
       if (streamTiming.startedAt) {
         updateInspector({
           status: "Error",
@@ -945,6 +1108,7 @@ function buildStreamHandlers(conversation) {
       if (updated) {
         updateMessage(updated);
       }
+      recordStreamEnd("disconnected");
       if (streamTiming.startedAt) {
         updateInspector({
           status: "Disconnected",
@@ -969,6 +1133,7 @@ function buildStreamHandlers(conversation) {
       if (updated) {
         updateMessage(updated);
       }
+      recordStreamEnd("canceled");
       if (streamTiming.startedAt) {
         updateInspector({
           status: "Canceled",
@@ -992,8 +1157,12 @@ async function handleSend(composer) {
     showError("A stream is already running");
     return;
   }
-  const text = composer?.value.trim();
+  const rawText = composer?.value ?? "";
+  const text = rawText.trim();
   if (!text) {
+    if (composerAttachments.length > 0) {
+      showError("Add a prompt to send images.");
+    }
     return;
   }
   const state = getState();
@@ -1011,10 +1180,12 @@ async function handleSend(composer) {
     return;
   }
   applyConversationProviderModel(conversation, selection.providerId, selection.model);
+  const attachments = composerAttachments;
+  clearComposerAttachments();
   composer.value = "";
   setRetryEnabled(false);
   setStreamControls(true);
-  pushMessage({ role: "user", content: text });
+  pushMessage({ role: "user", content: text, attachments });
   renderMessages(getState().messages);
   if (getSettings()?.autoScroll !== false) {
     scrollToBottom();
@@ -1028,6 +1199,17 @@ async function handleSend(composer) {
   setJumpButtonVisibility(false);
   updateStreamBadge(null);
   const streamSettings = buildStreamSettings();
+  if (attachments.length) {
+    streamSettings.attachments = attachments.map((attachment) => ({
+      id: attachment.id,
+      name: attachment.name,
+      type: attachment.type,
+      size: attachment.size,
+      width: attachment.width,
+      height: attachment.height,
+      dataUrl: attachment.dataUrl,
+    }));
+  }
   const stream = createSseStream({
     conversationId: conversation.id,
     providerId: conversation.provider || selection.providerId,
@@ -1134,6 +1316,7 @@ async function refreshConversations() {
 
 async function handleSelectConversation(conversation) {
   setSelectedConversation(conversation);
+  clearComposerAttachments();
   renderConversations(getState().conversations, handleSelectConversation, {
     onRename: handleRenameConversation,
     onDelete: handleDeleteConversation,
@@ -1201,6 +1384,7 @@ async function loadProviders() {
 function setupScrolling() {
   const streamEl = getMessageStreamElement();
   if (!streamEl) return;
+  bindScrollProbe(streamEl);
   let scrollRaf = null;
   streamEl.addEventListener("scroll", () => {
     const atBottom =
@@ -1229,10 +1413,14 @@ async function mainApp() {
   const logoutBtn = document.getElementById("logoutBtn");
   const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
   const inspectorToggleBtn = document.getElementById("inspectorToggleBtn");
+  const attachImageBtn = document.getElementById("attachImageBtn");
+  const clearAttachmentsBtn = document.getElementById("clearAttachmentsBtn");
+  const actionBar = document.querySelector(".action-bar");
   const userMenuBtn = document.getElementById("userMenuBtn");
   const userMenuPanel = document.getElementById("userMenuPanel");
 
   applySettings(getSettings());
+  initDiagnostics();
   updateSidebarUi(getUiState().sidebarCollapsed);
   updateInspectorUi(getUiState().inspectorCollapsed);
   bindSettingsAccordion();
@@ -1261,6 +1449,12 @@ async function mainApp() {
   bindMessageActions({
     onRetry: () => handleRetry(),
   });
+  bindAttachmentTray({
+    onRemove: handleAttachmentRemove,
+    onMove: handleAttachmentMove,
+  });
+  bindImagePicker(handleImageFiles);
+  setComposerAttachments([]);
 
   bindConversationActions(startNewConversation);
   bindJumpButton(() => {
@@ -1276,6 +1470,8 @@ async function mainApp() {
   sendBtn?.addEventListener("click", () => handleSend(composer));
   cancelBtn?.addEventListener("click", handleCancel);
   retryBtn?.addEventListener("click", handleRetry);
+  attachImageBtn?.addEventListener("click", openImagePicker);
+  clearAttachmentsBtn?.addEventListener("click", clearComposerAttachments);
   setStreamControls(false);
   logoutBtn?.addEventListener("click", async () => {
     try {
@@ -1326,6 +1522,11 @@ async function mainApp() {
       handleCancel();
     }
   });
+  composer?.addEventListener("paste", handleComposerPaste);
+  actionBar?.addEventListener("dragenter", handleDragEnter);
+  actionBar?.addEventListener("dragover", handleDragOver);
+  actionBar?.addEventListener("dragleave", handleDragLeave);
+  actionBar?.addEventListener("drop", handleDrop);
 
   document.addEventListener("keydown", (event) => {
     const key = event.key.toLowerCase();
