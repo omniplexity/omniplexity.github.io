@@ -7,6 +7,16 @@
   <meta name="theme-color" content="#f6f3ee" />
   <link rel="icon" href="./favicon.ico" />
   <link rel="stylesheet" href="./assets/css/style.css" />
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    base-uri 'self';
+    object-src 'none';
+    frame-ancestors 'none';
+    img-src 'self' data: blob:;
+    style-src 'self' 'unsafe-inline';
+    script-src 'self';
+    connect-src 'self' https:;
+  " />
 </head>
 <body class="page" data-page="login">
   <main class="auth-shell">
