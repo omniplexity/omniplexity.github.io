@@ -1,14 +1,3 @@
-import {
-  getState,
-  recordMessageHeight,
-  getAverageMessageHeight,
-  getVirtualBuffer,
-  resetVirtualMeasurements,
-  shouldAutoScroll,
-  getSelectedAdminUsers,
-  getReceipt,
-  setReceiptCollapsed,
-} from "./state.js";
 
 const dom = {
   conversationList: document.getElementById("conversationList"),

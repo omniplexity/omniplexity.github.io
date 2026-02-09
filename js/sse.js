@@ -11,6 +11,12 @@ import {
   setStreamFirstTokenAt,
   incrementStreamTokenCount,
   getState,
+  getCurrentAssistantMessageId,
+  createInspector,
+  addInspectorEvent,
+  incrementInspectorRetry,
+  incrementInspectorReconnect,
+  setInspectorError,
 } from "./state.js";
 
 const PUBLIC_EVENTS = ["meta", "delta", "final", "error", "ping"];
@@ -142,6 +148,22 @@ async function createStream({ path, body, onEvent }) {
   let reconnecting = false;
   let stalledTimer;
   let partialLength = 0;
+  let messageId = getCurrentAssistantMessageId();
+
+  // Initialize inspector for this stream
+  if (messageId) {
+    createInspector(messageId, {
+      providerId: body.provider_id,
+      model: body.model,
+      startedAt: Date.now(),
+    });
+  }
+
+  const trackEvent = (eventType, data) => {
+    if (messageId) {
+      addInspectorEvent(messageId, eventType, data);
+    }
+  };
 
   const resetStallTimer = () => {
     clearTimeout(stalledTimer);
@@ -152,6 +174,7 @@ async function createStream({ path, body, onEvent }) {
     stalledTimer = setTimeout(() => {
       reconnecting = true;
       setStreamStatus(body.conversation_id, "reconnecting");
+      if (messageId) incrementInspectorReconnect(messageId);
       onEvent?.reconnecting?.();
     }, 15000);
   };
@@ -168,11 +191,13 @@ async function createStream({ path, body, onEvent }) {
 
   async function startPolling(response) {
     setStreamStatus(body.conversation_id, "polling");
-    onEvent?.meta?.({
+    const metaData = {
       provider_id: body.provider_id,
       model: body.model,
       mode: "polling",
-    });
+    };
+    trackEvent("meta", metaData);
+    onEvent?.meta?.(metaData);
 
     response.text().catch(() => {});
 
@@ -183,18 +208,21 @@ async function createStream({ path, body, onEvent }) {
     });
     if (!result) return;
     if (result.status === "final") {
+      trackEvent("final", {});
       onEvent?.final?.({});
     }
     if (result.status === "error") {
-      onEvent?.error?.({
-        message: result.error?.message || "Stream failed",
-        code: result.error?.code,
-      });
+      const errorData = { message: result.error?.message || "Stream failed", code: result.error?.code };
+      if (messageId) setInspectorError(messageId, errorData);
+      trackEvent("error", errorData);
+      onEvent?.error?.(errorData);
     }
     if (result.status === "canceled") {
+      trackEvent("canceled", {});
       onEvent?.canceled?.();
     }
     if (result.status === "timeout") {
+      trackEvent("disconnected", { reason: "timeout" });
       onEvent?.disconnected?.();
     }
     controller.abort();
@@ -250,6 +278,8 @@ async function createStream({ path, body, onEvent }) {
           if (event === "ping" || chunk.trim() === ":") {
             continue;
           }
+          // Track event in inspector
+          trackEvent(event, data);
           if (PUBLIC_EVENTS.includes(event) && typeof onEvent[event] === "function") {
             onEvent[event](data);
           }
@@ -269,20 +299,26 @@ async function createStream({ path, body, onEvent }) {
               clearActiveStreamMeta();
               setStreamStatus(body.conversation_id, "idle");
             }
+            if (event === "error" && messageId) {
+              setInspectorError(messageId, data);
+            }
             return;
           }
         }
       }
       if (!reconnecting) {
         markStreamInterrupted(body.conversation_id);
+        trackEvent("disconnected", { reason: "stream_end" });
         onEvent?.disconnected?.();
         setStreamStatus(body.conversation_id, "disconnected");
       }
     } catch (err) {
       if (err.name === "AbortError") {
+        trackEvent("canceled", {});
         onEvent?.canceled?.();
       } else {
         markStreamInterrupted(body.conversation_id);
+        trackEvent("disconnected", { reason: "error", error: err.message });
         onEvent?.disconnected?.();
       }
     } finally {

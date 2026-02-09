@@ -42,7 +42,8 @@ const state = {
   resumeHints: loadResumeHints(),
   activeStreamMeta: null,
   currentUser: null,
-  messageReceipts: {}, // messageId -> receipt
+  messageReceipts: {},
+  messageInspectors: {},
   admin: {
     users: [],
     usage: [],
@@ -366,6 +367,55 @@ export function getAdminInvites() {
   return state.admin.invites;
 }
 
+/* Inspector tracking for SSE events */
+export function createInspector(messageId, data = {}) {
+  state.messageInspectors[messageId] = {
+    messageId,
+    events: [],
+    providerId: data.providerId || null,
+    model: data.model || null,
+    retryCount: 0,
+    reconnectAttempts: 0,
+    lastError: null,
+    startedAt: data.startedAt || Date.now(),
+    expanded: false,
+  };
+}
+
+export function addInspectorEvent(messageId, eventType, eventData) {
+  const inspector = state.messageInspectors[messageId];
+  if (!inspector) return;
+  inspector.events.push({
+    type: eventType,
+    data: eventData,
+    timestamp: Date.now(),
+  });
+}
+
+export function incrementInspectorRetry(messageId) {
+  const inspector = state.messageInspectors[messageId];
+  if (inspector) inspector.retryCount++;
+}
+
+export function incrementInspectorReconnect(messageId) {
+  const inspector = state.messageInspectors[messageId];
+  if (inspector) inspector.reconnectAttempts++;
+}
+
+export function setInspectorError(messageId, error) {
+  const inspector = state.messageInspectors[messageId];
+  if (inspector) inspector.lastError = error;
+}
+
+export function getInspector(messageId) {
+  return state.messageInspectors[messageId];
+}
+
+export function setInspectorExpanded(messageId, expanded) {
+  const inspector = state.messageInspectors[messageId];
+  if (inspector) inspector.expanded = expanded;
+}
+
 /* Receipt management for streaming metrics */
 export function createReceipt(messageId, data = {}) {
   state.messageReceipts[messageId] = {
@@ -424,6 +474,7 @@ export function resetAppState() {
   state.activeStreamMeta = null;
   state.currentUser = null;
   state.messageReceipts = {};
+  state.messageInspectors = {};
   state.admin = {
     users: [],
     usage: [],
