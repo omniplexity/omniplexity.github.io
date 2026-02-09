@@ -566,6 +566,20 @@ export function updateStreamBadge(status) {
   dom.streamBadge.textContent = status;
 }
 
+export function updateReconnectingStatus(data) {
+  if (!dom.streamBadge) return;
+  if (data.status) {
+    dom.streamBadge.classList.remove("hidden");
+    dom.streamBadge.textContent = data.status;
+    dom.streamBadge.classList.add("reconnecting");
+  }
+}
+
+export function clearReconnectingStatus() {
+  if (!dom.streamBadge) return;
+  dom.streamBadge.classList.remove("reconnecting");
+}
+
 export function updateElapsedTime(seconds) {
   if (!dom.elapsedTime) return;
   if (!seconds) {

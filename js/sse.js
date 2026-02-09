@@ -14,6 +14,28 @@ const PUBLIC_EVENTS = ["meta", "delta", "final", "error", "ping"];
 const STREAM_POLL_INTERVAL_MS = 1800;
 const STREAM_POLL_TIMEOUT_MS = 120000;
 
+// Reconnection config
+const RECONNECT_BASE_DELAY_MS = 1000;
+const RECONNECT_MAX_DELAY_MS = 10000;
+const RECONNECT_MAX_ATTEMPTS = 5;
+
+function calculateReconnectDelay(attempt) {
+  const delay = RECONNECT_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+  return Math.min(delay + Math.random() * 500, RECONNECT_MAX_DELAY_MS);
+}
+
+function shouldAttemptReconnect(error, attempt) {
+  // Don't reconnect on auth errors
+  if (error?.code === "E2000" || error?.code === "E2002") {
+    return false;
+  }
+  // Don't reconnect if max attempts reached
+  if (attempt >= RECONNECT_MAX_ATTEMPTS) {
+    return false;
+  }
+  return true;
+}
+
 function parseChunk(raw) {
   const lines = raw.split("\n");
   const event = lines.find((row) => row.startsWith("event:"))?.split("event:")[1].trim();
@@ -290,4 +312,78 @@ export function createRetryStream(conversationId, onEvent) {
     body: { conversation_id: conversationId },
     onEvent,
   });
+}
+
+// Reconnecting stream with exponential backoff
+export function createReconnectingStream(options) {
+  const { conversationId, providerId, model, input, settings, onEvent, maxAttempts = RECONNECT_MAX_ATTEMPTS } = options;
+
+  let attempt = 0;
+  let currentStream = null;
+  let resolveStart = null;
+  let rejectStart = null;
+
+  const startPromise = new Promise((resolve, reject) => {
+    resolveStart = resolve;
+    rejectStart = reject;
+  });
+
+  const wrappedOnEvent = {
+    ...onEvent,
+    reconnecting(data) {
+      attempt++;
+      const delay = calculateReconnectDelay(attempt);
+      const status = attempt >= maxAttempts
+        ? `Reconnect failed (${attempt}/${maxAttempts})`
+        : `Reconnecting in ${Math.round(delay/1000)}s (${attempt}/${maxAttempts})...`;
+      onEvent?.reconnecting?.({ ...data, status, attempt, delay, maxAttempts });
+    },
+  };
+
+  async function attemptStream(streamAttempt) {
+    currentStream = createStream({
+      path: "/chat/stream",
+      body: {
+        conversation_id: conversationId,
+        provider_id: providerId,
+        model,
+        input,
+        settings,
+      },
+      onEvent: wrappedOnEvent,
+    });
+
+    try {
+      await currentStream.start();
+      // Stream completed successfully
+      resolveStart?.();
+    } catch (err) {
+      if (streamAttempt >= maxAttempts) {
+        rejectStart?.(err);
+        return;
+      }
+
+      if (shouldAttemptReconnect(err, streamAttempt)) {
+        const delay = calculateReconnectDelay(streamAttempt);
+        await delay(delay);
+        await attemptStream(streamAttempt + 1);
+      } else {
+        rejectStart?.(err);
+      }
+    }
+  }
+
+  // Start the first attempt
+  attemptStream(1);
+
+  return {
+    start: () => startPromise,
+    cancel() {
+      currentStream?.cancel();
+      attempt = maxAttempts; // Prevent further reconnect attempts
+    },
+    getCurrentAttempt() {
+      return attempt;
+    },
+  };
 }
