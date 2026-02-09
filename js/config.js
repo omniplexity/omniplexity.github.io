@@ -1,4 +1,4 @@
-const FALLBACK_BACKEND_URL = "https://silent-eventually-movie-geometry.trycloudflare.com";
+const FALLBACK_BACKEND_URL = "https://omniplexity.duckdns.org";
 
 const runtime = {
   data: {
@@ -8,7 +8,7 @@ const runtime = {
 
 export async function loadConfig() {
   try {
-    const res = await fetch("./runtime-config.json", { cache: "no-store" });
+    const res = await fetch(`/runtime-config.json?v=${Date.now()}`, { cache: "no-store" });
     if (res.ok) {
       const json = await res.json();
       if (json.BACKEND_BASE_URL) {
