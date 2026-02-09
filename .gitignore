@@ -1,27 +1,6 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-.venv/
-ENV/
-backend/.venv/
-*.egg-info/
-dist/
-build/
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Environment
-.env
-backend/.env
-deploy/.env.*
+# OS
+.DS_Store
+Thumbs.db
 
 # IDE
 .vscode/
@@ -30,22 +9,11 @@ deploy/.env.*
 *.swo
 *~
 
-# Logs
-logs/
-*.log
+# Claude Code settings
+.claude/
 
-# Frontend (separate repository)
-OmniAI-frontend/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Test coverage
-.coverage
-htmlcov/
-.pytest_cache/
-
-# Node (if any backend tooling uses it)
+# Do not commit backend or deploy artifacts
+backend/
+deploy/
+contracts/
 node_modules/
-OmniAI-frontend/
