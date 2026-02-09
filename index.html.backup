@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniAI - Privacy-First AI Chat</title>
+    <script>
+        // Placeholder - actual app will be built from frontend source
+        console.log('OmniAI frontend placeholder');
+    </script>
+</head>
+<body>
+    <h1>OmniAI</h1>
+    <p>Privacy-first AI chat platform</p>
+    <p>Frontend placeholder - CSP testing active</p>
+</body>
+</html>
