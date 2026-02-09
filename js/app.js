@@ -94,6 +94,7 @@ import {
   setPlanBadge,
   setBackendBadge,
   renderProviders,
+  updateInspectorPanel,
 } from "./ui.js";
 
 let elapsedInterval = null;
@@ -613,6 +614,8 @@ function buildStreamHandlers(conversation) {
         startedAt: Date.now(),
       });
       hideResumeNotice();
+      // Update inspector panel
+      updateInspectorPanel(assistantMessageId);
     },
     delta(data) {
       const messages = getState().messages;
@@ -634,6 +637,8 @@ function buildStreamHandlers(conversation) {
       if (shouldAutoScroll()) {
         scrollToBottom();
       }
+      // Update inspector panel
+      updateInspectorPanel(assistantMessageId);
     },
     final(data) {
       const updated = updateMessageById(assistantMessageId, { isTyping: false });
@@ -656,6 +661,8 @@ function buildStreamHandlers(conversation) {
       setRetryEnabled(false);
       streamCompleted();
       clearActiveStreamMeta();
+      // Update inspector panel
+      updateInspectorPanel(assistantMessageId);
     },
     error(data) {
       const updated = updateMessageById(assistantMessageId, {
@@ -676,9 +683,13 @@ function buildStreamHandlers(conversation) {
       showResumeNotice("Connection interrupted. Retry to continue.");
       setRetryEnabled(true);
       streamCompleted();
+      // Update inspector panel
+      updateInspectorPanel(assistantMessageId);
     },
     reconnecting() {
       updateStreamBadge("Reconnecting…");
+      // Update inspector panel
+      updateInspectorPanel(assistantMessageId);
     },
     disconnected() {
       const updated = updateMessageById(assistantMessageId, {
@@ -698,6 +709,8 @@ function buildStreamHandlers(conversation) {
       updateStreamBadge("Disconnected");
       showResumeNotice("A response may have been interrupted.");
       streamCompleted();
+      // Update inspector panel
+      updateInspectorPanel(assistantMessageId);
     },
     canceled() {
       const updated = updateMessageById(assistantMessageId, {
@@ -716,6 +729,8 @@ function buildStreamHandlers(conversation) {
       showResumeNotice("Response canceled. Retry if you like.");
       setRetryEnabled(true);
       streamCompleted();
+      // Update inspector panel
+      updateInspectorPanel(assistantMessageId);
     },
   };
 }

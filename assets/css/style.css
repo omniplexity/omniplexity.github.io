@@ -609,4 +609,114 @@ select:focus {
   font-weight: 500;
 }
 
-/*
+/* Inspector panel for SSE event debugging */
+.inspector-toggle {
+  position: absolute;
+  top: 0.25rem;
+  right: 4rem;
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
+
+.inspector-toggle:hover {
+  opacity: 1;
+}
+
+.inspector-panel {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.inspector-panel.collapsed {
+  display: none;
+}
+
+.inspector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--ink-700);
+}
+
+.inspector-meta {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+  font-size: 0.65rem;
+  color: var(--ink-500);
+}
+
+.inspector-events {
+  max-height: 200px;
+  overflow-y: auto;
+  border-top: 1px solid rgba(15, 23, 42, 0.1);
+  padding-top: 0.5rem;
+}
+
+.inspector-event {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.05);
+}
+
+.inspector-event:last-child {
+  border-bottom: none;
+}
+
+.inspector-event-type {
+  font-weight: 600;
+  min-width: 70px;
+  text-transform: uppercase;
+  font-size: 0.65rem;
+}
+
+.inspector-event-type.meta { color: #6366f1; }
+.inspector-event-type.delta { color: #10b981; }
+.inspector-event-type.final { color: #3b82f6; }
+.inspector-event-type.error { color: #ef4444; }
+.inspector-event-type.reconnecting { color: #f59e0b; }
+.inspector-event-type.disconnected { color: #f97316; }
+.inspector-event-type.canceled { color: #6b7280; }
+.inspector-event-type.system { color: #8b5cf6; }
+
+.inspector-event-data {
+  flex: 1;
+  word-break: break-all;
+  color: var(--ink-700);
+}
+
+.inspector-event-timestamp {
+  font-size: 0.6rem;
+  color: var(--ink-400);
+  min-width: 45px;
+  text-align: right;
+}
+
+.inspector-error {
+  color: #ef4444;
+  padding: 0.25rem;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 4px;
+  margin-top: 0.25rem;
+}
+
+.inspector-retry {
+  color: #f59e0b;
+  font-size: 0.65rem;
+  margin-top: 0.25rem;
+}
+
+/*	

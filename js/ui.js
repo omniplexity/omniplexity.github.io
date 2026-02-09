@@ -207,6 +207,13 @@ function createMessageElement(message) {
     cursor.setAttribute("aria-hidden", "true");
     el.appendChild(cursor);
   }
+  // Add inspector toggle for assistant messages
+  if (message.role === "assistant") {
+    const inspectorToggle = createInspectorToggle(message.id);
+    el.appendChild(inspectorToggle);
+    const inspectorPanel = renderInspectorPanel(message.id, null);
+    el.appendChild(inspectorPanel);
+  }
   return el;
 }
 
@@ -1100,21 +1107,135 @@ export function renderReceiptPanel(messageId, receipt) {
   return panel;
 }
 
-export function updateReceiptPanel(messageId) {
-  const receipt = getReceipt(messageId);
-  if (!receipt) return;
+/* Inspector toggle and panel for SSE event debugging */
+export function createInspectorToggle(messageId) {
+  const btn = document.createElement("button");
+  btn.className = "inspector-toggle";
+  btn.setAttribute("aria-expanded", "false");
+  btn.textContent = "🔍";
+  btn.title = "Inspect SSE events";
 
-  const panel = document.getElementById(`receipt-${messageId}`);
-  if (!panel) return;
+  btn.onclick = () => {
+    const inspector = getInspector(messageId);
+    if (!inspector) return;
 
-  const outcomeRow = panel.querySelector(".receipt-outcome");
-  if (outcomeRow) {
-    outcomeRow.className = `receipt-row receipt-outcome ${receipt.outcome}`;
-    outcomeRow.querySelector(".receipt-value").textContent = receipt.outcome;
+    const panel = document.getElementById(`inspector-${messageId}`);
+    if (!panel) return;
+
+    const expanded = !inspector.expanded;
+    setInspectorExpanded(messageId, expanded);
+    btn.setAttribute("aria-expanded", String(expanded));
+    panel.classList.toggle("collapsed", expanded);
+  };
+
+  return btn;
+}
+
+export function renderInspectorPanel(messageId, inspector) {
+  const panel = document.createElement("div");
+  panel.id = `inspector-${messageId}`;
+  panel.className = "inspector-panel collapsed";
+
+  const providerModel = inspector
+    ? `${inspector.providerId || "—"} / ${inspector.model || "—"}`
+    : "— / —";
+  const elapsed = inspector
+    ? Math.round((Date.now() - inspector.startedAt) / 1000)
+    : 0;
+
+  panel.innerHTML = `
+    <div class="inspector-header">
+      <span>Run Inspector</span>
+      <span style="font-weight: normal; font-size: 0.65rem;">${elapsed}s elapsed</span>
+    </div>
+    <div class="inspector-meta">
+      <span>${providerModel}</span>
+    </div>
+    <div class="inspector-events">
+      <div style="color: var(--ink-500); text-align: center; padding: 0.5rem;">
+        Waiting for events...
+      </div>
+    </div>
+  `;
+
+  return panel;
+}
+
+export function updateInspectorPanel(messageId) {
+  const inspector = getInspector(messageId);
+  const panel = document.getElementById(`inspector-${messageId}`);
+  if (!panel || !inspector) return;
+
+  const eventsContainer = panel.querySelector(".inspector-events");
+  if (!eventsContainer) return;
+
+  // Update elapsed time
+  const elapsed = Math.round((Date.now() - inspector.startedAt) / 1000);
+  const elapsedEl = panel.querySelector(".inspector-header span:last-child");
+  if (elapsedEl) {
+    elapsedEl.textContent = `${elapsed}s elapsed`;
   }
 
-  const values = panel.querySelectorAll(".receipt-value");
-  if (values[1]) values[1].textContent = receipt.ttft ? receipt.ttft + "ms" : "—";
-  if (values[2]) values[2].textContent = receipt.duration ? receipt.duration + "ms" : "—";
-  if (values[3]) values[3].textContent = receipt.tokens;
+  // Update provider/model meta
+  const metaEl = panel.querySelector(".inspector-meta");
+  if (metaEl) {
+    const providerModel = `${inspector.providerId || "—"} / ${inspector.model || "—"}`;
+    if (metaEl.firstElementChild?.textContent !== providerModel) {
+      metaEl.innerHTML = `<span>${providerModel}</span>`;
+    }
+  }
+
+  // Rebuild events list
+  if (inspector.events.length > 0) {
+    const hasContent = eventsContainer.querySelector(".inspector-event");
+    if (!hasContent || eventsContainer.children.length !== inspector.events.length) {
+      eventsContainer.innerHTML = inspector.events
+        .map((event, idx) => {
+          const timestamp = new Date(event.timestamp).toLocaleTimeString([], {
+            hour12: false,
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            fractionalSecondDigits: 3,
+          });
+          let dataDisplay = "";
+          if (event.type === "error" && inspector.lastError) {
+            dataDisplay = `<div class="inspector-error">${inspector.lastError}</div>`;
+          } else if (event.data) {
+            const dataStr = typeof event.data === "string" ? event.data : JSON.stringify(event.data);
+            dataDisplay = `<span class="inspector-event-data">${escapeHtml(dataStr.slice(0, 200))}${dataStr.length > 200 ? "..." : ""}</span>`;
+          }
+          return `
+            <div class="inspector-event">
+              <span class="inspector-event-type ${event.type}">${event.type}</span>
+              ${dataDisplay}
+              <span class="inspector-event-timestamp">${timestamp}</span>
+            </div>
+          `;
+        })
+        .join("");
+    }
+  }
+
+  // Show retry info
+  if (inspector.retryCount > 0 || inspector.reconnectAttempts > 0) {
+    let retryHtml = "";
+    if (inspector.retryCount > 0) {
+      retryHtml += `<div class="inspector-retry">Retries: ${inspector.retryCount}</div>`;
+    }
+    if (inspector.reconnectAttempts > 0) {
+      retryHtml += `<div class="inspector-retry">Reconnects: ${inspector.reconnectAttempts}</div>`;
+    }
+    const existingRetry = panel.querySelector(".inspector-retry");
+    if (!existingRetry) {
+      eventsContainer.insertAdjacentHTML("afterend", retryHtml);
+    }
+  }
 }
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
