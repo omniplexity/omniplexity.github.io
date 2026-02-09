@@ -1,4 +1,4 @@
-const HARD_CODED_BACKEND_BASE_URL = "https://rossie-chargeful-plentifully.ngrok-free.dev";
+const HARD_CODED_BACKEND_BASE_URL = "https://silent-eventually-movie-geometry.trycloudflare.com";
 
 const runtime = {
   data: {
