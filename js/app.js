@@ -1,3 +1,47 @@
+/**
+ * Auth Enforcer - Chat UI
+ * Must run before any other code to protect the chat UI
+ */
+
+const BACKEND = window.RUNTIME_CONFIG?.BACKEND_BASE_URL
+  ?? "https://silent-eventually-movie-geometry.trycloudflare.com";
+
+async function enforceAuth() {
+  try {
+    const r = await fetch(`${BACKEND}/api/auth/me`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    if (!r.ok) {
+      window.location.replace("/login.html");
+      return false;
+    }
+
+    // Auth confirmed - show the app
+    document.body.classList.remove("auth-pending");
+    document.getElementById("app").hidden = false;
+    return true;
+  } catch {
+    window.location.replace("/login.html");
+    return false;
+  }
+}
+
+async function hardLogout() {
+  try {
+    await fetch(`${BACKEND}/api/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch {
+    // Ignore logout errors
+  }
+  sessionStorage.clear();
+  localStorage.clear();
+  window.location.replace("/login.html");
+}
+
 import { loadConfig, apiBaseUrl } from "./config.js";
 import { login, logout, register } from "./auth.js";
 import {
@@ -477,7 +521,7 @@ async function handleLoginPage() {
   try {
     const payload = await getMe();
     if (payload?.user) {
-      window.location.replace("index.html");
+      window.location.replace("/chat.html");
       return;
     }
   } catch (err) {
@@ -525,7 +569,7 @@ async function handleLoginPage() {
         username: loginForm.username?.value,
         password: loginForm.password?.value,
       });
-      window.location.replace("index.html");
+      window.location.replace("/chat.html");
     } catch (err) {
       const message = err?.message || "Invalid credentials";
       if (loginError) {
@@ -555,7 +599,7 @@ async function handleLoginPage() {
       try {
         const payload = await getMe();
         if (payload?.user) {
-          window.location.replace("index.html");
+          window.location.replace("/chat.html");
           return;
         }
       } catch (_err) {
@@ -956,12 +1000,7 @@ async function mainApp() {
   cancelBtn?.addEventListener("click", handleCancel);
   retryBtn?.addEventListener("click", handleRetry);
   logoutBtn?.addEventListener("click", async () => {
-    try {
-      await logout();
-    } finally {
-      clearUiForLogout();
-      window.location.replace(buildLoginUrl("logout"));
-    }
+    hardLogout();
   });
 
   composer?.addEventListener("keydown", (event) => {
@@ -992,22 +1031,20 @@ async function init() {
     await loadConfig();
     setBackendBadge(apiBaseUrl());
     const page = document.body.dataset.page;
+    
     if (page === "login") {
       setAuthErrorHandler(null);
-    } else {
-      setAuthErrorHandler((error) => {
-        if (error?.code === "E2002") {
-          redirectToLogin("expired");
-          return;
-        }
-        if (error?.code === "E2000") {
-          redirectToLogin("unauthorized");
-        }
-      });
-    }
-    if (page === "login") {
       await handleLoginPage();
     } else {
+      // Enforce auth gate before anything else
+      const authOk = await enforceAuth();
+      if (!authOk) return;
+      
+      setAuthErrorHandler((error) => {
+        if (error?.code === "E2002" || error?.code === "E2000") {
+          redirectToLogin("expired");
+        }
+      });
       await mainApp();
     }
   } catch (err) {
