@@ -30,6 +30,10 @@ const state = {
   currentAssistantMessageId: null,
   streamActive: false,
   streamStartTime: null,
+  streamSentAt: null,
+  streamFirstTokenAt: null,
+  streamTokenCount: 0,
+  cancelRequested: false,
   autoScroll: true,
   lastErrorByConversation: {},
   editingConversationId: null,
@@ -38,6 +42,8 @@ const state = {
   resumeHints: loadResumeHints(),
   activeStreamMeta: null,
   currentUser: null,
+  messageReceipts: {},
+  messageInspectors: {},
   admin: {
     users: [],
     usage: [],
@@ -109,7 +115,6 @@ export function attachStream(stream) {
 
 export function detachStream() {
   state.stream = null;
-
   state.activeStreamId = null;
 }
 
@@ -195,6 +200,45 @@ export function setStreaming(active) {
 
 export function isStreaming() {
   return state.streamActive;
+}
+
+export function setStreamSentAt(timestamp) {
+  state.streamSentAt = timestamp;
+}
+
+export function getStreamSentAt() {
+  return state.streamSentAt;
+}
+
+export function setStreamFirstTokenAt(timestamp) {
+  state.streamFirstTokenAt = timestamp;
+}
+
+export function getStreamFirstTokenAt() {
+  return state.streamFirstTokenAt;
+}
+
+export function incrementStreamTokenCount(count = 1) {
+  state.streamTokenCount += count;
+}
+
+export function getStreamTokenCount() {
+  return state.streamTokenCount;
+}
+
+export function resetStreamMetrics() {
+  state.streamTokenCount = 0;
+  state.streamFirstTokenAt = null;
+  state.streamSentAt = null;
+  state.cancelRequested = false;
+}
+
+export function setCancelRequested(requested) {
+  state.cancelRequested = requested;
+}
+
+export function isCancelRequested() {
+  return state.cancelRequested;
 }
 
 export function setAutoScroll(value) {
@@ -323,6 +367,91 @@ export function getAdminInvites() {
   return state.admin.invites;
 }
 
+/* Inspector tracking for SSE events */
+export function createInspector(messageId, data = {}) {
+  state.messageInspectors[messageId] = {
+    messageId,
+    events: [],
+    providerId: data.providerId || null,
+    model: data.model || null,
+    retryCount: 0,
+    reconnectAttempts: 0,
+    lastError: null,
+    startedAt: data.startedAt || Date.now(),
+    expanded: false,
+  };
+}
+
+export function addInspectorEvent(messageId, eventType, eventData) {
+  const inspector = state.messageInspectors[messageId];
+  if (!inspector) return;
+  inspector.events.push({
+    type: eventType,
+    data: eventData,
+    timestamp: Date.now(),
+  });
+}
+
+export function incrementInspectorRetry(messageId) {
+  const inspector = state.messageInspectors[messageId];
+  if (inspector) inspector.retryCount++;
+}
+
+export function incrementInspectorReconnect(messageId) {
+  const inspector = state.messageInspectors[messageId];
+  if (inspector) inspector.reconnectAttempts++;
+}
+
+export function setInspectorError(messageId, error) {
+  const inspector = state.messageInspectors[messageId];
+  if (inspector) inspector.lastError = error;
+}
+
+export function getInspector(messageId) {
+  return state.messageInspectors[messageId];
+}
+
+export function setInspectorExpanded(messageId, expanded) {
+  const inspector = state.messageInspectors[messageId];
+  if (inspector) inspector.expanded = expanded;
+}
+
+/* Receipt management for streaming metrics */
+export function createReceipt(messageId, data = {}) {
+  state.messageReceipts[messageId] = {
+    messageId,
+    provider: data.provider || null,
+    model: data.model || null,
+    startedAt: data.startedAt || Date.now(),
+    ttft: null,
+    duration: null,
+    tokens: 0,
+    outcome: "streaming",
+    partialLength: null,
+    collapsed: true,
+  };
+}
+
+export function updateReceipt(messageId, updates) {
+  const receipt = state.messageReceipts[messageId];
+  if (!receipt) return;
+  Object.assign(receipt, updates);
+}
+
+export function getReceipt(messageId) {
+  return state.messageReceipts[messageId];
+}
+
+export function setReceiptCollapsed(messageId, collapsed) {
+  const receipt = state.messageReceipts[messageId];
+  if (receipt) receipt.collapsed = collapsed;
+}
+
+export function getPendingAssistantContent(messageId) {
+  const message = state.messages.find((m) => m.id === messageId);
+  return message?.content || "";
+}
+
 export function resetAppState() {
   state.conversations = [];
   state.messages = [];
@@ -333,6 +462,10 @@ export function resetAppState() {
   state.currentAssistantMessageId = null;
   state.streamActive = false;
   state.streamStartTime = null;
+  state.streamSentAt = null;
+  state.streamFirstTokenAt = null;
+  state.streamTokenCount = 0;
+  state.cancelRequested = false;
   state.autoScroll = true;
   state.lastErrorByConversation = {};
   state.editingConversationId = null;
@@ -340,6 +473,8 @@ export function resetAppState() {
   state.streamStatusByConversation = {};
   state.activeStreamMeta = null;
   state.currentUser = null;
+  state.messageReceipts = {};
+  state.messageInspectors = {};
   state.admin = {
     users: [],
     usage: [],

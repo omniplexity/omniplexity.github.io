@@ -1,5 +1,47 @@
+/**
+ * Auth Enforcer - Chat UI
+ * Must run before any other code to protect the chat UI
+ */
+
 import { loadConfig, apiBaseUrl } from "./config.js";
-import { login, logout, register } from "./auth.js";
+
+async function enforceAuth() {
+  try {
+    const r = await fetch(`${apiBaseUrl()}/api/auth/me`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    if (!r.ok) {
+      window.location.replace("./login.html");
+      return false;
+    }
+
+    // Auth confirmed - show the app
+    document.body.classList.remove("auth-pending");
+    document.getElementById("app").hidden = false;
+    return true;
+  } catch {
+    window.location.replace("./login.html");
+    return false;
+  }
+}
+
+async function hardLogout() {
+  try {
+    await fetch(`${apiBaseUrl()}/api/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch {
+    // Ignore logout errors
+  }
+  sessionStorage.clear();
+  localStorage.clear();
+  window.location.replace("./login.html");
+}
+
+import { logout } from "./auth.js";
 import {
   get,
   post,
@@ -44,6 +86,13 @@ import {
   getAdminUsage as getAdminUsageState,
   getAdminAudit as getAdminAuditState,
   resetAppState,
+  setStreamSentAt,
+  resetStreamMetrics,
+  getStreamTokenCount,
+  setCancelRequested,
+  createReceipt,
+  updateReceipt,
+  getPendingAssistantContent,
 } from "./state.js";
 import {
   renderConversations,
@@ -57,6 +106,7 @@ import {
   hideResumeNotice,
   updateStreamBadge,
   updateElapsedTime,
+  updateTokenCount,
   scrollToBottom,
   bindResumeRetry,
   getMessageStreamElement,
@@ -86,6 +136,7 @@ import {
   setPlanBadge,
   setBackendBadge,
   renderProviders,
+  updateInspectorPanel,
 } from "./ui.js";
 
 let elapsedInterval = null;
@@ -105,19 +156,6 @@ function redirectToLogin(reason) {
   if (authRedirecting) return;
   authRedirecting = true;
   window.location.replace(buildLoginUrl(reason));
-}
-
-function mapAuthNotice(reason) {
-  if (reason === "expired") {
-    return "Your session expired. Please sign in again.";
-  }
-  if (reason === "logout") {
-    return "You have been signed out.";
-  }
-  if (reason === "unauthorized") {
-    return "Please sign in to continue.";
-  }
-  return "";
 }
 
 function startElapsedTimer() {
@@ -427,6 +465,7 @@ function setRetryEnabled(enabled) {
 function streamCompleted() {
   detachStream();
   stopElapsedTimer();
+  updateTokenCount(0);
 }
 
 function clearUiForLogout() {
@@ -453,123 +492,6 @@ function clearUiForLogout() {
   renderProviders([]);
 }
 
-async function handleLoginPage() {
-  const loginForm = document.getElementById("loginForm");
-  const registerForm = document.getElementById("registerForm");
-  const loginButton = document.getElementById("loginButton");
-  const registerButton = document.getElementById("registerButton");
-  const loginError = document.getElementById("loginError");
-  const registerError = document.getElementById("registerError");
-  const authNotice = document.getElementById("authNotice");
-  const tabs = document.querySelectorAll("[data-auth-tab]");
-  const panels = document.querySelectorAll("[data-auth-form]");
-
-  try {
-    const payload = await getMe();
-    if (payload?.user) {
-      window.location.replace("index.html");
-      return;
-    }
-  } catch (err) {
-    if (err?.code === "E_NETWORK") {
-      if (authNotice) {
-        authNotice.textContent = "Backend unavailable. Check your tunnel connection and try again.";
-        authNotice.classList.remove("hidden");
-      }
-    }
-  }
-
-  const params = new URLSearchParams(window.location.search);
-  const reason = params.get("reason");
-  const notice = mapAuthNotice(reason);
-  if (authNotice && notice) {
-    authNotice.textContent = notice;
-    authNotice.classList.remove("hidden");
-  }
-
-  const setAuthMode = (mode) => {
-    tabs.forEach((tab) => {
-      const active = tab.getAttribute("data-auth-tab") === mode;
-      tab.classList.toggle("active", active);
-      tab.setAttribute("aria-selected", active ? "true" : "false");
-    });
-    panels.forEach((panel) => {
-      panel.classList.toggle("hidden", panel.getAttribute("data-auth-form") !== mode);
-    });
-  };
-
-  tabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      setAuthMode(tab.getAttribute("data-auth-tab"));
-    });
-  });
-
-  loginForm?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    if (loginButton) {
-      loginButton.disabled = true;
-    }
-    loginError?.classList.add("hidden");
-    try {
-      await login({
-        username: loginForm.username?.value,
-        password: loginForm.password?.value,
-      });
-      window.location.replace("index.html");
-    } catch (err) {
-      const message = err?.message || "Invalid credentials";
-      if (loginError) {
-        loginError.textContent = message;
-        loginError.classList.remove("hidden");
-      }
-    } finally {
-      if (loginButton) {
-        loginButton.disabled = false;
-      }
-    }
-  });
-
-  registerForm?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    if (registerButton) {
-      registerButton.disabled = true;
-    }
-    registerError?.classList.add("hidden");
-    try {
-      await register({
-        username: registerForm.username?.value,
-        password: registerForm.password?.value,
-        email: registerForm.email?.value || null,
-        invite_code: registerForm.invite_code?.value || null,
-      });
-      try {
-        const payload = await getMe();
-        if (payload?.user) {
-          window.location.replace("index.html");
-          return;
-        }
-      } catch (_err) {
-        // Fall through to show feedback if session not established.
-      }
-      if (registerError) {
-        registerError.textContent =
-          "Account created, but we could not start a session. Please log in and check your cookie settings.";
-        registerError.classList.remove("hidden");
-      }
-    } catch (err) {
-      const message = err?.message || "Registration failed";
-      if (registerError) {
-        registerError.textContent = message;
-        registerError.classList.remove("hidden");
-      }
-    } finally {
-      if (registerButton) {
-        registerButton.disabled = false;
-      }
-    }
-  });
-}
-
 function buildStreamHandlers(conversation) {
   const assistantMessageId = getState().currentAssistantMessageId;
   const providerId = conversation.provider || "";
@@ -589,6 +511,12 @@ function buildStreamHandlers(conversation) {
       setRetryEnabled(false);
       setAutoScroll(true);
       scrollToBottom();
+      // Create receipt for streaming metrics
+      createReceipt(assistantMessageId, {
+        provider: resolvedProvider,
+        model: resolvedModel,
+        startedAt: Date.now(),
+      });
       setActiveStreamMeta({
         conversationId: conversation.id,
         assistantMessageId,
@@ -598,6 +526,8 @@ function buildStreamHandlers(conversation) {
         startedAt: Date.now(),
       });
       hideResumeNotice();
+      // Update inspector panel
+      updateInspectorPanel(assistantMessageId);
     },
     delta(data) {
       const messages = getState().messages;
@@ -608,14 +538,34 @@ function buildStreamHandlers(conversation) {
       if (updated) {
         updateMessage(updated);
       }
+      // Calculate TTFT on first delta
+      const receipt = getState().messageReceipts?.[assistantMessageId];
+      if (receipt && receipt.ttft == null) {
+        const ttft = Date.now() - receipt.startedAt;
+        updateReceipt(assistantMessageId, { ttft });
+      }
+      // Update token count display
+      updateTokenCount(getStreamTokenCount());
       if (shouldAutoScroll()) {
         scrollToBottom();
       }
+      // Update inspector panel
+      updateInspectorPanel(assistantMessageId);
     },
     final(data) {
       const updated = updateMessageById(assistantMessageId, { isTyping: false });
       if (updated) {
         updateMessage(updated);
+      }
+      // Complete receipt with final metrics
+      const receipt = getState().messageReceipts?.[assistantMessageId];
+      if (receipt) {
+        const duration = Date.now() - receipt.startedAt;
+        updateReceipt(assistantMessageId, {
+          outcome: "complete",
+          duration,
+          tokens: data?.token_usage?.total_tokens || getStreamTokenCount(),
+        });
       }
       updateStatus({ provider: activeProvider, model: activeModel, token_usage: data?.token_usage });
       updateStreamBadge(null);
@@ -623,6 +573,8 @@ function buildStreamHandlers(conversation) {
       setRetryEnabled(false);
       streamCompleted();
       clearActiveStreamMeta();
+      // Update inspector panel
+      updateInspectorPanel(assistantMessageId);
     },
     error(data) {
       const updated = updateMessageById(assistantMessageId, {
@@ -633,13 +585,23 @@ function buildStreamHandlers(conversation) {
       if (updated) {
         updateMessage(updated);
       }
+      // Mark receipt as error with partial content
+      const partialContent = getPendingAssistantContent(assistantMessageId);
+      updateReceipt(assistantMessageId, {
+        outcome: "error",
+        partialLength: partialContent?.length || 0,
+      });
       updateStreamBadge("Disconnected");
       showResumeNotice("Connection interrupted. Retry to continue.");
       setRetryEnabled(true);
       streamCompleted();
+      // Update inspector panel
+      updateInspectorPanel(assistantMessageId);
     },
     reconnecting() {
       updateStreamBadge("Reconnecting…");
+      // Update inspector panel
+      updateInspectorPanel(assistantMessageId);
     },
     disconnected() {
       const updated = updateMessageById(assistantMessageId, {
@@ -650,10 +612,17 @@ function buildStreamHandlers(conversation) {
       if (updated) {
         updateMessage(updated);
       }
+      // Mark receipt as disconnected
+      updateReceipt(assistantMessageId, {
+        outcome: "error",
+        partialLength: getPendingAssistantContent(assistantMessageId)?.length || 0,
+      });
       setRetryEnabled(true);
       updateStreamBadge("Disconnected");
       showResumeNotice("A response may have been interrupted.");
       streamCompleted();
+      // Update inspector panel
+      updateInspectorPanel(assistantMessageId);
     },
     canceled() {
       const updated = updateMessageById(assistantMessageId, {
@@ -663,10 +632,17 @@ function buildStreamHandlers(conversation) {
       if (updated) {
         updateMessage(updated);
       }
+      // Mark receipt as canceled with partial content
+      updateReceipt(assistantMessageId, {
+        outcome: "canceled",
+        partialLength: getPendingAssistantContent(assistantMessageId)?.length || 0,
+      });
       updateStreamBadge("Canceled");
       showResumeNotice("Response canceled. Retry if you like.");
       setRetryEnabled(true);
       streamCompleted();
+      // Update inspector panel
+      updateInspectorPanel(assistantMessageId);
     },
   };
 }
@@ -686,6 +662,10 @@ async function handleSend(composer) {
     showError("Select a conversation first");
     return;
   }
+  // Reset stream metrics for new send
+  resetStreamMetrics();
+  setStreamSentAt(Date.now());
+  
   composer.value = "";
   setRetryEnabled(false);
   pushMessage({ role: "user", content: text });
@@ -696,7 +676,10 @@ async function handleSend(composer) {
   renderMessages(getState().messages);
   scrollToBottom();
   setJumpButtonVisibility(false);
-  updateStreamBadge(null);
+  // Show "Typing..." badge immediately on send
+  updateStreamBadge("Typing…");
+  updateTokenCount(0);
+  
   const stream = createSseStream({
     conversationId: conversation.id,
     providerId: conversation.provider || state.providers[0]?.id || "lmstudio",
@@ -885,12 +868,7 @@ async function mainApp() {
   cancelBtn?.addEventListener("click", handleCancel);
   retryBtn?.addEventListener("click", handleRetry);
   logoutBtn?.addEventListener("click", async () => {
-    try {
-      await logout();
-    } finally {
-      clearUiForLogout();
-      window.location.replace(buildLoginUrl("logout"));
-    }
+    hardLogout();
   });
 
   composer?.addEventListener("keydown", (event) => {
@@ -920,25 +898,17 @@ async function init() {
   try {
     await loadConfig();
     setBackendBadge(apiBaseUrl());
-    const page = document.body.dataset.page;
-    if (page === "login") {
-      setAuthErrorHandler(null);
-    } else {
-      setAuthErrorHandler((error) => {
-        if (error?.code === "E2002") {
-          redirectToLogin("expired");
-          return;
-        }
-        if (error?.code === "E2000") {
-          redirectToLogin("unauthorized");
-        }
-      });
-    }
-    if (page === "login") {
-      await handleLoginPage();
-    } else {
-      await mainApp();
-    }
+
+    // Enforce auth gate before anything else
+    const authOk = await enforceAuth();
+    if (!authOk) return;
+
+    setAuthErrorHandler((error) => {
+      if (error?.code === "E2002" || error?.code === "E2000") {
+        redirectToLogin("expired");
+      }
+    });
+    await mainApp();
   } catch (err) {
     showError("Unable to boot frontend");
   }

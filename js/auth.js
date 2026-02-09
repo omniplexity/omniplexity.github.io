@@ -16,7 +16,7 @@ async function safeFetch(url, options) {
 }
 
 async function fetchCsrfToken() {
-  const res = await safeFetch(`${apiBaseUrl()}/auth/csrf`, {
+  const res = await safeFetch(`${apiBaseUrl()}/api/auth/csrf`, {
     credentials: "include",
     headers: {
       ...ngrokHeaders(),
@@ -31,6 +31,7 @@ async function fetchCsrfToken() {
 }
 
 export async function getCsrfToken() {
+  // Return cached token or fetch after login
   if (authState.csrfToken) {
     return authState.csrfToken;
   }
@@ -38,7 +39,7 @@ export async function getCsrfToken() {
 }
 
 export async function login(credentials) {
-  const res = await safeFetch(`${apiBaseUrl()}/auth/login`, {
+  const res = await safeFetch(`${apiBaseUrl()}/api/auth/login`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -57,12 +58,13 @@ export async function login(credentials) {
     }
     throw new Error("Invalid credentials");
   }
+  // Fetch CSRF token after successful login
   await fetchCsrfToken();
   return res.json();
 }
 
 export async function register(payload) {
-  const res = await safeFetch(`${apiBaseUrl()}/auth/register`, {
+  const res = await safeFetch(`${apiBaseUrl()}/api/auth/register`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -82,6 +84,7 @@ export async function register(payload) {
     throw new Error("Registration failed");
   }
   const data = await res.json();
+  // Fetch CSRF token after successful registration
   if (data?.csrf_token) {
     authState.csrfToken = data.csrf_token;
   } else {
@@ -92,7 +95,7 @@ export async function register(payload) {
 
 export async function logout() {
   const token = await getCsrfToken();
-  await safeFetch(`${apiBaseUrl()}/auth/logout`, {
+  await safeFetch(`${apiBaseUrl()}/api/auth/logout`, {
     credentials: "include",
     method: "POST",
     headers: { "X-CSRF-Token": token, ...ngrokHeaders() },

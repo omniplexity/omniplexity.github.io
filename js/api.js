@@ -106,29 +106,29 @@ async function sendWithBody(method, path, body, csrf) {
 }
 
 export async function getMe() {
-  return get("/auth/me");
+  return get("/api/auth/me");
 }
 
 export async function getAdminUsers(params) {
-  return get("/admin/users", params);
+  return get("/api/admin/users", params);
 }
 
 export async function patchAdminUser(userId, body) {
-  return patch(`/admin/users/${userId}`, body);
+  return patch(`/api/admin/users/${userId}`, body);
 }
 
 export async function getAdminUsage(params) {
-  return get("/admin/usage", params);
+  return get("/api/admin/usage", params);
 }
 
 export async function getAdminAudit(params) {
-  return get("/admin/audit", params);
+  return get("/api/admin/audit", params);
 }
 
 export async function getAdminInvites() {
-  return get("/admin/invites");
+  return get("/api/admin/invites");
 }
 
 export async function postAdminInvite(body) {
-  return post("/admin/invites", body);
+  return post("/api/admin/invites", body);
 }

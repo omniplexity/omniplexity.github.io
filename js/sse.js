@@ -8,11 +8,42 @@ import {
   updateActiveStreamMeta,
   clearActiveStreamMeta,
   markStreamInterrupted,
+  setStreamFirstTokenAt,
+  incrementStreamTokenCount,
+  getState,
+  getCurrentAssistantMessageId,
+  createInspector,
+  addInspectorEvent,
+  incrementInspectorRetry,
+  incrementInspectorReconnect,
+  setInspectorError,
 } from "./state.js";
 
 const PUBLIC_EVENTS = ["meta", "delta", "final", "error", "ping"];
 const STREAM_POLL_INTERVAL_MS = 1800;
 const STREAM_POLL_TIMEOUT_MS = 120000;
+
+// Reconnection config
+const RECONNECT_BASE_DELAY_MS = 1000;
+const RECONNECT_MAX_DELAY_MS = 10000;
+const RECONNECT_MAX_ATTEMPTS = 5;
+
+function calculateReconnectDelay(attempt) {
+  const delay = RECONNECT_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+  return Math.min(delay + Math.random() * 500, RECONNECT_MAX_DELAY_MS);
+}
+
+function shouldAttemptReconnect(error, attempt) {
+  // Don't reconnect on auth errors
+  if (error?.code === "E2000" || error?.code === "E2002") {
+    return false;
+  }
+  // Don't reconnect if max attempts reached
+  if (attempt >= RECONNECT_MAX_ATTEMPTS) {
+    return false;
+  }
+  return true;
+}
 
 function parseChunk(raw) {
   const lines = raw.split("\n");
@@ -117,6 +148,22 @@ async function createStream({ path, body, onEvent }) {
   let reconnecting = false;
   let stalledTimer;
   let partialLength = 0;
+  let messageId = getCurrentAssistantMessageId();
+
+  // Initialize inspector for this stream
+  if (messageId) {
+    createInspector(messageId, {
+      providerId: body.provider_id,
+      model: body.model,
+      startedAt: Date.now(),
+    });
+  }
+
+  const trackEvent = (eventType, data) => {
+    if (messageId) {
+      addInspectorEvent(messageId, eventType, data);
+    }
+  };
 
   const resetStallTimer = () => {
     clearTimeout(stalledTimer);
@@ -127,6 +174,7 @@ async function createStream({ path, body, onEvent }) {
     stalledTimer = setTimeout(() => {
       reconnecting = true;
       setStreamStatus(body.conversation_id, "reconnecting");
+      if (messageId) incrementInspectorReconnect(messageId);
       onEvent?.reconnecting?.();
     }, 15000);
   };
@@ -143,11 +191,13 @@ async function createStream({ path, body, onEvent }) {
 
   async function startPolling(response) {
     setStreamStatus(body.conversation_id, "polling");
-    onEvent?.meta?.({
+    const metaData = {
       provider_id: body.provider_id,
       model: body.model,
       mode: "polling",
-    });
+    };
+    trackEvent("meta", metaData);
+    onEvent?.meta?.(metaData);
 
     response.text().catch(() => {});
 
@@ -158,18 +208,21 @@ async function createStream({ path, body, onEvent }) {
     });
     if (!result) return;
     if (result.status === "final") {
+      trackEvent("final", {});
       onEvent?.final?.({});
     }
     if (result.status === "error") {
-      onEvent?.error?.({
-        message: result.error?.message || "Stream failed",
-        code: result.error?.code,
-      });
+      const errorData = { message: result.error?.message || "Stream failed", code: result.error?.code };
+      if (messageId) setInspectorError(messageId, errorData);
+      trackEvent("error", errorData);
+      onEvent?.error?.(errorData);
     }
     if (result.status === "canceled") {
+      trackEvent("canceled", {});
       onEvent?.canceled?.();
     }
     if (result.status === "timeout") {
+      trackEvent("disconnected", { reason: "timeout" });
       onEvent?.disconnected?.();
     }
     controller.abort();
@@ -225,12 +278,20 @@ async function createStream({ path, body, onEvent }) {
           if (event === "ping" || chunk.trim() === ":") {
             continue;
           }
+          // Track event in inspector
+          trackEvent(event, data);
           if (PUBLIC_EVENTS.includes(event) && typeof onEvent[event] === "function") {
             onEvent[event](data);
           }
           if (event === "delta" && data.text) {
             partialLength += data.text.length;
             updateActiveStreamMeta({ partialLength });
+            // Track first token for TTFT
+            if (getState().streamFirstTokenAt === null) {
+              setStreamFirstTokenAt(Date.now());
+            }
+            // Increment token count for display
+            incrementStreamTokenCount(1);
           }
           if (event === "final" || event === "error") {
             clearTimeout(stalledTimer);
@@ -238,20 +299,26 @@ async function createStream({ path, body, onEvent }) {
               clearActiveStreamMeta();
               setStreamStatus(body.conversation_id, "idle");
             }
+            if (event === "error" && messageId) {
+              setInspectorError(messageId, data);
+            }
             return;
           }
         }
       }
       if (!reconnecting) {
         markStreamInterrupted(body.conversation_id);
+        trackEvent("disconnected", { reason: "stream_end" });
         onEvent?.disconnected?.();
         setStreamStatus(body.conversation_id, "disconnected");
       }
     } catch (err) {
       if (err.name === "AbortError") {
+        trackEvent("canceled", {});
         onEvent?.canceled?.();
       } else {
         markStreamInterrupted(body.conversation_id);
+        trackEvent("disconnected", { reason: "error", error: err.message });
         onEvent?.disconnected?.();
       }
     } finally {
@@ -290,4 +357,78 @@ export function createRetryStream(conversationId, onEvent) {
     body: { conversation_id: conversationId },
     onEvent,
   });
+}
+
+// Reconnecting stream with exponential backoff
+export function createReconnectingStream(options) {
+  const { conversationId, providerId, model, input, settings, onEvent, maxAttempts = RECONNECT_MAX_ATTEMPTS } = options;
+
+  let attempt = 0;
+  let currentStream = null;
+  let resolveStart = null;
+  let rejectStart = null;
+
+  const startPromise = new Promise((resolve, reject) => {
+    resolveStart = resolve;
+    rejectStart = reject;
+  });
+
+  const wrappedOnEvent = {
+    ...onEvent,
+    reconnecting(data) {
+      attempt++;
+      const delay = calculateReconnectDelay(attempt);
+      const status = attempt >= maxAttempts
+        ? `Reconnect failed (${attempt}/${maxAttempts})`
+        : `Reconnecting in ${Math.round(delay/1000)}s (${attempt}/${maxAttempts})...`;
+      onEvent?.reconnecting?.({ ...data, status, attempt, delay, maxAttempts });
+    },
+  };
+
+  async function attemptStream(streamAttempt) {
+    currentStream = createStream({
+      path: "/chat/stream",
+      body: {
+        conversation_id: conversationId,
+        provider_id: providerId,
+        model,
+        input,
+        settings,
+      },
+      onEvent: wrappedOnEvent,
+    });
+
+    try {
+      await currentStream.start();
+      // Stream completed successfully
+      resolveStart?.();
+    } catch (err) {
+      if (streamAttempt >= maxAttempts) {
+        rejectStart?.(err);
+        return;
+      }
+
+      if (shouldAttemptReconnect(err, streamAttempt)) {
+        const delay = calculateReconnectDelay(streamAttempt);
+        await delay(delay);
+        await attemptStream(streamAttempt + 1);
+      } else {
+        rejectStart?.(err);
+      }
+    }
+  }
+
+  // Start the first attempt
+  attemptStream(1);
+
+  return {
+    start: () => startPromise,
+    cancel() {
+      currentStream?.cancel();
+      attempt = maxAttempts; // Prevent further reconnect attempts
+    },
+    getCurrentAttempt() {
+      return attempt;
+    },
+  };
 }

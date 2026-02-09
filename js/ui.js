@@ -1,18 +1,10 @@
-import {
-  getState,
-  recordMessageHeight,
-  getAverageMessageHeight,
-  getVirtualBuffer,
-  resetVirtualMeasurements,
-  shouldAutoScroll,
-  getSelectedAdminUsers,
-} from "./state.js";
 
 const dom = {
   conversationList: document.getElementById("conversationList"),
   messageStream: document.getElementById("messageStream"),
   modelLabel: document.getElementById("modelLabel"),
   tokenUsage: document.getElementById("tokenUsage"),
+  tokenCount: document.getElementById("tokenCount"),
   statusLine: document.getElementById("statusLine"),
   errorBanner: document.getElementById("errorBanner"),
   streamBadge: document.getElementById("streamBadge"),
@@ -214,6 +206,13 @@ function createMessageElement(message) {
     cursor.className = "typing-cursor";
     cursor.setAttribute("aria-hidden", "true");
     el.appendChild(cursor);
+  }
+  // Add inspector toggle for assistant messages
+  if (message.role === "assistant") {
+    const inspectorToggle = createInspectorToggle(message.id);
+    el.appendChild(inspectorToggle);
+    const inspectorPanel = renderInspectorPanel(message.id, null);
+    el.appendChild(inspectorPanel);
   }
   return el;
 }
@@ -566,6 +565,20 @@ export function updateStreamBadge(status) {
   dom.streamBadge.textContent = status;
 }
 
+export function updateReconnectingStatus(data) {
+  if (!dom.streamBadge) return;
+  if (data.status) {
+    dom.streamBadge.classList.remove("hidden");
+    dom.streamBadge.textContent = data.status;
+    dom.streamBadge.classList.add("reconnecting");
+  }
+}
+
+export function clearReconnectingStatus() {
+  if (!dom.streamBadge) return;
+  dom.streamBadge.classList.remove("reconnecting");
+}
+
 export function updateElapsedTime(seconds) {
   if (!dom.elapsedTime) return;
   if (!seconds) {
@@ -576,6 +589,17 @@ export function updateElapsedTime(seconds) {
   dom.elapsedTime.classList.remove("hidden");
   const padded = String(seconds).padStart(2, "0");
   dom.elapsedTime.textContent = `Elapsed: ${padded}s`;
+}
+
+export function updateTokenCount(count) {
+  if (!dom.tokenCount) return;
+  if (!count) {
+    dom.tokenCount.classList.add("hidden");
+    dom.tokenCount.textContent = "";
+    return;
+  }
+  dom.tokenCount.classList.remove("hidden");
+  dom.tokenCount.textContent = `Tokens: ${count}`;
 }
 
 export function scrollToBottom() {
@@ -1039,3 +1063,179 @@ export function renderAdminInvites(invites) {
     dom.adminInvitesList.appendChild(entry);
   });
 }
+
+/* Receipt panel for streaming metrics */
+export function createReceiptToggle(messageId) {
+  const btn = document.createElement("button");
+  btn.className = "receipt-toggle";
+  btn.setAttribute("aria-expanded", "false");
+  btn.textContent = "ⓘ";
+
+  btn.onclick = () => {
+    const receipt = getReceipt(messageId);
+    if (!receipt) return;
+
+    const panel = document.getElementById(`receipt-${messageId}`);
+    if (!panel) return;
+
+    const expanded = !receipt.collapsed;
+
+    setReceiptCollapsed(messageId, expanded);
+    btn.setAttribute("aria-expanded", String(expanded));
+    panel.classList.toggle("collapsed", expanded);
+  };
+
+  return btn;
+}
+
+export function renderReceiptPanel(messageId, receipt) {
+  const panel = document.createElement("div");
+  panel.id = `receipt-${messageId}`;
+  panel.className = "receipt-panel collapsed";
+
+  panel.innerHTML = `
+    <div class="receipt-row"><span class="receipt-label">Model</span><span class="receipt-value">${receipt.provider || "—"} / ${receipt.model || "—"}</span></div>
+    <div class="receipt-row"><span class="receipt-label">TTFT</span><span class="receipt-value">${receipt.ttft ? receipt.ttft + "ms" : "—"}</span></div>
+    <div class="receipt-row"><span class="receipt-label">Duration</span><span class="receipt-value">${receipt.duration ? receipt.duration + "ms" : "—"}</span></div>
+    <div class="receipt-row"><span class="receipt-label">Tokens</span><span class="receipt-value">${receipt.tokens}</span></div>
+    <div class="receipt-row receipt-outcome ${receipt.outcome}">
+      <span class="receipt-label">Outcome</span>
+      <span class="receipt-value">${receipt.outcome}</span>
+    </div>
+  `;
+
+  return panel;
+}
+
+/* Inspector toggle and panel for SSE event debugging */
+export function createInspectorToggle(messageId) {
+  const btn = document.createElement("button");
+  btn.className = "inspector-toggle";
+  btn.setAttribute("aria-expanded", "false");
+  btn.textContent = "🔍";
+  btn.title = "Inspect SSE events";
+
+  btn.onclick = () => {
+    const inspector = getInspector(messageId);
+    if (!inspector) return;
+
+    const panel = document.getElementById(`inspector-${messageId}`);
+    if (!panel) return;
+
+    const expanded = !inspector.expanded;
+    setInspectorExpanded(messageId, expanded);
+    btn.setAttribute("aria-expanded", String(expanded));
+    panel.classList.toggle("collapsed", expanded);
+  };
+
+  return btn;
+}
+
+export function renderInspectorPanel(messageId, inspector) {
+  const panel = document.createElement("div");
+  panel.id = `inspector-${messageId}`;
+  panel.className = "inspector-panel collapsed";
+
+  const providerModel = inspector
+    ? `${inspector.providerId || "—"} / ${inspector.model || "—"}`
+    : "— / —";
+  const elapsed = inspector
+    ? Math.round((Date.now() - inspector.startedAt) / 1000)
+    : 0;
+
+  panel.innerHTML = `
+    <div class="inspector-header">
+      <span>Run Inspector</span>
+      <span style="font-weight: normal; font-size: 0.65rem;">${elapsed}s elapsed</span>
+    </div>
+    <div class="inspector-meta">
+      <span>${providerModel}</span>
+    </div>
+    <div class="inspector-events">
+      <div style="color: var(--ink-500); text-align: center; padding: 0.5rem;">
+        Waiting for events...
+      </div>
+    </div>
+  `;
+
+  return panel;
+}
+
+export function updateInspectorPanel(messageId) {
+  const inspector = getInspector(messageId);
+  const panel = document.getElementById(`inspector-${messageId}`);
+  if (!panel || !inspector) return;
+
+  const eventsContainer = panel.querySelector(".inspector-events");
+  if (!eventsContainer) return;
+
+  // Update elapsed time
+  const elapsed = Math.round((Date.now() - inspector.startedAt) / 1000);
+  const elapsedEl = panel.querySelector(".inspector-header span:last-child");
+  if (elapsedEl) {
+    elapsedEl.textContent = `${elapsed}s elapsed`;
+  }
+
+  // Update provider/model meta
+  const metaEl = panel.querySelector(".inspector-meta");
+  if (metaEl) {
+    const providerModel = `${inspector.providerId || "—"} / ${inspector.model || "—"}`;
+    if (metaEl.firstElementChild?.textContent !== providerModel) {
+      metaEl.innerHTML = `<span>${providerModel}</span>`;
+    }
+  }
+
+  // Rebuild events list
+  if (inspector.events.length > 0) {
+    const hasContent = eventsContainer.querySelector(".inspector-event");
+    if (!hasContent || eventsContainer.children.length !== inspector.events.length) {
+      eventsContainer.innerHTML = inspector.events
+        .map((event, idx) => {
+          const timestamp = new Date(event.timestamp).toLocaleTimeString([], {
+            hour12: false,
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            fractionalSecondDigits: 3,
+          });
+          let dataDisplay = "";
+          if (event.type === "error" && inspector.lastError) {
+            dataDisplay = `<div class="inspector-error">${inspector.lastError}</div>`;
+          } else if (event.data) {
+            const dataStr = typeof event.data === "string" ? event.data : JSON.stringify(event.data);
+            dataDisplay = `<span class="inspector-event-data">${escapeHtml(dataStr.slice(0, 200))}${dataStr.length > 200 ? "..." : ""}</span>`;
+          }
+          return `
+            <div class="inspector-event">
+              <span class="inspector-event-type ${event.type}">${event.type}</span>
+              ${dataDisplay}
+              <span class="inspector-event-timestamp">${timestamp}</span>
+            </div>
+          `;
+        })
+        .join("");
+    }
+  }
+
+  // Show retry info
+  if (inspector.retryCount > 0 || inspector.reconnectAttempts > 0) {
+    let retryHtml = "";
+    if (inspector.retryCount > 0) {
+      retryHtml += `<div class="inspector-retry">Retries: ${inspector.retryCount}</div>`;
+    }
+    if (inspector.reconnectAttempts > 0) {
+      retryHtml += `<div class="inspector-retry">Reconnects: ${inspector.reconnectAttempts}</div>`;
+    }
+    const existingRetry = panel.querySelector(".inspector-retry");
+    if (!existingRetry) {
+      eventsContainer.insertAdjacentHTML("afterend", retryHtml);
+    }
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
