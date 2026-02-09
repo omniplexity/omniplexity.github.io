@@ -3,18 +3,17 @@
  * Must run before any other code to protect the chat UI
  */
 
-const BACKEND = window.RUNTIME_CONFIG?.BACKEND_BASE_URL
-  ?? "https://silent-eventually-movie-geometry.trycloudflare.com";
+import { loadConfig, apiBaseUrl } from "./config.js";
 
 async function enforceAuth() {
   try {
-    const r = await fetch(`${BACKEND}/api/auth/me`, {
+    const r = await fetch(`${apiBaseUrl()}/api/auth/me`, {
       credentials: "include",
       cache: "no-store",
     });
 
     if (!r.ok) {
-      window.location.replace("/login.html");
+      window.location.replace("./login.html");
       return false;
     }
 
@@ -23,14 +22,14 @@ async function enforceAuth() {
     document.getElementById("app").hidden = false;
     return true;
   } catch {
-    window.location.replace("/login.html");
+    window.location.replace("./login.html");
     return false;
   }
 }
 
 async function hardLogout() {
   try {
-    await fetch(`${BACKEND}/api/auth/logout`, {
+    await fetch(`${apiBaseUrl()}/api/auth/logout`, {
       method: "POST",
       credentials: "include",
     });
@@ -39,10 +38,9 @@ async function hardLogout() {
   }
   sessionStorage.clear();
   localStorage.clear();
-  window.location.replace("/login.html");
+  window.location.replace("./login.html");
 }
 
-import { loadConfig, apiBaseUrl } from "./config.js";
 import { login, logout, register } from "./auth.js";
 import {
   get,
@@ -521,7 +519,7 @@ async function handleLoginPage() {
   try {
     const payload = await getMe();
     if (payload?.user) {
-      window.location.replace("/chat.html");
+      window.location.replace("./chat.html");
       return;
     }
   } catch (err) {
@@ -569,7 +567,7 @@ async function handleLoginPage() {
         username: loginForm.username?.value,
         password: loginForm.password?.value,
       });
-      window.location.replace("/chat.html");
+      window.location.replace("./chat.html");
     } catch (err) {
       const message = err?.message || "Invalid credentials";
       if (loginError) {
@@ -599,7 +597,7 @@ async function handleLoginPage() {
       try {
         const payload = await getMe();
         if (payload?.user) {
-          window.location.replace("/chat.html");
+          window.location.replace("./chat.html");
           return;
         }
       } catch (_err) {

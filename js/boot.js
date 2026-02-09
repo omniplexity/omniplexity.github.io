@@ -1,14 +1,13 @@
 /**
- * Auth Gate - Omniplexity
- * Checks authentication and redirects to appropriate page
+ * Auth Gate - OmniAI
+ * Checks authentication and redirects to appropriate page.
  */
 
-const BACKEND = window.RUNTIME_CONFIG?.BACKEND_BASE_URL
-  ?? "https://silent-eventually-movie-geometry.trycloudflare.com";
+import { loadConfig, apiBaseUrl } from "./config.js";
 
 async function isAuthed() {
   try {
-    const r = await fetch(`${BACKEND}/api/auth/me`, {
+    const r = await fetch(`${apiBaseUrl()}/api/auth/me`, {
       credentials: "include",
       cache: "no-store",
     });
@@ -19,6 +18,7 @@ async function isAuthed() {
 }
 
 (async () => {
+  await loadConfig();
   const ok = await isAuthed();
-  window.location.replace(ok ? "/chat.html" : "/login.html");
+  window.location.replace(ok ? "./chat.html" : "./login.html");
 })();

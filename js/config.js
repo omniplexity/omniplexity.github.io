@@ -1,12 +1,23 @@
-const HARD_CODED_BACKEND_BASE_URL = "https://silent-eventually-movie-geometry.trycloudflare.com";
+const FALLBACK_BACKEND_URL = "https://silent-eventually-movie-geometry.trycloudflare.com";
 
 const runtime = {
   data: {
-    BACKEND_BASE_URL: HARD_CODED_BACKEND_BASE_URL,
+    BACKEND_BASE_URL: FALLBACK_BACKEND_URL,
   },
 };
 
 export async function loadConfig() {
+  try {
+    const res = await fetch("./runtime-config.json", { cache: "no-store" });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.BACKEND_BASE_URL) {
+        runtime.data.BACKEND_BASE_URL = json.BACKEND_BASE_URL;
+      }
+    }
+  } catch {
+    // Use fallback URL
+  }
   return runtime.data;
 }
 
