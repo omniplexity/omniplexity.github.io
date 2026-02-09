@@ -8,6 +8,9 @@ import {
   updateActiveStreamMeta,
   clearActiveStreamMeta,
   markStreamInterrupted,
+  setStreamFirstTokenAt,
+  incrementStreamTokenCount,
+  getState,
 } from "./state.js";
 
 const PUBLIC_EVENTS = ["meta", "delta", "final", "error", "ping"];
@@ -253,6 +256,12 @@ async function createStream({ path, body, onEvent }) {
           if (event === "delta" && data.text) {
             partialLength += data.text.length;
             updateActiveStreamMeta({ partialLength });
+            // Track first token for TTFT
+            if (getState().streamFirstTokenAt === null) {
+              setStreamFirstTokenAt(Date.now());
+            }
+            // Increment token count for display
+            incrementStreamTokenCount(1);
           }
           if (event === "final" || event === "error") {
             clearTimeout(stalledTimer);

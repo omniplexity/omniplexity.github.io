@@ -44,6 +44,13 @@ import {
   getAdminUsage as getAdminUsageState,
   getAdminAudit as getAdminAuditState,
   resetAppState,
+  setStreamSentAt,
+  resetStreamMetrics,
+  getStreamTokenCount,
+  setCancelRequested,
+  createReceipt,
+  updateReceipt,
+  getPendingAssistantContent,
 } from "./state.js";
 import {
   renderConversations,
@@ -57,6 +64,7 @@ import {
   hideResumeNotice,
   updateStreamBadge,
   updateElapsedTime,
+  updateTokenCount,
   scrollToBottom,
   bindResumeRetry,
   getMessageStreamElement,
@@ -427,6 +435,7 @@ function setRetryEnabled(enabled) {
 function streamCompleted() {
   detachStream();
   stopElapsedTimer();
+  updateTokenCount(0);
 }
 
 function clearUiForLogout() {
@@ -589,6 +598,12 @@ function buildStreamHandlers(conversation) {
       setRetryEnabled(false);
       setAutoScroll(true);
       scrollToBottom();
+      // Create receipt for streaming metrics
+      createReceipt(assistantMessageId, {
+        provider: resolvedProvider,
+        model: resolvedModel,
+        startedAt: Date.now(),
+      });
       setActiveStreamMeta({
         conversationId: conversation.id,
         assistantMessageId,
@@ -608,6 +623,14 @@ function buildStreamHandlers(conversation) {
       if (updated) {
         updateMessage(updated);
       }
+      // Calculate TTFT on first delta
+      const receipt = getState().messageReceipts?.[assistantMessageId];
+      if (receipt && receipt.ttft == null) {
+        const ttft = Date.now() - receipt.startedAt;
+        updateReceipt(assistantMessageId, { ttft });
+      }
+      // Update token count display
+      updateTokenCount(getStreamTokenCount());
       if (shouldAutoScroll()) {
         scrollToBottom();
       }
@@ -616,6 +639,16 @@ function buildStreamHandlers(conversation) {
       const updated = updateMessageById(assistantMessageId, { isTyping: false });
       if (updated) {
         updateMessage(updated);
+      }
+      // Complete receipt with final metrics
+      const receipt = getState().messageReceipts?.[assistantMessageId];
+      if (receipt) {
+        const duration = Date.now() - receipt.startedAt;
+        updateReceipt(assistantMessageId, {
+          outcome: "complete",
+          duration,
+          tokens: data?.token_usage?.total_tokens || getStreamTokenCount(),
+        });
       }
       updateStatus({ provider: activeProvider, model: activeModel, token_usage: data?.token_usage });
       updateStreamBadge(null);
@@ -633,6 +666,12 @@ function buildStreamHandlers(conversation) {
       if (updated) {
         updateMessage(updated);
       }
+      // Mark receipt as error with partial content
+      const partialContent = getPendingAssistantContent(assistantMessageId);
+      updateReceipt(assistantMessageId, {
+        outcome: "error",
+        partialLength: partialContent?.length || 0,
+      });
       updateStreamBadge("Disconnected");
       showResumeNotice("Connection interrupted. Retry to continue.");
       setRetryEnabled(true);
@@ -650,6 +689,11 @@ function buildStreamHandlers(conversation) {
       if (updated) {
         updateMessage(updated);
       }
+      // Mark receipt as disconnected
+      updateReceipt(assistantMessageId, {
+        outcome: "error",
+        partialLength: getPendingAssistantContent(assistantMessageId)?.length || 0,
+      });
       setRetryEnabled(true);
       updateStreamBadge("Disconnected");
       showResumeNotice("A response may have been interrupted.");
@@ -663,6 +707,11 @@ function buildStreamHandlers(conversation) {
       if (updated) {
         updateMessage(updated);
       }
+      // Mark receipt as canceled with partial content
+      updateReceipt(assistantMessageId, {
+        outcome: "canceled",
+        partialLength: getPendingAssistantContent(assistantMessageId)?.length || 0,
+      });
       updateStreamBadge("Canceled");
       showResumeNotice("Response canceled. Retry if you like.");
       setRetryEnabled(true);
@@ -686,6 +735,10 @@ async function handleSend(composer) {
     showError("Select a conversation first");
     return;
   }
+  // Reset stream metrics for new send
+  resetStreamMetrics();
+  setStreamSentAt(Date.now());
+  
   composer.value = "";
   setRetryEnabled(false);
   pushMessage({ role: "user", content: text });
@@ -696,7 +749,10 @@ async function handleSend(composer) {
   renderMessages(getState().messages);
   scrollToBottom();
   setJumpButtonVisibility(false);
-  updateStreamBadge(null);
+  // Show "Typing..." badge immediately on send
+  updateStreamBadge("Typing…");
+  updateTokenCount(0);
+  
   const stream = createSseStream({
     conversationId: conversation.id,
     providerId: conversation.provider || state.providers[0]?.id || "lmstudio",

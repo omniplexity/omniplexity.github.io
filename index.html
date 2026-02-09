@@ -7,9 +7,6 @@
   <title>OmniAI Chat</title>
   <meta name="theme-color" content="#f6f3ee" />
   <link rel="icon" href="./favicon.ico" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;700&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./assets/css/style.css" />
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
@@ -68,6 +65,7 @@
           </div>
           <div class="status-secondary">
             <span id="tokenUsage">Tokens: —</span>
+            <span id="tokenCount" class="token-count hidden" aria-live="polite"></span>
             <span id="elapsedTime" class="elapsed-time hidden" aria-live="polite"></span>
           </div>
         </div>

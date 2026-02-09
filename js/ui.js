@@ -6,6 +6,8 @@ import {
   resetVirtualMeasurements,
   shouldAutoScroll,
   getSelectedAdminUsers,
+  getReceipt,
+  setReceiptCollapsed,
 } from "./state.js";
 
 const dom = {
@@ -13,6 +15,7 @@ const dom = {
   messageStream: document.getElementById("messageStream"),
   modelLabel: document.getElementById("modelLabel"),
   tokenUsage: document.getElementById("tokenUsage"),
+  tokenCount: document.getElementById("tokenCount"),
   statusLine: document.getElementById("statusLine"),
   errorBanner: document.getElementById("errorBanner"),
   streamBadge: document.getElementById("streamBadge"),
@@ -592,6 +595,17 @@ export function updateElapsedTime(seconds) {
   dom.elapsedTime.textContent = `Elapsed: ${padded}s`;
 }
 
+export function updateTokenCount(count) {
+  if (!dom.tokenCount) return;
+  if (!count) {
+    dom.tokenCount.classList.add("hidden");
+    dom.tokenCount.textContent = "";
+    return;
+  }
+  dom.tokenCount.classList.remove("hidden");
+  dom.tokenCount.textContent = `Tokens: ${count}`;
+}
+
 export function scrollToBottom() {
   if (!dom.messageStream) return;
   dom.messageStream.scrollTop = dom.messageStream.scrollHeight;
@@ -1052,4 +1066,66 @@ export function renderAdminInvites(invites) {
     `;
     dom.adminInvitesList.appendChild(entry);
   });
+}
+
+/* Receipt panel for streaming metrics */
+export function createReceiptToggle(messageId) {
+  const btn = document.createElement("button");
+  btn.className = "receipt-toggle";
+  btn.setAttribute("aria-expanded", "false");
+  btn.textContent = "ⓘ";
+
+  btn.onclick = () => {
+    const receipt = getReceipt(messageId);
+    if (!receipt) return;
+
+    const panel = document.getElementById(`receipt-${messageId}`);
+    if (!panel) return;
+
+    const expanded = !receipt.collapsed;
+
+    setReceiptCollapsed(messageId, expanded);
+    btn.setAttribute("aria-expanded", String(expanded));
+    panel.classList.toggle("collapsed", expanded);
+  };
+
+  return btn;
+}
+
+export function renderReceiptPanel(messageId, receipt) {
+  const panel = document.createElement("div");
+  panel.id = `receipt-${messageId}`;
+  panel.className = "receipt-panel collapsed";
+
+  panel.innerHTML = `
+    <div class="receipt-row"><span class="receipt-label">Model</span><span class="receipt-value">${receipt.provider || "—"} / ${receipt.model || "—"}</span></div>
+    <div class="receipt-row"><span class="receipt-label">TTFT</span><span class="receipt-value">${receipt.ttft ? receipt.ttft + "ms" : "—"}</span></div>
+    <div class="receipt-row"><span class="receipt-label">Duration</span><span class="receipt-value">${receipt.duration ? receipt.duration + "ms" : "—"}</span></div>
+    <div class="receipt-row"><span class="receipt-label">Tokens</span><span class="receipt-value">${receipt.tokens}</span></div>
+    <div class="receipt-row receipt-outcome ${receipt.outcome}">
+      <span class="receipt-label">Outcome</span>
+      <span class="receipt-value">${receipt.outcome}</span>
+    </div>
+  `;
+
+  return panel;
+}
+
+export function updateReceiptPanel(messageId) {
+  const receipt = getReceipt(messageId);
+  if (!receipt) return;
+
+  const panel = document.getElementById(`receipt-${messageId}`);
+  if (!panel) return;
+
+  const outcomeRow = panel.querySelector(".receipt-outcome");
+  if (outcomeRow) {
+    outcomeRow.className = `receipt-row receipt-outcome ${receipt.outcome}`;
+    outcomeRow.querySelector(".receipt-value").textContent = receipt.outcome;
+  }
+
+  const values = panel.querySelectorAll(".receipt-value");
+  if (values[1]) values[1].textContent = receipt.ttft ? receipt.ttft + "ms" : "—";
+  if (values[2]) values[2].textContent = receipt.duration ? receipt.duration + "ms" : "—";
+  if (values[3]) values[3].textContent = receipt.tokens;
 }

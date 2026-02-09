@@ -31,6 +31,7 @@ async function fetchCsrfToken() {
 }
 
 export async function getCsrfToken() {
+  // Return cached token or fetch after login
   if (authState.csrfToken) {
     return authState.csrfToken;
   }
@@ -57,6 +58,7 @@ export async function login(credentials) {
     }
     throw new Error("Invalid credentials");
   }
+  // Fetch CSRF token after successful login
   await fetchCsrfToken();
   return res.json();
 }
@@ -82,6 +84,7 @@ export async function register(payload) {
     throw new Error("Registration failed");
   }
   const data = await res.json();
+  // Fetch CSRF token after successful registration
   if (data?.csrf_token) {
     authState.csrfToken = data.csrf_token;
   } else {
