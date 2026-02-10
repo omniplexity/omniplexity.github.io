@@ -1,17 +1,27 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Omniplexity</title>
-  <meta http-equiv="refresh" content="0;url=./login.html" />
-  <link rel="icon" href="/icons/favicon.ico" type="image/x-icon" />
-  <meta name="color-scheme" content="dark light" />
-  <meta property="og:image" content="/icons/og-image.png" />
-</head>
-<body>
-  <noscript>JavaScript is required.</noscript>
-  <p>Redirecting to <a href="./login.html">login</a>...</p>
-  <script>window.location.replace("./login.html");</script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>OmniAI</title>
+
+    <!-- Static-host CSP baseline (backend should send real headers).
+         Allow http: for local dev (vite is http). On HTTPS Pages, mixed-content blocks http anyway. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self';
+               connect-src 'self' https: http:;
+               img-src 'self' data: blob:;
+               style-src 'self' 'unsafe-inline';
+               script-src 'self';
+               base-uri 'self';
+               form-action 'self';
+               object-src 'none'"
+    />
+    <script type="module" crossorigin src="./assets/index-HztVWIKN.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-rt2Pk4Ow.css">
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
 </html>
