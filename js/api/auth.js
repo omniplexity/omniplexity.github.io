@@ -10,7 +10,7 @@ export async function meta() {
   }
 }
 
-export async function login(username, password) {
+export async function login(username, password, onStatus) {
   const body = { username, password };
 
   // One-shot CSRF refresh/retry for E2002 to handle stale/bootstrap drift.
@@ -22,7 +22,16 @@ export async function login(username, password) {
       body
     });
   } catch (e) {
-    if (e?.code === "E2002" || e?.status === 403) {
+    if (e?.code === "E2002") {
+      // If user is already authenticated with an existing session, prefer recovery.
+      try {
+        const m = await meta();
+        if (m?.authenticated) return { authenticated: true, recovered: true };
+      } catch {
+        // Continue to CSRF refresh + retry.
+      }
+
+      onStatus?.("[E2002] Session token mismatch. Retrying…");
       clearCsrfToken();
       const csrf2 = await getCsrfToken();
       return await fetchJson("/v1/auth/login", {

@@ -11,13 +11,19 @@ export function mountLogin(root, store, router) {
   const btn = el("button", { class: "btn primary", onClick: async () => {
     status.textContent = "Logging in…";
     try {
-      await Auth.login(user.value.trim(), pass.value);
+      await Auth.login(
+        user.value.trim(),
+        pass.value,
+        (msg) => {
+          status.textContent = msg;
+        }
+      );
       const meta = await Auth.meta();
       store.set({ authenticated: !!meta?.authenticated, meta, startupError: null });
       router.go("chat");
     } catch (e) {
       if (e?.code === "E2002") {
-        status.textContent = "Login failed: CSRF validation failed. Refresh the page and allow third-party cookies for omniplexity.duckdns.org.";
+        status.textContent = "Login failed: [E2002] Session token mismatch after retry. Clear site cookies or use a private window, then try again.";
       } else {
         status.textContent = `Login failed: ${e?.message || String(e)}`;
       }
