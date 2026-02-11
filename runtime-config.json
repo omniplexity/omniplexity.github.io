@@ -1,1 +1,7 @@
-{"BACKEND_BASE_URL":"https://omniplexity.duckdns.org","FEATURE_FLAGS":{}}
+{
+  "BACKEND_BASE_URL": "https://omniplexity.duckdns.org",
+  "FEATURE_FLAGS": {
+    "threads": true,
+    "models": false
+  }
+}
