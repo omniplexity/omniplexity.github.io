@@ -11,12 +11,28 @@ export async function meta() {
 }
 
 export async function login(username, password) {
-  const csrf = await getCsrfToken();
-  return await fetchJson("/v1/auth/login", {
-    method: "POST",
-    headers: { "X-CSRF-Token": csrf },
-    body: { username, password }
-  });
+  const body = { username, password };
+
+  // One-shot CSRF refresh/retry for E2002 to handle stale/bootstrap drift.
+  try {
+    const csrf = await getCsrfToken();
+    return await fetchJson("/v1/auth/login", {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrf },
+      body
+    });
+  } catch (e) {
+    if (e?.code === "E2002" || e?.status === 403) {
+      clearCsrfToken();
+      const csrf2 = await getCsrfToken();
+      return await fetchJson("/v1/auth/login", {
+        method: "POST",
+        headers: { "X-CSRF-Token": csrf2 },
+        body
+      });
+    }
+    throw e;
+  }
 }
 
 export async function logout() {

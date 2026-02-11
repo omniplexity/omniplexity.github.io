@@ -16,7 +16,11 @@ export function mountLogin(root, store, router) {
       store.set({ authenticated: !!meta?.authenticated, meta, startupError: null });
       router.go("chat");
     } catch (e) {
-      status.textContent = `Login failed: ${e?.message || String(e)}`;
+      if (e?.code === "E2002") {
+        status.textContent = "Login failed: CSRF validation failed. Refresh the page and allow third-party cookies for omniplexity.duckdns.org.";
+      } else {
+        status.textContent = `Login failed: ${e?.message || String(e)}`;
+      }
     }
   }}, "Login");
 
