@@ -164,3 +164,47 @@ textarea {
 .codeCopy {
   padding: 6px 10px;
 }
+
+.scrollDock {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.scrollDock.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.scrollDockBtn {
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+}
+
+.scrollDockBtn:hover { background: rgba(255,255,255,0.09); }
+
+.scrollDockBadge {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(90,169,255,0.35);
+  background: rgba(90,169,255,0.16);
+  color: var(--text);
+  font-size: 12px;
+  box-shadow: var(--shadow);
+}

@@ -3,6 +3,7 @@ import { Sidebar } from "../components/sidebar.js";
 import { Topbar } from "../components/topbar.js";
 import { Composer } from "../components/composer.js";
 import { MessageBubble } from "../components/messageBubble.js";
+import { createScrollDock } from "../components/scrollDock.js";
 
 import * as Auth from "../../api/auth.js";
 import * as Conv from "../../api/conversations.js";
@@ -44,6 +45,44 @@ export function mountChat(root, store, router) {
   const main = el("div", { class: "main" });
   const top = Topbar();
   const messagesEl = el("div", { class: "messages" });
+  const messagesWrap = el("div", { style: { position: "relative", minHeight: 0 } }, messagesEl);
+  let stickToBottom = true;
+  let unreadCount = 0;
+
+  const dock = createScrollDock({
+    onClick: () => {
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      unreadCount = 0;
+      dock.setUnread(0);
+      stickToBottom = true;
+      dock.hide();
+    }
+  });
+  messagesWrap.appendChild(dock.node);
+
+  function atBottom() {
+    const threshold = 48;
+    return (messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight) < threshold;
+  }
+
+  function noteIncoming() {
+    if (stickToBottom) return;
+    unreadCount += 1;
+    dock.setUnread(unreadCount);
+    dock.show();
+  }
+
+  messagesEl.addEventListener("scroll", () => {
+    stickToBottom = atBottom();
+    if (stickToBottom) {
+      unreadCount = 0;
+      dock.setUnread(0);
+      dock.hide();
+    } else {
+      dock.show();
+    }
+  });
+
   const composer = Composer({
     onSend: (text) => send(text),
     onStop: () => stop(),
@@ -51,7 +90,7 @@ export function mountChat(root, store, router) {
   });
 
   main.appendChild(top.node);
-  main.appendChild(messagesEl);
+  main.appendChild(messagesWrap);
   main.appendChild(composer.node);
 
   layout.appendChild(sidebar.node);
@@ -121,13 +160,20 @@ export function mountChat(root, store, router) {
     composer.setRetryEnabled(!s.streaming.active && !!s.streaming.last?.userText);
     composer.setStreaming(s.streaming.active);
     renderMessages(s.messages);
-    if (s.streaming.active) messagesEl.scrollTop = messagesEl.scrollHeight;
+    if (s.streaming.active && stickToBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
   function renderMessages(msgs) {
+    const fromBottom = messagesEl.scrollHeight - messagesEl.scrollTop;
     clear(messagesEl);
     for (const m of msgs) messagesEl.appendChild(MessageBubble({ ...m, markdown: true }));
-    queueMicrotask(() => { messagesEl.scrollTop = messagesEl.scrollHeight; });
+    queueMicrotask(() => {
+      if (stickToBottom) {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      } else {
+        messagesEl.scrollTop = Math.max(0, messagesEl.scrollHeight - fromBottom);
+      }
+    });
   }
 
   async function ensureConversationId() {
@@ -155,6 +201,7 @@ export function mountChat(root, store, router) {
       if (!isRetry) {
         st.messages.push({ id: uuid(), role: "user", content: userText });
         st.messages.push({ id: assistantMsgId, role: "assistant", content: "" });
+        noteIncoming();
       } else {
         const last = st.streaming.last;
         if (last?.assistantMsgId) {
@@ -189,10 +236,14 @@ export function mountChat(root, store, router) {
           if (!delta) return;
 
           store.update((st) => {
-            const m = st.messages.find((x) => x.id === assistantMsgId);
-            if (m) m.content += delta;
-          });
-          messagesEl.scrollTop = messagesEl.scrollHeight;
+          const m = st.messages.find((x) => x.id === assistantMsgId);
+          if (m) m.content += delta;
+        });
+          if (stickToBottom) {
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          } else {
+            noteIncoming();
+          }
         }
       });
 
