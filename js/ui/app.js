@@ -8,7 +8,7 @@ export function mountApp({ root, store, router }) {
 
   function render() {
     const s = store.get();
-    const key = `${s.route}:${s.routeId || ""}:${s.authenticated ? "1" : "0"}`;
+    const key = `${s.route}:${s.routeId || ""}:${s.authenticated ? "1" : "0"}:${s.authFailureReason || ""}`;
     if (key === lastKey) return;
     lastKey = key;
 

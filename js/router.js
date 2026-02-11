@@ -12,10 +12,17 @@ export function createRouter(store) {
     const authed = !!store.get().authenticated;
 
     if (!authed && r.route !== "login") {
+      const current = store.get();
+      if (!current.authFailureReason) {
+        store.set({ authFailureReason: "Session not available. Please sign in again." });
+      }
       location.hash = "#/login";
       return;
     }
     if (authed && r.route === "login") {
+      if (store.get().authFailureReason) {
+        store.set({ authFailureReason: null });
+      }
       location.hash = "#/chat";
       return;
     }

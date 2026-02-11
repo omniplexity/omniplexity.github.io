@@ -5,6 +5,7 @@ export function createStore() {
     authenticated: false,
     meta: null,
     startupError: null,
+    authFailureReason: null,
 
     conversations: [],
     activeConversationId: null,
