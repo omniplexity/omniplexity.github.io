@@ -126,7 +126,11 @@ export function mountChat(root, store, router) {
       store.set({ conversations: list });
     } catch (e) {
       if (e?.status === 401) {
-        store.set({ authenticated: false });
+        store.set({
+          authenticated: false,
+          authFailureReason:
+            "Session expired or blocked by browser cookie policy. Allow cross-site cookies for omniplexity.duckdns.org, then sign in again."
+        });
         router.go("login");
         return;
       }
@@ -236,9 +240,9 @@ export function mountChat(root, store, router) {
           if (!delta) return;
 
           store.update((st) => {
-          const m = st.messages.find((x) => x.id === assistantMsgId);
-          if (m) m.content += delta;
-        });
+            const m = st.messages.find((x) => x.id === assistantMsgId);
+            if (m) m.content += delta;
+          });
           if (stickToBottom) {
             messagesEl.scrollTop = messagesEl.scrollHeight;
           } else {

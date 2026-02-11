@@ -51,7 +51,7 @@ export async function login(username, password, onStatus, options = {}) {
   }
 }
 
-export async function verifySession({ attempts = 3, delayMs = 250 } = {}) {
+export async function verifySession({ attempts = 8, delayMs = 300 } = {}) {
   for (let i = 0; i < attempts; i += 1) {
     try {
       const m = await meta();

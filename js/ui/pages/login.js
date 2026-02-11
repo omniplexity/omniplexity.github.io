@@ -58,19 +58,19 @@ export function mountLogin(root, store, router) {
       router.go("chat");
       status.textContent = "Validating session…";
 
-      // Verify session in background with short retry window.
+      // Verify session in background with a wider retry window.
       void (async () => {
-        const check = await Auth.verifySession({ attempts: 3, delayMs: 250 });
+        const check = await Auth.verifySession({ attempts: 8, delayMs: 300 });
         if (check.authenticated) {
           store.set({ meta: check.meta || store.get().meta, authenticated: true, authFailureReason: null });
           return;
         }
+        // Do not force an immediate logout here; protected API calls remain the source of truth.
+        // This avoids false negatives from delayed cookie availability.
         store.set({
-          authenticated: false,
           authFailureReason:
-            "Login did not persist. Browser may be blocking cross-site cookies. Allow third-party cookies for omniplexity.duckdns.org or use a compatible browser profile."
+            "Session verification is delayed. If chat requests fail with 401, browser may be blocking cross-site cookies for omniplexity.duckdns.org."
         });
-        router.go("login");
       })();
     } catch (e) {
       const msg = formatAuthError(e);
