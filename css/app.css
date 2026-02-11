@@ -208,3 +208,22 @@ textarea {
   font-size: 12px;
   box-shadow: var(--shadow);
 }
+
+.msgActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 8px;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.bubble:hover .msgActions { opacity: 1; }
+
+.msgBtn {
+  padding: 6px 10px;
+}
+
+.msgBody {
+  white-space: pre-wrap;
+}
