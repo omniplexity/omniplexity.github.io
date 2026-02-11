@@ -132,3 +132,35 @@ textarea {
 .small { font-size: 12px; color: var(--muted); }
 .mono { font-family: var(--mono); }
 .row { display: flex; gap: 8px; align-items: center; }
+
+.md-text {
+  white-space: pre-wrap;
+}
+
+.codeWrap {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(0,0,0,0.22);
+}
+
+.codeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+}
+
+.codePre {
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  white-space: pre;
+}
+
+.codeCopy {
+  padding: 6px 10px;
+}

@@ -126,7 +126,7 @@ export function mountChat(root, store, router) {
 
   function renderMessages(msgs) {
     clear(messagesEl);
-    for (const m of msgs) messagesEl.appendChild(MessageBubble(m));
+    for (const m of msgs) messagesEl.appendChild(MessageBubble({ ...m, markdown: true }));
     queueMicrotask(() => { messagesEl.scrollTop = messagesEl.scrollHeight; });
   }
 
@@ -172,12 +172,6 @@ export function mountChat(root, store, router) {
       st.streaming.last = { conversationId, userText, clientMessageId, assistantMsgId };
     });
 
-    const getLastAssistantBubbleEl = () => {
-      const bubbles = messagesEl.querySelectorAll(".bubble.assistant");
-      return bubbles[bubbles.length - 1] || null;
-    };
-    let assistantEl = getLastAssistantBubbleEl();
-
     try {
       const run = await Chat.createChatRun({ conversationId, message: userText, clientMessageId, settings: {} });
       const runId = run.run_id || run.id || run.runId;
@@ -198,13 +192,7 @@ export function mountChat(root, store, router) {
             const m = st.messages.find((x) => x.id === assistantMsgId);
             if (m) m.content += delta;
           });
-
-          if (!assistantEl) assistantEl = getLastAssistantBubbleEl();
-          if (assistantEl) {
-            const cur = store.get().messages.find((x) => x.id === assistantMsgId)?.content || "";
-            assistantEl.textContent = cur;
-            messagesEl.scrollTop = messagesEl.scrollHeight;
-          }
+          messagesEl.scrollTop = messagesEl.scrollHeight;
         }
       });
 
@@ -234,3 +222,4 @@ export function mountChat(root, store, router) {
     unsubscribe = null;
   };
 }
+
